@@ -1,0 +1,15 @@
+#instagram {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    gap: 3.2rem;
+    align-items: center;
+    justify-content: center;
+    padding: 6.4rem 3.2rem;
+    text-align: center;
+    background: linear-gradient(to bottom, #F58529 0%, #DD2A7B 50%, #8134AF 75%, #515BD4 100%);
+    background-attachment: fixed;
+    a {
+        text-transform: uppercase;
+    }
+}

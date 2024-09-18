@@ -1,0 +1,70 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --primary: #191F51;
+    --bootstrap-primary: #007BFF;
+    --dark-green: #005A32;
+    --red: #B90000;
+    --purple: #6F259B;
+    --dark-blue: #1C2A37;
+    
+    font-size: 62.5%;
+    --font-family: "Nunito", sans-serif;
+    --h1: bold 4.8rem var(--font-family);
+    --h2: bold 3.6rem var(--font-family);
+    --h3: bold 2.4rem var(--font-family);
+    --p: bold 2rem var(--font-family);
+}
+
+h1 {
+    font: var(--h1);
+}
+
+h2 {
+    font: var(--h2);
+}
+
+h3 {
+    font: var(--h3);
+}
+
+body {
+    background-color: var(--primary);
+    color: white;
+    font: var(--p);
+}
+
+img {
+    max-width: 100%;
+}
+
+a {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    width: fit-content;
+}
+
+textarea {
+    resize: vertical;
+    min-height: 4.8rem;
+}
+
+input, textarea, button {
+    width: 100%;
+    font: inherit;
+    color: inherit;
+}
+
+@media screen and (max-width: 992px) {
+    :root {
+        --h1: bold 3.2rem var(--font-family);
+        --h2: bold 2.4rem var(--font-family);
+        --h3: bold 2rem var(--font-family);
+        --p: bold 1.6rem var(--font-family);
+    }
+}

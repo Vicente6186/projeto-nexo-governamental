@@ -1,0 +1,75 @@
+#about {
+    width: 90%;
+    margin-inline: auto;
+    padding: 6.4rem;
+    background-color: white;
+    border-radius: 4.8rem;
+    color: var(--primary);
+    position: relative;
+    top: -4rem;
+
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    justify-items: center;
+    align-items: center;
+    gap: 6.4rem;
+
+    #about-list {
+        list-style-type: none;
+    }
+
+    #about-title {
+        margin-bottom: 1.6rem;
+        
+        img {
+            height: 4.8rem;
+            vertical-align: text-top;
+        }
+    }
+
+    #about-list-title {
+        margin-block: 4.8rem 1.6rem;
+    }
+
+    #about-video-title {
+        margin-bottom: 1.6rem;
+    }
+
+    #about-video-explication-container {
+        margin-top: 4.8rem;
+        display: flex;
+        gap: 1.6rem;
+        img {
+            width: 12rem;
+            object-fit: contain;
+        }
+    }
+
+    #about-video-container {
+        img {
+            position: absolute;
+            transform: translate(-20%, -20%);
+        }
+
+        video {
+            display: block;
+            width: 100%;
+            border: solid var(--primary) 1.6rem;
+            border-radius: 5.6rem;
+        }
+    }
+
+   
+}
+
+@media screen and (max-width: 992px) {
+    #about {
+        width: 100%;
+        padding: 3.2rem 1.6rem;
+        grid-template-columns: 1fr;
+
+        video {
+            max-width: 36rem;
+        }
+    }
+}
