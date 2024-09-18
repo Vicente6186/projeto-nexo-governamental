@@ -52,6 +52,7 @@
 
 @media screen and (max-width: 992px) {
     #recognize {
+        padding-inline: 1.6rem;
         #recognize-gallery {
             grid-template-columns: 1fr;
             grid-template-rows: auto;
