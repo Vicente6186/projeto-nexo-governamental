@@ -28,6 +28,7 @@
     #introduction {
         grid-template-columns: 1fr;
         #introduction-image {
+            background-attachment: fixed;
             position: absolute;
             inset: 0;
             mask-image: linear-gradient(360deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 34.58%, rgba(153, 153, 153, 0.15) 71.24%, rgba(204, 204, 204, 0) 100%);
