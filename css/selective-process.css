@@ -1,6 +1,6 @@
 #selective-process {
     display: flex;
-    border-block: 1.6rem solid var(--dark-green);
+    border-top: 1.6rem solid var(--dark-green);
     padding-top: 6.4rem;
     text-align: center;
     gap: 6.4rem;

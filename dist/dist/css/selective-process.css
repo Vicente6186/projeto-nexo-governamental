@@ -1,0 +1,47 @@
+#selective-process {
+    display: flex;
+    border-top: 1.6rem solid var(--dark-green);
+    padding-top: 6.4rem;
+    text-align: center;
+    gap: 6.4rem;
+
+    #selective-process-content {
+        align-self: center;
+        margin-inline: auto;
+        display: grid;
+        justify-items: center;
+
+        P {
+            background-color: var(--red);
+            padding: .8rem 3.2rem;
+            border-radius: 3.2rem;
+        }
+
+        h2 {
+            margin-block: 3.2rem;
+        }
+
+        a {
+           text-transform: uppercase;
+        }
+
+        padding-inline: 3.2rem;
+    }
+
+    #selective-process-schedule {
+        align-self: flex-end;
+        h3 {
+            font: var(--h2);
+            margin-bottom: 1.6rem;
+        }
+        img {
+            display: block;
+        }
+    }
+}
+
+@media screen and (max-width: 992px) {
+    #selective-process {
+        flex-direction: column;
+    }
+}

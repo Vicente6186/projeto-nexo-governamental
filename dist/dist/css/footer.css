@@ -1,0 +1,30 @@
+footer {
+    width: 90%;
+    margin-inline: auto;
+    padding: 3.2rem;
+    background-color: var(--dark-blue);
+    border-radius: 3.2rem 3.2rem 0 0;
+    position: relative;
+    margin-top: -2.4rem;
+
+   
+    ul {
+        margin-block: 1.8rem;
+        list-style: none;
+        display: flex;
+        flex-wrap: wrap;
+        column-gap: 3.6rem;
+        row-gap: 1.2rem;
+    }
+
+    .reference {
+        color: gray;
+        font-size: 1.4rem;
+    }
+}
+
+@media screen and (max-width: 992px) {
+    footer {
+        width: 100%;
+    }
+}

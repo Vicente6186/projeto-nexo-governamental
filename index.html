@@ -6,7 +6,8 @@
     <title>Nexo Governamental</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="css/index.css">
+    <!-- <link rel="stylesheet" href="css/index.css">
+    <link rel="icon" href="assets/home/brand.svg" sizes="any" type="image/svg+xml"> -->
     <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -51,14 +52,19 @@
         </section>
         
         <section id="objective">
-            <img src="assets/objective-2.gif" alt="Ícone que representa o objetivo sendo atingido">
-            <div>
-                <h2>Nosso Objetivo 🏹</h2>
-                <p>O nosso objetivo é aproximar a comunidade civil da atuação dos três poderes da República Federativa do Brasil, por meio de uma série de projetos inovadores, com os quais buscamos promover o envolvimento dos cidadãos no processo de governança e na construção de uma sociedade mais participativa e inclusiva. Junte-se a nós e faça parte desse movimento que conecta a sociedade com as esferas do poder em nosso país.</p>
+            <div class="container">
+                <img src="assets/objective-2.gif" alt="Ícone que representa o objetivo sendo atingido">
+                <div>
+                    <h2>Nosso Objetivo 🏹</h2>
+                    <p>O nosso objetivo é aproximar a comunidade civil da atuação dos três poderes da República Federativa do Brasil, por meio de uma série de projetos inovadores, com os quais buscamos promover o envolvimento dos cidadãos no processo de governança e na construção de uma sociedade mais participativa e inclusiva. Junte-se a nós e faça parte desse movimento que conecta a sociedade com as esferas do poder em nosso país.</p>
+                </div>
             </div>
         </section>
         
-        <section id="recognize">
+        
+        <div class="parallax" style="background-image: url(assets/parallax/justice.jpg);"></div>
+        
+        <section id="recognize" class="container">
             <h2>O Nexo Governamental é RECONHECIDO e RESPEITADO 🏛️</h2>
             <p id="recognize-description">Com um compromisso sólido com a inovação, o Nexo Governamental aproxima acadêmicos e profissionais do setor público.</p>
             
@@ -100,7 +106,7 @@
             <div id="selective-process-content">
                 <p>Processo seletivo fechado</p>
                 <h2>Venha participar do Nexo</h2>
-                <a href="" class="btn-success">Abrir edital</a>
+                <a href="https://docs.google.com/document/d/1bq4BziBdcmhQVTp_dTgfuEn6KwCJk6_Nc6uIWjywXgs/edit?usp=drivesdk" class="btn-success" target="_blank">Abrir edital</a>
             </div>
             <div id="selective-process-schedule">
                 <h3>Confira o Cronograma de inscrição ⬇️</h3>
@@ -108,8 +114,9 @@
             </div>
         </section>
         
+        <div class="parallax" style="background-image: url(assets/parallax/usp.jpg);"></div>
         
-        <section id="more">
+        <section id="more" class="container">
             <h2>Veja mais sobre o Nexo Governamental 🤩</h2>
             <p id="more-description">Estamos sempre crescendo e inovando!</p>
             
@@ -141,64 +148,69 @@
         </section>
         
         <section id="contact">
-            <div id="contact-content">
-                <img id="contact-icon" src="assets/phone.svg" alt="Ícone de um telefone">
-                <h2>Tem alguma dúvida<img src="assets/thinking.gif" alt="Rosto pensando"> <br> 
-                    Envie uma mensagem!</h2>
-                    <p>Use este formulário apenas se necessário! <br>
-                        O formulário pode não ser respondido devido a alta demanda! <br>
-                        Agradecemos a compreensão ( :</p>
+            <div class="container">
+                <div id="contact-content">
+                    <img id="contact-icon" src="assets/phone.svg" alt="Ícone de um telefone">
+                    <h2>Tem alguma dúvida<img src="assets/thinking.gif" alt="Rosto pensando"> <br> 
+                        Envie uma mensagem!</h2>
+                        <p>Use este formulário apenas se necessário! <br>
+                            O formulário pode não ser respondido devido a alta demanda! <br>
+                            Agradecemos a compreensão ( :</p>
+                        </div>
+                        <form>
+                            <h3>Formulário de Contato ☎️</h3>
+                            <div class="input-container">
+                                <div class="input-label-container">
+                                    <img class="input-icon" src="assets/input-icons/wpf_name.svg" alt="Ícone do input">
+                                    <label class="input-label" for="name">Digite o seu nome</label>
+                                </div>
+                                <input class="input-field" type="text" name="name" id="name" required>
+                            </div>
+                            
+                            <div class="input-container">
+                                <div class="input-label-container">
+                                    <img class="input-icon" src="assets/input-icons/ic_baseline-email.svg" alt="Ícone do input">
+                                    <label class="input-label" for="email">Digite o seu e-mail</label>
+                                </div>
+                                <input class="input-field" type="text" name="email" id="email" required>
+                            </div>
+                            
+                            <div class="input-container">
+                                <div class="input-label-container">
+                                    <img class="input-icon" src="assets/input-icons/ic_baseline-email.svg" alt="Ícone do input">
+                                    <label class="input-label" for="college">Digite a sua faculdade</label>
+                                </div>
+                                <input class="input-field" type="text" name="college" id="college" required>
+                            </div>
+                            
+                            <div class="input-container">
+                                <div class="input-label-container">
+                                    <img class="input-icon" src="assets/input-icons/mdi_pencil.svg" alt="Ícone do input">
+                                    <label class="input-label" for="description">Digite a sua dúvida</label>
+                                </div>
+                                <textarea class="input-field" name="description" id="description" required rows="3"></textarea>
+                            </div>
+                            
+                            <button type="submit" class="btn-primary" disabled>Formulário desabilitado</button>
+                        </form>
                     </div>
-                    <form>
-                        <h3>Formulário de Contato ☎️</h3>
-                        <div class="input-container">
-                            <div class="input-label-container">
-                                <img class="input-icon" src="assets/input-icons/wpf_name.svg" alt="Ícone do input">
-                                <label class="input-label" for="name">Digite o seu nome</label>
-                            </div>
-                            <input class="input-field" type="text" name="name" id="name" required>
-                        </div>
-                        
-                        <div class="input-container">
-                            <div class="input-label-container">
-                                <img class="input-icon" src="assets/input-icons/ic_baseline-email.svg" alt="Ícone do input">
-                                <label class="input-label" for="email">Digite o seu e-mail</label>
-                            </div>
-                            <input class="input-field" type="text" name="email" id="email" required>
-                        </div>
-                        
-                        <div class="input-container">
-                            <div class="input-label-container">
-                                <img class="input-icon" src="assets/input-icons/ic_baseline-email.svg" alt="Ícone do input">
-                                <label class="input-label" for="college">Digite a sua faculdade</label>
-                            </div>
-                            <input class="input-field" type="text" name="college" id="college" required>
-                        </div>
-                        
-                        <div class="input-container">
-                            <div class="input-label-container">
-                                <img class="input-icon" src="assets/input-icons/mdi_pencil.svg" alt="Ícone do input">
-                                <label class="input-label" for="description">Digite a sua dúvida</label>
-                            </div>
-                            <textarea class="input-field" name="description" id="description" required rows="3"></textarea>
-                        </div>
-
-                        <button type="submit" class="btn-primary">Enviar Formulário</button>
-                    </form>
+                    
                 </section>
             </main>
             
             <footer>
-                <h2>⚖️ Nexo Governamental XI de Agosto</h2>
-                <ul>
-                    <li><a href="#about">Quem Somos</a></li>
-                    <li><a href="#objective">Nosso Objetivo</a></li>
-                    <li><a href="#more">Veja Mais</a></li>
-                    <li><a href="#instagram">Instagram</a></li>
-                    <li><a href="#contatct">Contato</a></li>
-                </ul>
-                <a class="reference" href="https://www.flaticon.com/free-animated-icons/speak" title="speak animated icons">Speak animated icons created by Freepik - Flaticon</a>
-                <a class="reference" href="https://gifer.com/en/8vlr">Alguns gif são do site Gifer</a>
+                <div class="container">
+                    <h3>⚖️ Nexo Governamental XI de Agosto</h3>
+                    <ul>
+                        <li><a href="#about">Quem Somos</a></li>
+                        <li><a href="#objective">Nosso Objetivo</a></li>
+                        <li><a href="#more">Veja Mais</a></li>
+                        <li><a href="#instagram">Instagram</a></li>
+                        <li><a href="#contatct">Contato</a></li>
+                    </ul>
+                    <a class="reference" href="https://www.flaticon.com/free-animated-icons/speak" title="speak animated icons">Speak animated icons created by Freepik - Flaticon</a>
+                    <a class="reference" href="https://gifer.com/en/8vlr">Alguns gif são do site Gifer</a>
+                </div>
             </footer>
         </body>
         </html>

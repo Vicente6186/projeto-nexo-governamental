@@ -1,14 +1,18 @@
 #contact {
     min-height: 100vh;
     padding: 6.4rem 3.2rem;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    align-items: center;
-    gap: 3.2rem;
+    
     
     background: linear-gradient(to bottom, #04364A, #0A80B0);
     background-attachment: fixed;
     border-radius: 0px 0px 64px 64px;
+
+    .container {
+        display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    gap: 3.2rem;
+    }
 
     #contact-content {
         display: flex;

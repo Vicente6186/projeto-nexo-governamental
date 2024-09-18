@@ -13,3 +13,18 @@
 html {
     scroll-behavior: smooth;
 }
+
+.parallax {
+    background: no-repeat center top/cover fixed;
+    height: 15rem;
+    border-block: 1rem solid var(--dark-green);
+    position: relative;
+
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-color: black;
+        opacity: .5;
+    }
+}
