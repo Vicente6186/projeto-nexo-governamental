@@ -25,11 +25,15 @@
 
 
 @media screen and (max-width: 992px) {
-    #objective .container {
-        grid-template-columns: 1fr;
+    #objective {
+        padding-inline: 1.6rem;
+       
+        .container  {
+            grid-template-columns: 1fr;
 
-        img {
-            max-width: 28rem;
+            img {
+                max-width: 28rem;
+            }
         }
     }
 }

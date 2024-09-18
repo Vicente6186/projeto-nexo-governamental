@@ -42,6 +42,8 @@
 
 @media screen and (max-width: 992px) {
     #more {
+        padding-inline: 1.6rem;
+        
         #more-grid {
             grid-template-columns: 1fr;
         }

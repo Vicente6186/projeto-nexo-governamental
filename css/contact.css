@@ -51,3 +51,9 @@
         gap: 4.8rem;
     }
 }
+
+@media screen and (max-width: 992px) {
+    #contact {
+        padding-inline: 1.6rem;
+    }
+}
