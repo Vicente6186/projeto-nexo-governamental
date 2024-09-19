@@ -16,7 +16,7 @@
     }
     
     #introduction-image {
-        background: url(../assets/home/usp.jpg) no-repeat center top/cover;
+        background: url(../assets/home/usp.webp) no-repeat center top/cover;
         mask-image: linear-gradient(to right, #ffffff00 3.2rem, #FFF);
         border-radius: 0 0 6.4rem 6.4rem;
     } 
