@@ -3,7 +3,6 @@
     min-height: 110vh;
     grid-template-columns: 1fr 1.2fr;
     position: relative;
-    justify-content: end;
 
    
     #introduction-content {

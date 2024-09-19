@@ -1,3 +1,5 @@
+@import url(font-nunito.css);
+
 * {
     margin: 0;
     padding: 0;
@@ -36,7 +38,6 @@ body {
     background-color: var(--primary);
     color: white;
     font: var(--p);
-    min-height: 100vh;
 }
 
 img {
