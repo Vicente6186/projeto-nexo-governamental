@@ -1,15 +1,16 @@
 #objective {
-    min-height: 100vh;
-    padding: 6.4rem 3.2rem;
-    background: linear-gradient(180deg, #8AC7D9, #FFF);
+    background: linear-gradient(to bottom, #8AC7D9, #FFF);
     background-attachment: fixed;
     border-top: 1.6rem solid var(--bootstrap-primary);
     color: var(--primary);
     
     .container {
+        min-height: 100vh;
+    padding: 6.4rem 3.2rem;
         display: grid;
         grid-template-columns: 1fr 2fr;
         align-items: center;
+        align-content: center;
         justify-items: center;
         gap: 4.8rem;
     }
@@ -18,7 +19,7 @@
         margin-bottom: 2.4rem;
     }
 
-    img {
+    video {
         width: 100%;
     }
 }

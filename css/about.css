@@ -21,8 +21,8 @@
     #about-title {
         margin-bottom: 1.6rem;
         
-        img {
-            height: 4.8rem;
+        video {
+            height: 3.6rem;
             vertical-align: text-top;
         }
     }
@@ -39,7 +39,7 @@
         margin-top: 4.8rem;
         display: flex;
         gap: 1.6rem;
-        img {
+        video {
             width: 12rem;
             object-fit: contain;
         }

@@ -45,7 +45,7 @@ img {
 a {
     text-decoration: none;
     color: inherit;
-    display: block;
+    display: inline-block;
     width: fit-content;
 }
 

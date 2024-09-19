@@ -17,10 +17,14 @@ footer {
         row-gap: 1.2rem;
     }
 
-    .reference {
-        color: gray;
+    .footer-others {
+        color: rgb(186, 186, 186);
         font-size: 1.4rem;
+        display: flex;
+        flex-direction: column;
+        gap: .8rem;
     }
+
 }
 
 @media screen and (max-width: 992px) {
