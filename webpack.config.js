@@ -6,7 +6,7 @@ const CssMinimizerPlugin = require("css-minimizer-webpack-plugin");
 
 module.exports = {
     mode: 'development',
-    entry: './js/index.js',
+    entry: './src/js/index.js',
     output: {
         filename: 'main.js',
         path: path.resolve(__dirname, 'dist'),
@@ -15,19 +15,19 @@ module.exports = {
         rules: [
             {
                 test: /\.css$/i,
-                use: [MiniCssExtractPlugin.loader, "style-loader", "css-loader"],
+                use: [MiniCssExtractPlugin.loader, "css-loader"],
             },
             {
                 test: /\.(?:js|mjs|cjs)$/,
                 exclude: /node_modules/,
                 use: {
-                  loader: 'babel-loader',
-                  options: {
-                    targets: "defaults",
-                    presets: [
-                      ['@babel/preset-env']
-                    ]
-                  }
+                    loader: 'babel-loader',
+                    options: {
+                        targets: "defaults",
+                        presets: [
+                            ['@babel/preset-env']
+                        ]
+                    }
                 }
             }
         ],
@@ -35,15 +35,15 @@ module.exports = {
     plugins: [
         new CopyPlugin({
             patterns: [
-                { from: "./css", to: "css" },
-                { from: "./assets", to: "assets" },
-                { from: "./sitemap.xml" },
-                { from: "./robots.txt" },
+                // { from: "./src/css", to: "css" },
+                { from: "./src/assets", to: "assets" },
+                { from: "./src/sitemap.xml" },
+                { from: "./src/robots.txt" },
             ],
         }),
         new HtmlWebpackPlugin({
-            template: './index.html',
-            favicon: './assets/introduction/brand.svg',
+            template: './src/index.html',
+            favicon: './src/assets/introduction/brand.svg',
             inject: 'body',
         }),
         new MiniCssExtractPlugin()
@@ -51,12 +51,12 @@ module.exports = {
     devServer: {
         static: './dist',
         open: true,
-        watchFiles: ['./index.html', './src'], 
+        watchFiles: ['./src'], 
     },
     optimization: {
         minimizer: [
-          new CssMinimizerPlugin(),
+            new CssMinimizerPlugin(),
         ],
         minimize: true
-      },
+    },
 };
