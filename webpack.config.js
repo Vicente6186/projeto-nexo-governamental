@@ -37,11 +37,13 @@ module.exports = {
             patterns: [
                 { from: "./css", to: "css" },
                 { from: "./assets", to: "assets" },
+                { from: "./sitemap.xml" },
+                { from: "./robots.txt" },
             ],
         }),
         new HtmlWebpackPlugin({
             template: './index.html',
-            favicon: './assets/home/brand.svg',
+            favicon: './assets/introduction/brand.svg',
             inject: 'body',
         }),
         new MiniCssExtractPlugin()
