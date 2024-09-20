@@ -39,6 +39,7 @@ module.exports = {
                 { from: "./src/assets", to: "assets" },
                 { from: "./src/sitemap.xml" },
                 { from: "./src/robots.txt" },
+                { from: "./src/google42b90ef871b3befd.html" },
             ],
         }),
         new HtmlWebpackPlugin({
