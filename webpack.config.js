@@ -44,7 +44,7 @@ module.exports = {
         }),
         new HtmlWebpackPlugin({
             template: './src/index.html',
-            favicon: './src/assets/introduction/brand.svg',
+            favicon: './src/assets/brand-with-background.webp',
             inject: 'body',
         }),
         new MiniCssExtractPlugin()
