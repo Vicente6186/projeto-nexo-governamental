@@ -50,6 +50,29 @@
         flex-direction: column;
         gap: 4.8rem;
     }
+
+    textarea.input-field {
+        min-height: 9.6rem;
+        max-height: 24rem;
+        resize: none;
+        overflow-y: hidden;
+    }
+
+    .contact-submit {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1.2rem;
+        align-self: flex-start;
+        border: none;
+
+        img {
+            flex-shrink: 0;
+            width: 2rem;
+            height: 2rem;
+            filter: brightness(0) invert(1);
+        }
+    }
 }
 
 @media screen and (max-width: 992px) {

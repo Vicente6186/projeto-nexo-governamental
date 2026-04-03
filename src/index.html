@@ -227,7 +227,7 @@
                         O formulário pode não ser respondido devido a alta demanda! <br>
                         Agradecemos a compreensão ( :</p>
                 </div>
-                <form>
+                <form id="contact-form" data-recipient="nexogov.usp@gmail.com">
                     <h3>Formulário de Contato ☎️</h3>
                     <div class="input-container">
                         <div class="input-label-container">
@@ -235,7 +235,7 @@
                                 width="26" height="26" loading="lazy" decoding="async">
                             <label class="input-label" for="name">Digite o seu nome</label>
                         </div>
-                        <input class="input-field" type="text" name="name" id="name" required disabled>
+                        <input class="input-field" type="text" name="name" id="name" required>
                     </div>
 
                     <div class="input-container">
@@ -244,7 +244,7 @@
                                 width="26" height="26" loading="lazy" decoding="async">
                             <label class="input-label" for="email">Digite o seu e-mail</label>
                         </div>
-                        <input class="input-field" type="text" name="email" id="email" required disabled>
+                        <input class="input-field" type="email" name="email" id="email" required>
                     </div>
 
                     <div class="input-container">
@@ -253,7 +253,7 @@
                                 width="26" height="26" loading="lazy" decoding="async">
                             <label class="input-label" for="college">Digite a sua faculdade</label>
                         </div>
-                        <input class="input-field" type="text" name="college" id="college" required disabled>
+                        <input class="input-field" type="text" name="college" id="college" required>
                     </div>
 
                     <div class="input-container">
@@ -262,11 +262,14 @@
                                 width="26" height="26" loading="lazy" decoding="async">
                             <label class="input-label" for="description">Digite a sua dúvida</label>
                         </div>
-                        <textarea class="input-field" name="description" id="description" required rows="3"
-                            disabled></textarea>
+                        <textarea class="input-field" name="description" id="description" required rows="4"
+                            data-auto-resize data-max-height="240"></textarea>
                     </div>
 
-                    <button type="submit" class="btn-primary" disabled>Formulário desabilitado</button>
+                    <button type="submit" class="btn-primary contact-submit" aria-label="Enviar mensagem por e-mail">
+                        <img src="assets/input-icons/mdi_send.svg" alt="" width="20" height="20" aria-hidden="true">
+                        <span>Enviar</span>
+                    </button>
                 </form>
             </div>
 
