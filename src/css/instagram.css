@@ -1,13 +1,12 @@
 #instagram {
     --instagram-ink: #191f51;
     --instagram-muted: #565f77;
-    --instagram-pink: #b51e67;
     position: relative;
     padding: clamp(7.2rem, 9vw, 13.6rem) 3.2rem;
-    color: var(--instagram-ink);
+    color: #fff;
     background:
-        radial-gradient(ellipse at 100% 0, #f8e9f3 0, transparent 48%),
-        #f6f7fc;
+        linear-gradient(rgb(0 0 0 / 30%), rgb(0 0 0 / 30%)),
+        linear-gradient(125deg, #8134af 0%, #dd2a7b 50%, #f58529 100%);
     scroll-margin-top: 2.4rem;
 }
 
@@ -28,7 +27,7 @@
     align-items: center;
     gap: 1rem;
     margin-bottom: 2.4rem;
-    color: #64447c;
+    color: #fff;
     font-size: 1.4rem;
     font-weight: 800;
     letter-spacing: .08em;
@@ -43,6 +42,7 @@
 }
 
 #instagram-title {
+    color: #fff;
     font-size: clamp(4.8rem, 5.7vw, 7.8rem);
     font-weight: 800;
     line-height: 1.08;
@@ -51,22 +51,13 @@
 }
 
 #instagram-title span {
-    color: var(--instagram-pink);
-}
-
-@supports (background-clip: text) or (-webkit-background-clip: text) {
-    #instagram-title span {
-        background: linear-gradient(100deg, #8034b7, var(--instagram-pink) 85%);
-        -webkit-background-clip: text;
-        background-clip: text;
-        color: transparent;
-    }
+    color: #fff;
 }
 
 #instagram .instagram-description {
     max-width: 43rem;
     margin-top: 2.8rem;
-    color: var(--instagram-muted);
+    color: #fff;
     font-size: 1.8rem;
     font-weight: 500;
     line-height: 1.75;
@@ -78,6 +69,7 @@
     justify-self: end;
     min-width: 0;
     overflow: hidden;
+    color: var(--instagram-ink);
     background: #fff;
     border: 1px solid #e6e3ef;
     border-radius: 3.2rem;
@@ -220,7 +212,7 @@
 }
 
 #instagram .instagram-profile:focus-visible {
-    outline: 3px solid #8134af;
+    outline: 3px solid #fff;
     outline-offset: 6px;
 }
 
