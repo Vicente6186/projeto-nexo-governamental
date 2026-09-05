@@ -220,63 +220,63 @@
             <a href="https://www.instagram.com/nexogovernamental/" class="btn-purple">Abrir Instagram</a>
         </section>
 
-        <section id="contact">
-            <div class="container">
+        <section id="contact" aria-labelledby="contact-title">
+            <div class="container contact-layout">
                 <div id="contact-content">
-                    <img id="contact-icon" src="assets/phone.svg" alt="" width="155" height="150" loading="lazy"
-                        decoding="async">
-                    <h2>Tem alguma dúvida
-                        <img class="thinking-animation" src="assets/thinking-no-background.webp" alt="" width="36" height="36"
-                            loading="lazy" decoding="async"><br>
-                        Envie uma mensagem!
-                    </h2>
-                    <p>Use este formulário apenas se necessário! <br>
-                        O formulário pode não ser respondido devido a alta demanda! <br>
-                        Agradecemos a compreensão ( :</p>
+                    <p class="contact-eyebrow">
+                        <span class="contact-eyebrow-line" aria-hidden="true"></span>
+                        Fale com o Nexo
+                        <img class="thinking-animation" src="assets/thinking-no-background.webp" alt="" width="28" height="28"
+                            loading="lazy" decoding="async">
+                    </p>
+                    <h2 id="contact-title">Vamos<br><span>conversar.</span></h2>
+                    <p class="contact-description">Tem uma dúvida sobre o Nexo? Compartilhe sua mensagem com a nossa equipe.</p>
+                    <div class="contact-address">
+                        <span class="contact-address-icon" aria-hidden="true">
+                            <img src="assets/input-icons/ic_baseline-email.svg" alt="" width="24" height="24" loading="lazy"
+                                decoding="async">
+                        </span>
+                        <div>
+                            <p>E-mail da equipe</p>
+                            <a href="mailto:nexogov.usp@gmail.com">nexogov.usp@gmail.com</a>
+                        </div>
+                    </div>
+                    <p class="contact-availability">O retorno depende da disponibilidade da equipe. Devido à demanda, nem todas as mensagens poderão ser respondidas.</p>
                 </div>
-                <form id="contact-form" data-recipient="nexogov.usp@gmail.com">
-                    <h3>Formulário de Contato ☎️</h3>
-                    <div class="input-container">
-                        <div class="input-label-container">
-                            <img class="input-icon" src="assets/input-icons/wpf_name.svg" alt=""
-                                width="26" height="26" loading="lazy" decoding="async">
-                            <label class="input-label" for="name">Digite o seu nome</label>
-                        </div>
-                        <input class="input-field" type="text" name="name" id="name" required>
+                <form id="contact-form" data-recipient="nexogov.usp@gmail.com" action="mailto:nexogov.usp@gmail.com"
+                    method="post" enctype="text/plain" aria-labelledby="contact-form-title" aria-describedby="contact-form-help">
+                    <div class="contact-form-heading">
+                        <h3 id="contact-form-title">Sua mensagem</h3>
+                        <p>Todos os campos são obrigatórios.</p>
                     </div>
-
-                    <div class="input-container">
-                        <div class="input-label-container">
-                            <img class="input-icon" src="assets/input-icons/ic_baseline-email.svg" alt=""
-                                width="26" height="26" loading="lazy" decoding="async">
-                            <label class="input-label" for="email">Digite o seu e-mail</label>
+                    <div class="contact-fields">
+                        <div class="contact-field">
+                            <label for="name">Seu nome</label>
+                            <input type="text" name="name" id="name" autocomplete="name" placeholder="Como você se chama?" required>
                         </div>
-                        <input class="input-field" type="email" name="email" id="email" required>
-                    </div>
-
-                    <div class="input-container">
-                        <div class="input-label-container">
-                            <img class="input-icon" src="assets/input-icons/mdi_university.svg" alt=""
-                                width="26" height="26" loading="lazy" decoding="async">
-                            <label class="input-label" for="college">Digite a sua faculdade</label>
+                        <div class="contact-field">
+                            <label for="email">Seu e-mail</label>
+                            <input type="email" name="email" id="email" autocomplete="email" inputmode="email"
+                                placeholder="voce@exemplo.com" required>
                         </div>
-                        <input class="input-field" type="text" name="college" id="college" required>
-                    </div>
-
-                    <div class="input-container">
-                        <div class="input-label-container">
-                            <img class="input-icon" src="assets/input-icons/mdi_pencil.svg" alt=""
-                                width="26" height="26" loading="lazy" decoding="async">
-                            <label class="input-label" for="description">Digite a sua dúvida</label>
+                        <div class="contact-field contact-field-wide">
+                            <label for="college">Sua faculdade</label>
+                            <input type="text" name="college" id="college" autocomplete="organization"
+                                placeholder="Nome da instituição" required>
                         </div>
-                        <textarea class="input-field" name="description" id="description" required rows="4"
-                            data-auto-resize data-max-height="240"></textarea>
+                        <div class="contact-field contact-field-wide">
+                            <label for="description">Sua mensagem</label>
+                            <textarea name="description" id="description" required rows="5" placeholder="Conte como podemos ajudar."
+                                data-auto-resize data-max-height="240"></textarea>
+                        </div>
                     </div>
-
-                    <button type="submit" class="btn-primary contact-submit" aria-label="Enviar mensagem por e-mail">
-                        <img src="assets/input-icons/mdi_send.svg" alt="" width="20" height="20" aria-hidden="true">
-                        <span>Enviar</span>
-                    </button>
+                    <div class="contact-form-bottom">
+                        <button type="submit" class="contact-submit">
+                            <span>Continuar por e-mail</span>
+                            <img src="assets/input-icons/mdi_send.svg" alt="" width="20" height="20" aria-hidden="true">
+                        </button>
+                        <p id="contact-form-help">Seu aplicativo de e-mail será aberto com a mensagem preenchida. Confirme o envio por lá.</p>
+                    </div>
                 </form>
             </div>
 
