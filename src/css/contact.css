@@ -198,7 +198,7 @@
 #contact .contact-field input,
 #contact .contact-field textarea {
     min-width: 0;
-    border: 1px solid #ccd3e0;
+    border: 1px solid #8591a5;
     border-radius: 1.2rem;
     background: #f7f9fc;
     padding: 1.4rem 1.6rem;
@@ -226,7 +226,7 @@
 
 #contact .contact-field input:hover,
 #contact .contact-field textarea:hover {
-    border-color: #8b9aae;
+    border-color: #68758b;
 }
 
 #contact .contact-field input:focus,
@@ -279,7 +279,11 @@
     background: #111637;
 }
 
-#contact .contact-submit:focus-visible,
+#contact .contact-submit:focus-visible {
+    outline: 3px solid #256779;
+    outline-offset: 4px;
+}
+
 #contact .contact-address a:focus-visible {
     outline: 3px solid #4eacae;
     outline-offset: 4px;
