@@ -1,42 +1,247 @@
 #objective {
-    background: linear-gradient(to bottom, #8AC7D9, #FFF);
-    background-attachment: fixed;
-    border-top: 1.6rem solid var(--bootstrap-primary);
-    color: var(--primary);
-    
-    .container {
-        min-height: 100vh;
-    padding: 6.4rem 3.2rem;
-        display: grid;
-        grid-template-columns: 1fr 2fr;
-        align-items: center;
-        align-content: center;
-        justify-items: center;
-        gap: 4.8rem;
+    --objective-ink: #191f51;
+    --objective-teal: #126477;
+    --objective-muted: #485970;
+    position: relative;
+    padding: clamp(7.2rem, 8vw, 11.2rem) 3.2rem;
+    color: var(--objective-ink);
+    background:
+        radial-gradient(ellipse at 100% 15%, #d5eef3 0, transparent 58%),
+        linear-gradient(135deg, #f8fbfd, #eff7fa);
+    border-top: 1px solid #d6e5ed;
+    scroll-margin-top: 2.4rem;
+}
+
+#objective .objective-layout {
+    max-width: 120rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 5.6rem clamp(4.8rem, 7vw, 10.4rem);
+}
+
+#objective .objective-content {
+    min-width: 0;
+}
+
+#objective .objective-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    margin-bottom: 2rem;
+    color: var(--objective-teal);
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: .12em;
+    line-height: 1.5;
+    text-transform: uppercase;
+}
+
+#objective .objective-eyebrow > span {
+    width: 3.2rem;
+    height: 2px;
+    flex-shrink: 0;
+    background: currentColor;
+}
+
+#objective-title {
+    max-width: 65rem;
+    margin: 0;
+    font-size: clamp(4.2rem, 5vw, 6.4rem);
+    font-weight: 800;
+    letter-spacing: -.045em;
+    line-height: 1.1;
+    text-wrap: balance;
+    overflow-wrap: anywhere;
+}
+
+#objective-title > span:not(.objective-title-icon) {
+    color: var(--objective-teal);
+}
+
+#objective-title .objective-title-icon {
+    display: inline-block;
+    margin-left: .2rem;
+    font-size: .46em;
+    vertical-align: middle;
+    letter-spacing: 0;
+}
+
+#objective .objective-description {
+    max-width: 64rem;
+    margin-top: 2.8rem;
+    color: var(--objective-muted);
+    font-size: 1.9rem;
+    font-weight: 500;
+    line-height: 1.85;
+    overflow-wrap: anywhere;
+}
+
+#objective .objective-description strong {
+    color: var(--objective-ink);
+    font-weight: 800;
+}
+
+#objective .objective-visual {
+    width: 100%;
+    max-width: 34rem;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-self: end;
+    padding: 2.4rem 0;
+}
+
+#objective .objective-connection-label {
+    max-width: 100%;
+    color: var(--objective-teal);
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: .08em;
+    line-height: 1.6;
+    text-align: center;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+}
+
+#objective .objective-connection-line {
+    width: 1px;
+    height: 3.2rem;
+    flex-shrink: 0;
+    margin-block: 1rem;
+    background: #559ba9;
+}
+
+#objective .objective-target-surface {
+    display: grid;
+    place-items: center;
+    width: min(100%, 28rem);
+    aspect-ratio: 1;
+    padding: 3.2rem;
+    border: 1px solid #9dcdd6;
+    border-radius: 50%;
+    background: #e3f3f7;
+    box-shadow: 0 1.6rem 4rem -2rem #30778b35, inset 0 0 0 1rem #f5fbfd;
+}
+
+#objective .objective-animation {
+    display: block;
+    width: min(100%, 18rem);
+    height: auto;
+    object-fit: contain;
+}
+
+#objective .objective-invitation {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 2.4rem;
+    min-width: 0;
+    padding: 3.2rem 4rem;
+    border: 1px solid #ffffff20;
+    border-radius: 2rem;
+    background: linear-gradient(110deg, #191f51, #193951);
+    color: #e5edf4;
+}
+
+#objective .objective-invitation-line {
+    width: .4rem;
+    align-self: stretch;
+    flex-shrink: 0;
+    border-radius: 1rem;
+    background: #99e4e5;
+}
+
+#objective .objective-invitation p {
+    min-width: 0;
+    max-width: 94rem;
+    font-size: 1.8rem;
+    font-weight: 500;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+}
+
+#objective .objective-invitation strong {
+    color: #99e4e5;
+    font-weight: 800;
+}
+
+@media screen and (max-width: 1050px) {
+    #objective .objective-layout {
+        grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+        gap: 4rem;
     }
 
-    h2 {
-        margin-bottom: 2.4rem;
+    #objective-title {
+        font-size: clamp(4.2rem, 5vw, 5.2rem);
     }
 
-    .objective-animation {
-        display: block;
-        width: 100%;
-        height: auto;
+    #objective .objective-description {
+        font-size: 1.8rem;
+        line-height: 1.75;
+    }
+
+    #objective .objective-target-surface {
+        padding: 2.4rem;
     }
 }
 
+@media screen and (max-width: 760px) {
+    #objective {
+        padding: 6.4rem 2.4rem;
+    }
 
-@media screen and (max-width: 992px) {
+    #objective .objective-layout {
+        max-width: 56rem;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 3.2rem;
+    }
+
+    #objective-title {
+        font-size: clamp(4.2rem, 8.5vw, 5.2rem);
+    }
+
+    #objective .objective-eyebrow {
+        margin-bottom: 1.6rem;
+    }
+
+    #objective .objective-description {
+        margin-top: 2rem;
+    }
+
+    #objective .objective-visual {
+        max-width: 28rem;
+        justify-self: center;
+        padding: 0;
+    }
+
+    #objective .objective-target-surface {
+        width: min(100%, 24rem);
+    }
+
+    #objective .objective-connection-line {
+        height: 2rem;
+        margin-block: .8rem;
+    }
+
+    #objective .objective-invitation {
+        gap: 1.6rem;
+        padding: 2.4rem;
+        border-radius: 1.6rem;
+    }
+
+    #objective .objective-invitation p {
+        font-size: 1.6rem;
+    }
+}
+
+@media screen and (max-width: 380px) {
     #objective {
         padding-inline: 1.6rem;
-       
-        .container  {
-            grid-template-columns: 1fr;
+    }
 
-            img {
-                max-width: 28rem;
-            }
-        }
+    #objective .objective-invitation {
+        padding: 2rem;
     }
 }
