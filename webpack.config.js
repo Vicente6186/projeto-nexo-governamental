@@ -44,7 +44,6 @@ module.exports = {
                             "**/objective.webm",
                             "**/thinking-no-background.webm",
                             "**/introduction/brand-without-background.svg",
-                            "**/more/*.webp",
                             "**/favicon.png",
                         ],
                     },

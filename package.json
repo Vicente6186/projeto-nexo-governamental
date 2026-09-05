@@ -5,7 +5,8 @@
   "main": "./src/ndex.js",
   "scripts": {
     "dev": "webpack serve --mode development --open",
-    "build": "webpack --mode production"
+    "build": "webpack --mode production",
+    "test": "node --test"
   },
   "keywords": [],
   "author": "",

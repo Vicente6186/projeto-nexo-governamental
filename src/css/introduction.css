@@ -1,7 +1,7 @@
 #introduction {
     display: grid;
     min-height: 110vh;
-    grid-template-columns: 1fr 1.2fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
     position: relative;
 
    
@@ -38,7 +38,7 @@
 
 @media screen and (max-width: 992px) {
     #introduction {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
         #introduction-image {
             position: absolute;
             inset: 0;

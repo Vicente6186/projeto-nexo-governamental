@@ -9,10 +9,15 @@
     top: -4rem;
 
     display: grid;
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
     justify-items: center;
     align-items: center;
     gap: 6.4rem;
+
+    > div {
+        min-width: 0;
+        width: 100%;
+    }
 
     #about-list {
         list-style-type: none;
@@ -71,6 +76,15 @@
 
         video {
             max-width: 36rem;
+        }
+
+        #about-video-container {
+            max-width: min(100%, 36rem);
+            margin-inline: auto;
+        }
+
+        #about-video-container video {
+            max-width: 100%;
         }
     }
 }

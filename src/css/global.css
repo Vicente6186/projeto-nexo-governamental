@@ -38,6 +38,7 @@ body {
     background-color: var(--primary);
     color: white;
     font: var(--p);
+    overflow-wrap: anywhere;
 }
 
 img {

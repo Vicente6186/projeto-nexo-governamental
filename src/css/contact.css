@@ -215,6 +215,7 @@
 #contact .contact-field textarea {
     min-height: 15rem;
     max-height: 24rem;
+    overflow-y: auto;
     resize: vertical;
 }
 
@@ -268,6 +269,10 @@
     width: 2rem;
     height: 2rem;
     filter: brightness(0) invert(1);
+}
+
+#contact .contact-submit span {
+    min-width: 0;
 }
 
 #contact .contact-submit:hover {
