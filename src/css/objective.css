@@ -1,22 +1,21 @@
 #objective {
     --objective-ink: #191f51;
-    --objective-teal: #126477;
-    --objective-muted: #485970;
-    padding: clamp(6.4rem, 7.5vw, 10.4rem) 3.2rem;
-    color: var(--objective-ink);
+    --objective-accent: #83ead8;
+    --objective-muted: #d0d9ea;
+    padding: clamp(7.2rem, 9vw, 12.8rem) 3.2rem;
+    color: #fff;
     background:
-        radial-gradient(ellipse at 100% 45%, #d8eff4 0, transparent 55%),
-        #f5fafc;
-    border-top: 1px solid #d6e5ed;
+        radial-gradient(ellipse at 95% 20%, #23496a 0, transparent 52%),
+        #151c48;
     scroll-margin-top: 2.4rem;
 }
 
 #objective .objective-layout {
-    max-width: 116rem;
+    max-width: 120rem;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 24rem);
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
     align-items: center;
-    gap: clamp(4.8rem, 7vw, 9.6rem);
+    gap: 5.6rem clamp(4.8rem, 7vw, 10rem);
 }
 
 #objective .objective-content {
@@ -24,30 +23,17 @@
 }
 
 #objective-title {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: .8rem 1.2rem;
-    margin: 0 0 2.4rem;
-    color: var(--objective-teal);
-    font-size: 1.4rem;
+    margin-bottom: 3.2rem;
+    color: #fff;
+    font-size: clamp(5.6rem, 6.8vw, 9.2rem);
     font-weight: 800;
-    line-height: 1.5;
-    letter-spacing: .12em;
-    text-transform: uppercase;
+    line-height: 1.02;
+    letter-spacing: -.055em;
+    overflow-wrap: anywhere;
 }
 
-#objective-title .objective-title-line {
-    width: 3.2rem;
-    height: 2px;
-    flex-shrink: 0;
-    background: currentColor;
-}
-
-#objective-title .objective-title-icon {
-    font-size: 2rem;
-    line-height: 1;
-    letter-spacing: 0;
+#objective-title span {
+    color: var(--objective-accent);
 }
 
 #objective .objective-description {
@@ -57,90 +43,202 @@
 
 #objective .objective-lead {
     display: block;
-    max-width: 78rem;
-    color: var(--objective-ink);
-    font-size: clamp(2.8rem, 3.1vw, 3.8rem);
-    font-weight: 700;
-    line-height: 1.3;
-    letter-spacing: -.025em;
+    font-size: clamp(2.4rem, 2.3vw, 3rem);
+    font-weight: 600;
+    line-height: 1.45;
+    letter-spacing: -.02em;
     text-wrap: pretty;
 }
 
 #objective .objective-lead strong {
-    color: var(--objective-teal);
+    color: var(--objective-accent);
     font-weight: 800;
-}
-
-#objective .objective-detail,
-#objective .objective-invitation {
-    max-width: 72rem;
-    color: var(--objective-muted);
-    font-size: 1.8rem;
-    font-weight: 500;
-    line-height: 1.8;
-    overflow-wrap: anywhere;
 }
 
 #objective .objective-detail {
     display: block;
+    max-width: 56rem;
     margin-top: 2.4rem;
+    color: var(--objective-muted);
+    font-size: 1.8rem;
+    font-weight: 500;
+    line-height: 1.8;
 }
 
-#objective .objective-invitation {
-    margin-top: 2rem;
-}
-
-#objective .objective-invitation strong {
+#objective .objective-map {
+    min-width: 0;
+    width: 100%;
+    max-width: 46rem;
+    justify-self: end;
+    padding: 4.8rem 2.8rem 3.2rem;
     color: var(--objective-ink);
-    font-weight: 800;
+    background: #f2f9fb;
+    border: 1px solid #c4dfe9;
+    border-radius: 3.2rem;
+    box-shadow: 0 3.2rem 8rem -3.2rem #02091c80;
 }
 
-#objective .objective-visual {
+#objective .objective-connection {
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    text-align: center;
+}
+
+#objective .objective-civil {
+    max-width: 100%;
+    padding: 1.2rem 2.4rem;
+    color: var(--objective-ink);
+    background: #fff;
+    border: 1px solid #c4dfe9;
+    border-radius: 100px;
+    font-size: 1.8rem;
+    font-weight: 800;
+    line-height: 1.5;
+}
+
+#objective .objective-symbol {
+    position: relative;
     display: grid;
     place-items: center;
-    min-width: 0;
-    padding-block: 2.4rem;
+    width: 100%;
+    padding-block: 3.2rem;
+}
+
+#objective .objective-symbol::before,
+#objective .objective-symbol::after {
+    content: "";
+    position: absolute;
+    left: calc(50% - 1px);
+    width: 2px;
+    height: 2.4rem;
+    background: #668d9a;
+}
+
+#objective .objective-symbol::before {
+    top: 0;
+}
+
+#objective .objective-symbol::after {
+    bottom: 0;
 }
 
 #objective .objective-animation {
     display: block;
-    width: min(100%, 18rem);
+    width: min(100%, 12rem);
     height: auto;
     object-fit: contain;
 }
 
+#objective .objective-powers {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+    padding-top: 2.4rem;
+}
+
+#objective .objective-powers span {
+    position: relative;
+    min-width: 0;
+    padding: 1.2rem .4rem;
+    font-size: 1.4rem;
+    font-weight: 800;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+#objective .objective-powers span::before {
+    content: "";
+    position: absolute;
+    top: -2.4rem;
+    left: calc(50% - 1px);
+    width: 2px;
+    height: 2.4rem;
+    background: #668d9a;
+}
+
+#objective .objective-powers span::after {
+    content: "";
+    position: absolute;
+    top: -2.4rem;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: #668d9a;
+}
+
+#objective .objective-powers span:first-child::after {
+    left: 50%;
+    width: 50%;
+}
+
+#objective .objective-powers span:last-child::after {
+    width: 50%;
+}
+
+#objective .objective-republic {
+    margin-top: 1.6rem;
+    padding-top: 2.4rem;
+    width: 100%;
+    border-top: 1px solid #c4dfe9;
+    color: #51627a;
+    font-size: 1.4rem;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+#objective .objective-invitation {
+    grid-column: 1 / -1;
+    max-width: 100%;
+    margin: 0;
+    padding: 3.2rem 0 0;
+    border-top: 1px solid #ffffff30;
+    color: var(--objective-muted);
+    font-size: 2rem;
+    font-weight: 500;
+    line-height: 1.7;
+    text-wrap: pretty;
+    overflow-wrap: anywhere;
+}
+
+#objective .objective-invitation strong {
+    color: var(--objective-accent);
+    font-weight: 800;
+}
+
 @media screen and (max-width: 1050px) {
     #objective .objective-layout {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 20rem);
-        gap: 4rem;
+        grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+        column-gap: 4rem;
     }
 
-    #objective .objective-lead {
-        font-size: 3.2rem;
+    #objective .objective-map {
+        padding-inline: 2rem;
     }
 }
 
-@media screen and (max-width: 840px) {
+@media screen and (max-width: 800px) {
     #objective {
         padding: 6.4rem 2.4rem;
     }
 
     #objective .objective-layout {
-        max-width: 68rem;
+        max-width: 60rem;
         grid-template-columns: minmax(0, 1fr);
-        gap: 3.2rem;
+        gap: 4rem;
     }
 
-    #objective .objective-lead {
-        font-size: clamp(2.8rem, 4.8vw, 3.4rem);
+    #objective-title {
+        font-size: clamp(5.6rem, 10vw, 7.6rem);
     }
 
-    #objective .objective-visual {
-        padding: 0;
+    #objective .objective-map {
+        max-width: 46rem;
+        justify-self: center;
     }
 
-    #objective .objective-animation {
-        width: min(100%, 14rem);
+    #objective .objective-invitation {
+        font-size: 1.8rem;
     }
 }
 
@@ -150,7 +248,38 @@
     }
 
     #objective-title {
-        margin-bottom: 2rem;
-        letter-spacing: .08em;
+        font-size: 5.2rem;
+    }
+
+    #objective .objective-map {
+        padding: 3.2rem 1.6rem 2.4rem;
+        border-radius: 2.4rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #objective .objective-animation {
+        display: none;
+    }
+
+    #objective .objective-symbol {
+        padding-block: 2.4rem;
+    }
+}
+
+@media (forced-colors: active) {
+    #objective .objective-map,
+    #objective .objective-civil,
+    #objective .objective-republic,
+    #objective .objective-invitation {
+        border-color: CanvasText;
+    }
+
+    #objective .objective-symbol::before,
+    #objective .objective-symbol::after,
+    #objective .objective-powers span::before,
+    #objective .objective-powers span::after {
+        background: CanvasText;
+        forced-color-adjust: none;
     }
 }
