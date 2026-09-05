@@ -31,6 +31,7 @@
             flex-grow: 1;
             object-fit: cover;
             width: 100%;
+            height: auto;
         }
     }
     
@@ -54,8 +55,28 @@
     #recognize {
         padding-inline: 1.6rem;
         #recognize-gallery {
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             grid-template-rows: auto;
+            max-width: 68rem;
+            margin-inline: auto;
+            figure:first-child {
+                grid-column: 1 / -1;
+                grid-row: auto;
+            }
+        }
+    }
+}
+
+@media screen and (max-width: 480px) {
+    #recognize #recognize-gallery {
+        grid-template-columns: 1fr;
+        figure {
+            width: 100%;
+            max-width: 32.7rem;
+            justify-self: center;
+        }
+        figure:first-child {
+            max-width: 100%;
         }
     }
 }

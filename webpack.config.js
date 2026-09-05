@@ -36,7 +36,19 @@ module.exports = {
     plugins: [
         new CopyPlugin({
             patterns: [
-                { from: "./src/assets", to: "assets" },
+                {
+                    from: "./src/assets",
+                    to: "assets",
+                    globOptions: {
+                        ignore: [
+                            "**/objective.webm",
+                            "**/thinking-no-background.webm",
+                            "**/introduction/brand-without-background.svg",
+                            "**/more/*.webp",
+                            "**/favicon.png",
+                        ],
+                    },
+                },
                 { from: "./src/sitemap.xml" },
                 { from: "./src/robots.txt" },
                 { from: "./src/google42b90ef871b3befd.html" },

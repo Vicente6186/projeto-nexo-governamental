@@ -1,0 +1,330 @@
+[
+  {
+    "path": "src/assets/brand-with-background.webp",
+    "bytes": 12208,
+    "width": 250,
+    "height": 256,
+    "pages": 1,
+    "alpha": true
+  },
+  {
+    "path": "src/assets/favicon.png",
+    "bytes": 3118,
+    "width": 48,
+    "height": 48,
+    "pages": 1,
+    "alpha": true
+  },
+  {
+    "path": "src/assets/favicons/android-chrome-192x192.png",
+    "bytes": 20173,
+    "width": 192,
+    "height": 192,
+    "pages": 1,
+    "alpha": false
+  },
+  {
+    "path": "src/assets/favicons/android-chrome-512x512.png",
+    "bytes": 89765,
+    "width": 512,
+    "height": 512,
+    "pages": 1,
+    "alpha": false
+  },
+  {
+    "path": "src/assets/favicons/apple-touch-icon.png",
+    "bytes": 18274,
+    "width": 180,
+    "height": 180,
+    "pages": 1,
+    "alpha": false
+  },
+  {
+    "path": "src/assets/favicons/favicon-16x16.png",
+    "bytes": 814,
+    "width": 16,
+    "height": 16,
+    "pages": 1,
+    "alpha": true
+  },
+  {
+    "path": "src/assets/favicons/favicon-32x32.png",
+    "bytes": 1994,
+    "width": 32,
+    "height": 32,
+    "pages": 1,
+    "alpha": true
+  },
+  {
+    "path": "src/assets/favicons/favicon.ico",
+    "bytes": 15086,
+    "width": null,
+    "height": null,
+    "pages": 1,
+    "alpha": null
+  },
+  {
+    "path": "src/assets/favicons/mstile-150x150.png",
+    "bytes": 11664,
+    "width": 270,
+    "height": 270,
+    "pages": 1,
+    "alpha": true
+  },
+  {
+    "path": "src/assets/favicons/safari-pinned-tab.svg",
+    "bytes": 53893,
+    "width": 512,
+    "height": 512,
+    "pages": 1,
+    "alpha": true
+  },
+  {
+    "path": "src/assets/input-icons/ic_baseline-email.svg",
+    "bytes": 459,
+    "width": 26,
+    "height": 26,
+    "pages": 1,
+    "alpha": true
+  },
+  {
+    "path": "src/assets/input-icons/mdi_pencil.svg",
+    "bytes": 360,
+    "width": 26,
+    "height": 26,
+    "pages": 1,
+    "alpha": true
+  },
+  {
+    "path": "src/assets/input-icons/mdi_send.svg",
+    "bytes": 177,
+    "width": 24,
+    "height": 24,
+    "pages": 1,
+    "alpha": true
+  },
+  {
+    "path": "src/assets/input-icons/mdi_university.svg",
+    "bytes": 281,
+    "width": 26,
+    "height": 26,
+    "pages": 1,
+    "alpha": true
+  },
+  {
+    "path": "src/assets/input-icons/wpf_name.svg",
+    "bytes": 600,
+    "width": 26,
+    "height": 26,
+    "pages": 1,
+    "alpha": true
+  },
+  {
+    "path": "src/assets/instagram.webp",
+    "bytes": 8398,
+    "width": 576,
+    "height": 576,
+    "pages": 1,
+    "alpha": true
+  },
+  {
+    "path": "src/assets/introduction/brand-without-background.svg",
+    "bytes": 49122,
+    "width": 250,
+    "height": 256,
+    "pages": 1,
+    "alpha": true
+  },
+  {
+    "path": "src/assets/introduction/brand-without-background.webp",
+    "bytes": 23146,
+    "width": 250,
+    "height": 256,
+    "pages": 1,
+    "alpha": true
+  },
+  {
+    "path": "src/assets/introduction/usp-560.avif",
+    "bytes": 54734,
+    "width": 560,
+    "height": 700,
+    "pages": 1,
+    "alpha": false
+  },
+  {
+    "path": "src/assets/introduction/usp-840.avif",
+    "bytes": 103467,
+    "width": 840,
+    "height": 1050,
+    "pages": 1,
+    "alpha": false
+  },
+  {
+    "path": "src/assets/introduction/usp.avif",
+    "bytes": 158220,
+    "width": 1122,
+    "height": 1402,
+    "pages": 1,
+    "alpha": false
+  },
+  {
+    "path": "src/assets/introduction/usp.webp",
+    "bytes": 376258,
+    "width": 1122,
+    "height": 1402,
+    "pages": 1,
+    "alpha": false
+  },
+  {
+    "path": "src/assets/more/calendar.avif",
+    "bytes": 3022,
+    "width": 396,
+    "height": 292,
+    "pages": 1,
+    "alpha": false
+  },
+  {
+    "path": "src/assets/more/calendar.webp",
+    "bytes": 1894,
+    "width": 396,
+    "height": 292,
+    "pages": 1,
+    "alpha": false
+  },
+  {
+    "path": "src/assets/more/planalto.avif",
+    "bytes": 5992,
+    "width": 407,
+    "height": 301,
+    "pages": 1,
+    "alpha": false
+  },
+  {
+    "path": "src/assets/more/planalto.webp",
+    "bytes": 4122,
+    "width": 407,
+    "height": 301,
+    "pages": 1,
+    "alpha": false
+  },
+  {
+    "path": "src/assets/more/school.avif",
+    "bytes": 12052,
+    "width": 407,
+    "height": 301,
+    "pages": 1,
+    "alpha": false
+  },
+  {
+    "path": "src/assets/more/school.webp",
+    "bytes": 8092,
+    "width": 407,
+    "height": 301,
+    "pages": 1,
+    "alpha": false
+  },
+  {
+    "path": "src/assets/objective.webp",
+    "bytes": 499346,
+    "width": 210,
+    "height": 210,
+    "pages": 28,
+    "alpha": true
+  },
+  {
+    "path": "src/assets/parallax/justice-1920.avif",
+    "bytes": 131102,
+    "width": 1920,
+    "height": 1076,
+    "pages": 1,
+    "alpha": false
+  },
+  {
+    "path": "src/assets/parallax/justice.avif",
+    "bytes": 348265,
+    "width": 4096,
+    "height": 2296,
+    "pages": 1,
+    "alpha": false
+  },
+  {
+    "path": "src/assets/parallax/usp.avif",
+    "bytes": 200037,
+    "width": 892,
+    "height": 733,
+    "pages": 1,
+    "alpha": false
+  },
+  {
+    "path": "src/assets/phone.svg",
+    "bytes": 1355,
+    "width": 227,
+    "height": 220,
+    "pages": 1,
+    "alpha": true
+  },
+  {
+    "path": "src/assets/politicians/deputados.avif",
+    "bytes": 19808,
+    "width": 327,
+    "height": 246,
+    "pages": 1,
+    "alpha": false
+  },
+  {
+    "path": "src/assets/politicians/ministro-do-trabalho.avif",
+    "bytes": 12488,
+    "width": 327,
+    "height": 247,
+    "pages": 1,
+    "alpha": false
+  },
+  {
+    "path": "src/assets/politicians/presidente-do-senado.avif",
+    "bytes": 14174,
+    "width": 327,
+    "height": 246,
+    "pages": 1,
+    "alpha": false
+  },
+  {
+    "path": "src/assets/politicians/presidente.avif",
+    "bytes": 62468,
+    "width": 678,
+    "height": 522,
+    "pages": 1,
+    "alpha": false
+  },
+  {
+    "path": "src/assets/politicians/vice-presidente-ministro.avif",
+    "bytes": 22617,
+    "width": 327,
+    "height": 218,
+    "pages": 1,
+    "alpha": false
+  },
+  {
+    "path": "src/assets/selective-process.avif",
+    "bytes": 36132,
+    "width": 775,
+    "height": 680,
+    "pages": 1,
+    "alpha": false
+  },
+  {
+    "path": "src/assets/speech-ballon.webp",
+    "bytes": 678,
+    "width": 106,
+    "height": 106,
+    "pages": 1,
+    "alpha": true
+  },
+  {
+    "path": "src/assets/thinking-no-background.webp",
+    "bytes": 371764,
+    "width": 108,
+    "height": 108,
+    "pages": 48,
+    "alpha": true
+  }
+]

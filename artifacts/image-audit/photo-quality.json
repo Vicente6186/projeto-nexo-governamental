@@ -1,0 +1,222 @@
+[
+  {
+    "name": "politicians/presidente",
+    "source": "7dc268e:assets/politicians/presidente.jpg",
+    "width": 678,
+    "height": 522,
+    "quality": 75,
+    "chroma": "4:4:4",
+    "beforeBytes": 34242,
+    "afterBytes": 62468,
+    "before": {
+      "psnr": 33.48,
+      "ssim8": 0.955468,
+      "rmse": 5.4021
+    },
+    "after": {
+      "psnr": 39.689,
+      "ssim8": 0.988551,
+      "rmse": 2.6431
+    }
+  },
+  {
+    "name": "politicians/deputados",
+    "source": "7dc268e:assets/politicians/deputados.jpg",
+    "width": 327,
+    "height": 246,
+    "quality": 75,
+    "chroma": "4:4:4",
+    "beforeBytes": 11599,
+    "afterBytes": 19808,
+    "before": {
+      "psnr": 31.329,
+      "ssim8": 0.967915,
+      "rmse": 6.92
+    },
+    "after": {
+      "psnr": 38.059,
+      "ssim8": 0.992949,
+      "rmse": 3.1886
+    }
+  },
+  {
+    "name": "politicians/ministro-do-trabalho",
+    "source": "7dc268e:assets/politicians/ministro-do-trabalho.jpg",
+    "width": 327,
+    "height": 247,
+    "quality": 75,
+    "chroma": "4:4:4",
+    "beforeBytes": 8154,
+    "afterBytes": 12488,
+    "before": {
+      "psnr": 33.586,
+      "ssim8": 0.973125,
+      "rmse": 5.3362
+    },
+    "after": {
+      "psnr": 40.437,
+      "ssim8": 0.992355,
+      "rmse": 2.4249
+    }
+  },
+  {
+    "name": "politicians/presidente-do-senado",
+    "source": "7dc268e:assets/politicians/presidente-senado.jpg",
+    "width": 327,
+    "height": 246,
+    "quality": 75,
+    "chroma": "4:4:4",
+    "beforeBytes": 7962,
+    "afterBytes": 14174,
+    "before": {
+      "psnr": 33.702,
+      "ssim8": 0.948986,
+      "rmse": 5.2655
+    },
+    "after": {
+      "psnr": 39.31,
+      "ssim8": 0.982205,
+      "rmse": 2.7609
+    }
+  },
+  {
+    "name": "politicians/vice-presidente-ministro",
+    "source": "7dc268e:assets/politicians/vice-presidente-ministro.jpg",
+    "width": 327,
+    "height": 218,
+    "quality": 75,
+    "chroma": "4:4:4",
+    "beforeBytes": 11338,
+    "afterBytes": 22617,
+    "before": {
+      "psnr": 29.257,
+      "ssim8": 0.945646,
+      "rmse": 8.7838
+    },
+    "after": {
+      "psnr": 36.443,
+      "ssim8": 0.988837,
+      "rmse": 3.8404
+    }
+  },
+  {
+    "name": "parallax/justice",
+    "source": "a81ead4:assets/parallax/justice.jpg",
+    "width": 4096,
+    "height": 2296,
+    "quality": 75,
+    "chroma": "4:4:4",
+    "beforeBytes": 132241,
+    "afterBytes": 348265,
+    "before": {
+      "psnr": 40.603,
+      "ssim8": 0.978959,
+      "rmse": 2.3789
+    },
+    "after": {
+      "psnr": 47.583,
+      "ssim8": 0.994104,
+      "rmse": 1.0651
+    }
+  },
+  {
+    "name": "parallax/usp",
+    "source": "a81ead4:assets/parallax/usp.jpg",
+    "width": 892,
+    "height": 733,
+    "quality": 75,
+    "chroma": "4:4:4",
+    "beforeBytes": 102935,
+    "afterBytes": 200037,
+    "before": {
+      "psnr": 30.332,
+      "ssim8": 0.942569,
+      "rmse": 7.7616
+    },
+    "after": {
+      "psnr": 36.522,
+      "ssim8": 0.989068,
+      "rmse": 3.8058
+    }
+  },
+  {
+    "name": "selective-process",
+    "source": "7dc268e:assets/selective-process.jpg",
+    "width": 775,
+    "height": 680,
+    "quality": 80,
+    "chroma": "4:4:4",
+    "beforeBytes": 16795,
+    "afterBytes": 36132,
+    "before": {
+      "psnr": 37.442,
+      "ssim8": 0.993378,
+      "rmse": 3.4233
+    },
+    "after": {
+      "psnr": 45.579,
+      "ssim8": 0.998053,
+      "rmse": 1.3415
+    }
+  },
+  {
+    "name": "more/school",
+    "source": "7dc268e:assets/more/school.jpg",
+    "width": 407,
+    "height": 301,
+    "quality": 75,
+    "chroma": "4:4:4",
+    "beforeBytes": 8092,
+    "afterBytes": 12052,
+    "before": {
+      "psnr": 38.449,
+      "ssim8": 0.971637,
+      "rmse": 3.0487
+    },
+    "after": {
+      "psnr": 43.068,
+      "ssim8": 0.987275,
+      "rmse": 1.7911
+    }
+  },
+  {
+    "name": "more/planalto",
+    "source": "7dc268e:assets/more/planalto.jpg",
+    "width": 407,
+    "height": 301,
+    "quality": 75,
+    "chroma": "4:4:4",
+    "beforeBytes": 4122,
+    "afterBytes": 5992,
+    "before": {
+      "psnr": 41.525,
+      "ssim8": 0.978026,
+      "rmse": 2.1395
+    },
+    "after": {
+      "psnr": 45.269,
+      "ssim8": 0.989046,
+      "rmse": 1.3902
+    }
+  },
+  {
+    "name": "more/calendar",
+    "source": "7dc268e:assets/more/calendar.jpg",
+    "width": 396,
+    "height": 292,
+    "quality": 75,
+    "chroma": "4:4:4",
+    "beforeBytes": 1894,
+    "afterBytes": 3022,
+    "before": {
+      "psnr": 45.274,
+      "ssim8": 0.991772,
+      "rmse": 1.3895
+    },
+    "after": {
+      "psnr": 50.659,
+      "ssim8": 0.996577,
+      "rmse": 0.7474
+    }
+  }
+]

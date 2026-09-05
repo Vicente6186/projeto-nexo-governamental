@@ -52,21 +52,28 @@
     <main>
         <section id="introduction">
             <div id="introduction-content">
-                <img id="introduction-brand" src="assets/introduction/brand-without-background.svg" alt="Logo do site"
+                <img id="introduction-brand" src="assets/introduction/brand-without-background.webp" alt="Nexo Governamental XI de Agosto"
                     width="250" height="256" decoding="async">
                 <h1>Nexo Governamental XI de Agosto</h1>
                 <p>Somos uma extensão da Faculdade de Direito do Largo de São Francisco criada com intenção de fomentar
                     a participação política e o debate ativo com os Três poderes e a sociedade civil.</p>
             </div>
-            <div id="introduction-image"></div>
+            <div id="introduction-image">
+                <picture>
+                    <source type="image/avif"
+                        srcset="assets/introduction/usp-560.avif 560w, assets/introduction/usp-840.avif 840w, assets/introduction/usp.avif 1122w"
+                        sizes="(max-width: 992px) 100vmax, 55vw">
+                    <img src="assets/introduction/usp.webp" alt="Fachada da Faculdade de Direito da USP no Largo de São Francisco"
+                        width="1122" height="1402" fetchpriority="high" decoding="async">
+                </picture>
+            </div>
         </section>
 
         <section id="about">
             <div>
                 <h2 id="about-title">Quem somos
-                    <video autoplay loop muted playsinline width="36" height="36">
-                        <source src="assets/thinking-no-background.webm" type="video/webm" />
-                    </video>
+                    <img class="thinking-animation" src="assets/thinking-no-background.webp" alt="" width="36" height="36"
+                        loading="lazy" decoding="async">
                 </h2>
                 <p id="about-description">O Nexo Governamental é uma organização estudantil da Faculdade de Direito da
                     USP que conecta acadêmicos e profissionais ao setor público. Eles promovem a discussão e criação de
@@ -95,7 +102,7 @@
                 <div id="about-video-container">
                     <img src="assets/speech-ballon.webp" alt="Balão decorativo" width="106" height="106" loading="lazy"
                         decoding="async">
-                    <video controls>
+                    <video controls preload="metadata">
                         <source src="assets/about/about.webm" type="video/webm">
                         <source src="assets/about/about.mp4" type="video/mp4">
                     </video>
@@ -119,7 +126,7 @@
         </section>
 
 
-        <div class="parallax" style="background-image: url(assets/parallax/justice.avif);"></div>
+        <div class="parallax" style="background-image: url(assets/parallax/justice.avif); background-image: image-set(url(assets/parallax/justice-1920.avif) 1x, url(assets/parallax/justice.avif) 2x);"></div>
 
         <section id="recognize" class="container">
             <h2>O Nexo Governamental é RECONHECIDO e RESPEITADO 🏛️</h2>
@@ -128,30 +135,30 @@
 
             <div id="recognize-gallery">
                 <figure>
-                    <img src="assets/politicians/presidente.avif" alt="Presidente da República" loading="lazy">
+                    <img src="assets/politicians/presidente.avif" alt="Presidente da República" width="678" height="522" loading="lazy" decoding="async">
                     <figcaption>Presidente da República</figcaption>
                 </figure>
 
                 <figure>
                     <img src="assets/politicians/vice-presidente-ministro.avif" alt="Vice Presidente e Ministro"
-                        loading="lazy">
+                        width="327" height="218" loading="lazy" decoding="async">
                     <figcaption>Vice Presidente e Ministro</figcaption>
                 </figure>
 
 
 
                 <figure>
-                    <img src="assets/politicians/presidente-do-senado.avif" alt="Presidente do Senado" loading="lazy">
+                    <img src="assets/politicians/presidente-do-senado.avif" alt="Presidente do Senado" width="327" height="246" loading="lazy" decoding="async">
                     <figcaption>Presidente do Senado</figcaption>
                 </figure>
 
                 <figure>
-                    <img src="assets/politicians/ministro-do-trabalho.avif" alt="Ministro do Trabalho" loading="lazy">
+                    <img src="assets/politicians/ministro-do-trabalho.avif" alt="Ministro do Trabalho" width="327" height="247" loading="lazy" decoding="async">
                     <figcaption>Ministro do Trabalho</figcaption>
                 </figure>
 
                 <figure>
-                    <img src="assets/politicians/deputados.avif" alt="Presidente da República" loading="lazy">
+                    <img src="assets/politicians/deputados.avif" alt="Deputados" width="327" height="246" loading="lazy" decoding="async">
                     <figcaption>Deputados</figcaption>
                 </figure>
 
@@ -170,7 +177,7 @@
             </div>
             <div id="selective-process-schedule">
                 <h3>Confira o Cronograma de inscrição ⬇️</h3>
-                <img src="assets/selective-process.avif" alt="Cronograma do processo seletivo" loading="lazy">
+                <img src="assets/selective-process.avif" alt="Cronograma do processo seletivo" width="775" height="680" loading="lazy" decoding="async">
             </div>
         </section>
 
@@ -182,7 +189,7 @@
 
             <div id="more-grid">
                 <article>
-                    <img src="assets/more/school.webp" alt="Escola" height="250" loading="lazy" decoding="async">
+                    <img src="assets/more/school.avif" alt="Escola" width="407" height="301" loading="lazy" decoding="async">
                     <h3>Nexo nas Escolas</h3>
                     <p>O Nexo nas Escolas é um projeto que promove debates em escolas, focando na capacitação dos
                         alunos. Ele ocorre com estudantes de ETECs da Mooca, com etapas presenciais entre agosto e
@@ -190,7 +197,7 @@
                 </article>
 
                 <article>
-                    <img src="assets/more/calendar.webp" alt="Escola" height="250" loading="lazy" decoding="async">
+                    <img src="assets/more/calendar.avif" alt="Calendário de eventos" width="396" height="292" loading="lazy" decoding="async">
                     <h3>Eventos</h3>
                     <p>O Nexo realiza eventos que reúnem especialistas e autoridades para discutir temas atuais, como
                         tecnologia, e direito. Esses encontros promovem debates sobre o impacto de inovações, como a
@@ -198,7 +205,7 @@
                 </article>
 
                 <article>
-                    <img src="assets/more/planalto.webp" alt="Escola" height="250" loading="lazy" decoding="async">
+                    <img src="assets/more/planalto.avif" alt="Palácio do Planalto" width="407" height="301" loading="lazy" decoding="async">
                     <h3>Viagens</h3>
                     <p>O Nexo realiza viagens, como a de Brasília, onde os participantes visitam instituições como o
                         Congresso e o STF. Essas viagens oferecem uma imersão no ambiente político e jurídico do Brasil,
@@ -216,12 +223,11 @@
         <section id="contact">
             <div class="container">
                 <div id="contact-content">
-                    <img id="contact-icon" src="assets/phone.svg" alt="Ícone de um telefone" height="150" loading="lazy"
+                    <img id="contact-icon" src="assets/phone.svg" alt="" width="155" height="150" loading="lazy"
                         decoding="async">
                     <h2>Tem alguma dúvida
-                        <video autoplay loop muted playsinline>
-                            <source src="assets/thinking-no-background.webm" type="video/webm" />
-                        </video><br>
+                        <img class="thinking-animation" src="assets/thinking-no-background.webp" alt="" width="36" height="36"
+                            loading="lazy" decoding="async"><br>
                         Envie uma mensagem!
                     </h2>
                     <p>Use este formulário apenas se necessário! <br>
@@ -232,7 +238,7 @@
                     <h3>Formulário de Contato ☎️</h3>
                     <div class="input-container">
                         <div class="input-label-container">
-                            <img class="input-icon" src="assets/input-icons/wpf_name.svg" alt="Ícone do input"
+                            <img class="input-icon" src="assets/input-icons/wpf_name.svg" alt=""
                                 width="26" height="26" loading="lazy" decoding="async">
                             <label class="input-label" for="name">Digite o seu nome</label>
                         </div>
@@ -241,7 +247,7 @@
 
                     <div class="input-container">
                         <div class="input-label-container">
-                            <img class="input-icon" src="assets/input-icons/ic_baseline-email.svg" alt="Ícone do input"
+                            <img class="input-icon" src="assets/input-icons/ic_baseline-email.svg" alt=""
                                 width="26" height="26" loading="lazy" decoding="async">
                             <label class="input-label" for="email">Digite o seu e-mail</label>
                         </div>
@@ -250,7 +256,7 @@
 
                     <div class="input-container">
                         <div class="input-label-container">
-                            <img class="input-icon" src="assets/input-icons/ic_baseline-email.svg" alt="Ícone do input"
+                            <img class="input-icon" src="assets/input-icons/mdi_university.svg" alt=""
                                 width="26" height="26" loading="lazy" decoding="async">
                             <label class="input-label" for="college">Digite a sua faculdade</label>
                         </div>
@@ -259,7 +265,7 @@
 
                     <div class="input-container">
                         <div class="input-label-container">
-                            <img class="input-icon" src="assets/input-icons/mdi_pencil.svg" alt="Ícone do input"
+                            <img class="input-icon" src="assets/input-icons/mdi_pencil.svg" alt=""
                                 width="26" height="26" loading="lazy" decoding="async">
                             <label class="input-label" for="description">Digite a sua dúvida</label>
                         </div>

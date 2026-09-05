@@ -21,8 +21,9 @@
         h2 {
             margin-block: 4rem;
             text-align: center;
-            video {
+            .thinking-animation {
                 height: 3.6rem;
+                width: 3.6rem;
                 vertical-align: text-top;
             }
         }

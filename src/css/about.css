@@ -21,8 +21,9 @@
     #about-title {
         margin-bottom: 1.6rem;
         
-        video {
+        .thinking-animation {
             height: 3.6rem;
+            width: 3.6rem;
             vertical-align: text-top;
         }
     }
