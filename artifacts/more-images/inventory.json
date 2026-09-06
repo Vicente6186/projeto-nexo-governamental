@@ -1,0 +1,179 @@
+{
+  "version": 1,
+  "processing": {
+    "preserveFullComposition": true,
+    "crop": false,
+    "upscale": false,
+    "deliveryMetadataStripped": true,
+    "avif": {
+      "widths": [
+        480,
+        960,
+        1440
+      ],
+      "quality": 80,
+      "effort": 8,
+      "chromaSubsampling": "4:4:4"
+    },
+    "webp": {
+      "width": 960,
+      "quality": 92,
+      "effort": 6
+    }
+  },
+  "sources": [
+    {
+      "name": "school",
+      "filename": "school.png",
+      "width": 1586,
+      "height": 992,
+      "bytes": 1914384,
+      "sha256": "f95bc23264775b9b07ececabde498d45395ece268f822f93da105d21fa1840e9"
+    },
+    {
+      "name": "events",
+      "filename": "events.png",
+      "width": 1586,
+      "height": 992,
+      "bytes": 1881003,
+      "sha256": "6d8b781f7d5b69fac6f38e86027932991e5e48239bc910c651bfe39a331c9539"
+    },
+    {
+      "name": "travel",
+      "filename": "travel.png",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 2389739,
+      "sha256": "f2f406f4267ae93ddb51392faa4af8b89a553d6adc5f86584222d7df2521ffb3"
+    }
+  ],
+  "files": [
+    {
+      "name": "school-480.avif",
+      "source": "school",
+      "format": "avif",
+      "width": 480,
+      "height": 300,
+      "bytes": 28186,
+      "decoded": true,
+      "metadataStripped": true
+    },
+    {
+      "name": "school-960.avif",
+      "source": "school",
+      "format": "avif",
+      "width": 960,
+      "height": 600,
+      "bytes": 70393,
+      "decoded": true,
+      "metadataStripped": true
+    },
+    {
+      "name": "school-1440.avif",
+      "source": "school",
+      "format": "avif",
+      "width": 1440,
+      "height": 901,
+      "bytes": 115661,
+      "decoded": true,
+      "metadataStripped": true
+    },
+    {
+      "name": "school.webp",
+      "source": "school",
+      "format": "webp",
+      "width": 960,
+      "height": 600,
+      "bytes": 96890,
+      "decoded": true,
+      "metadataStripped": true
+    },
+    {
+      "name": "events-480.avif",
+      "source": "events",
+      "format": "avif",
+      "width": 480,
+      "height": 300,
+      "bytes": 23653,
+      "decoded": true,
+      "metadataStripped": true
+    },
+    {
+      "name": "events-960.avif",
+      "source": "events",
+      "format": "avif",
+      "width": 960,
+      "height": 600,
+      "bytes": 57848,
+      "decoded": true,
+      "metadataStripped": true
+    },
+    {
+      "name": "events-1440.avif",
+      "source": "events",
+      "format": "avif",
+      "width": 1440,
+      "height": 901,
+      "bytes": 97186,
+      "decoded": true,
+      "metadataStripped": true
+    },
+    {
+      "name": "events.webp",
+      "source": "events",
+      "format": "webp",
+      "width": 960,
+      "height": 600,
+      "bytes": 80282,
+      "decoded": true,
+      "metadataStripped": true
+    },
+    {
+      "name": "travel-480.avif",
+      "source": "travel",
+      "format": "avif",
+      "width": 480,
+      "height": 320,
+      "bytes": 27464,
+      "decoded": true,
+      "metadataStripped": true
+    },
+    {
+      "name": "travel-960.avif",
+      "source": "travel",
+      "format": "avif",
+      "width": 960,
+      "height": 640,
+      "bytes": 95612,
+      "decoded": true,
+      "metadataStripped": true
+    },
+    {
+      "name": "travel-1440.avif",
+      "source": "travel",
+      "format": "avif",
+      "width": 1440,
+      "height": 960,
+      "bytes": 185238,
+      "decoded": true,
+      "metadataStripped": true
+    },
+    {
+      "name": "travel.webp",
+      "source": "travel",
+      "format": "webp",
+      "width": 960,
+      "height": 640,
+      "bytes": 130808,
+      "decoded": true,
+      "metadataStripped": true
+    }
+  ],
+  "totalFiles": 12,
+  "totalBytes": 1009221,
+  "validation": {
+    "allFilesFullyDecoded": true,
+    "allDimensionsVerified": true,
+    "allMastersUnchanged": true
+  }
+}

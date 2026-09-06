@@ -209,8 +209,10 @@
             <div id="more-grid">
                 <article>
                     <picture>
-                        <source type="image/avif" srcset="assets/more/school.avif">
-                        <img src="assets/more/school.webp" alt="Escola" width="407" height="301" loading="lazy" decoding="async">
+                        <source type="image/avif"
+                            srcset="assets/more/school-480.avif 480w, assets/more/school-960.avif 960w, assets/more/school-1440.avif 1440w"
+                            sizes="(max-width: 439px) calc(100vw - 32px), (max-width: 992px) 407px, (max-width: 1440px) calc((100vw - 128px) / 3), 438px">
+                        <img src="assets/more/school.webp" alt="Cena ilustrativa de estudantes participando de um debate em sala de aula" width="960" height="600" loading="lazy" decoding="async">
                     </picture>
                     <h3>Nexo nas Escolas</h3>
                     <p>O Nexo nas Escolas é um projeto que promove debates em escolas, focando na capacitação dos
@@ -220,8 +222,10 @@
 
                 <article>
                     <picture>
-                        <source type="image/avif" srcset="assets/more/calendar.avif">
-                        <img src="assets/more/calendar.webp" alt="Calendário de eventos" width="396" height="292" loading="lazy" decoding="async">
+                        <source type="image/avif"
+                            srcset="assets/more/events-480.avif 480w, assets/more/events-960.avif 960w, assets/more/events-1440.avif 1440w"
+                            sizes="(max-width: 439px) calc(100vw - 32px), (max-width: 992px) 407px, (max-width: 1440px) calc((100vw - 128px) / 3), 438px">
+                        <img src="assets/more/events.webp" alt="Cena ilustrativa de um painel acadêmico com participantes e plateia" width="960" height="600" loading="lazy" decoding="async">
                     </picture>
                     <h3>Eventos</h3>
                     <p>O Nexo realiza eventos que reúnem especialistas e autoridades para discutir temas atuais, como
@@ -231,8 +235,10 @@
 
                 <article>
                     <picture>
-                        <source type="image/avif" srcset="assets/more/planalto.avif">
-                        <img src="assets/more/planalto.webp" alt="Palácio do Planalto" width="407" height="301" loading="lazy" decoding="async">
+                        <source type="image/avif"
+                            srcset="assets/more/travel-480.avif 480w, assets/more/travel-960.avif 960w, assets/more/travel-1440.avif 1440w"
+                            sizes="(max-width: 439px) calc(100vw - 32px), (max-width: 992px) 407px, (max-width: 1440px) calc((100vw - 128px) / 3), 438px">
+                        <img src="assets/more/travel.webp" alt="Imagem ilustrativa do Palácio do Planalto em Brasília ao fim da tarde" width="960" height="640" loading="lazy" decoding="async">
                     </picture>
                     <h3>Viagens</h3>
                     <p>O Nexo realiza viagens, como a de Brasília, onde os participantes visitam instituições como o
@@ -240,6 +246,7 @@
                         ampliando o aprendizado prático sobre temas importantes. </p>
                 </article>
             </div>
+            <p class="more-image-note">Imagens ilustrativas geradas por IA.</p>
         </section>
 
         <section id="instagram" aria-labelledby="instagram-title">
