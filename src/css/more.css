@@ -48,13 +48,6 @@
         }
     }
 
-    .more-image-note {
-        margin-top: 2rem;
-        color: #c3ccde;
-        font-size: 1.4rem;
-        font-weight: 500;
-        line-height: 1.5;
-    }
 }
 
 @media screen and (max-width: 992px) {

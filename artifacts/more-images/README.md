@@ -8,6 +8,6 @@ Mestres PNG das três imagens geradas por IA, apresentados na conversa antes da 
 - `prompts.json`: instruções usadas na geração original.
 - `inventory.json`: dimensões e tamanhos das versões publicadas.
 
-Os mestres foram preservados sem edição. Entrega em AVIF de 480, 960 e 1440 px (qualidade 80, esforço 8, croma 4:4:4), com alternativa WebP de 960 px (qualidade 92). As derivações preservam a proporção, sem ampliação ou recorte; o enquadramento no cartão é aplicado por CSS. A seção informa que as imagens são ilustrativas e geradas por IA.
+Os mestres foram preservados sem edição. Entrega em AVIF de 480, 960 e 1440 px (qualidade 80, esforço 8, croma 4:4:4), com alternativa WebP de 960 px (qualidade 92). As derivações preservam a proporção, sem ampliação ou recorte; o enquadramento no cartão é aplicado por CSS. A legenda visível foi removida a pedido do usuário; a origem e os prompts permanecem documentados neste diretório.
 
 As fotografias e a ilustração anteriores continuam preservadas em `../image-sources/more/` e no histórico Git. Estes mestres e prompts não são publicados pela Netlify; somente os arquivos de `src/assets` entram no pacote do site.
