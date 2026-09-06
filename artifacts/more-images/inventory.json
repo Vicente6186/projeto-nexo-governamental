@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "processing": {
     "preserveFullComposition": true,
     "crop": false,
@@ -24,19 +24,19 @@
   "sources": [
     {
       "name": "school",
-      "filename": "school.png",
-      "width": 1586,
-      "height": 992,
-      "bytes": 1914384,
-      "sha256": "f95bc23264775b9b07ececabde498d45395ece268f822f93da105d21fa1840e9"
+      "filename": "school-v2.png",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 2341269,
+      "sha256": "966a186b88e943ed17e0361c08db3e3bba941664a3aacbb7e4b31962f6ab229e"
     },
     {
       "name": "events",
-      "filename": "events.png",
-      "width": 1586,
-      "height": 992,
-      "bytes": 1881003,
-      "sha256": "6d8b781f7d5b69fac6f38e86027932991e5e48239bc910c651bfe39a331c9539"
+      "filename": "events-v2.png",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 2035112,
+      "sha256": "18342864544e52860afa22252648a763f56481f5569a05ac375ff33ef3d81ceb"
     },
     {
       "name": "travel",
@@ -53,8 +53,9 @@
       "source": "school",
       "format": "avif",
       "width": 480,
-      "height": 300,
-      "bytes": 28186,
+      "height": 320,
+      "bytes": 31135,
+      "sha256": "66361e0801650aad7fb02bc1d2b6ee1d00cdd1da59bcc56e52ad84fd5b055beb",
       "decoded": true,
       "metadataStripped": true
     },
@@ -63,8 +64,9 @@
       "source": "school",
       "format": "avif",
       "width": 960,
-      "height": 600,
-      "bytes": 70393,
+      "height": 640,
+      "bytes": 91328,
+      "sha256": "da18464bd59d002ec707ac50fdd9bfa3bcecea8ef4e83fcea8e949463e9a93d8",
       "decoded": true,
       "metadataStripped": true
     },
@@ -73,8 +75,9 @@
       "source": "school",
       "format": "avif",
       "width": 1440,
-      "height": 901,
-      "bytes": 115661,
+      "height": 960,
+      "bytes": 163949,
+      "sha256": "083eb0adc0ae06c494c48da13cec6d12eeaf22dd5f864f4920524c6dc07e3e78",
       "decoded": true,
       "metadataStripped": true
     },
@@ -83,8 +86,9 @@
       "source": "school",
       "format": "webp",
       "width": 960,
-      "height": 600,
-      "bytes": 96890,
+      "height": 640,
+      "bytes": 131216,
+      "sha256": "8c911d8e141e9b2f194d8c211a52a51a8da65e9b98b5839d45dd49fe1ce5f340",
       "decoded": true,
       "metadataStripped": true
     },
@@ -93,8 +97,9 @@
       "source": "events",
       "format": "avif",
       "width": 480,
-      "height": 300,
-      "bytes": 23653,
+      "height": 320,
+      "bytes": 17867,
+      "sha256": "2a97377de4ce3d1f391c3fc8c2bb6843d24c8603213989a54f71cdb0f0a8d259",
       "decoded": true,
       "metadataStripped": true
     },
@@ -103,8 +108,9 @@
       "source": "events",
       "format": "avif",
       "width": 960,
-      "height": 600,
-      "bytes": 57848,
+      "height": 640,
+      "bytes": 52468,
+      "sha256": "0055d64e4253116ce13b2784920ccb0aac797495f25f7b671a98cb2a781e4e43",
       "decoded": true,
       "metadataStripped": true
     },
@@ -113,8 +119,9 @@
       "source": "events",
       "format": "avif",
       "width": 1440,
-      "height": 901,
-      "bytes": 97186,
+      "height": 960,
+      "bytes": 101376,
+      "sha256": "c0699a05351036d6e84f98300f66d8803d3c53beec3e63ad7d877fb6ffe7bfe9",
       "decoded": true,
       "metadataStripped": true
     },
@@ -123,8 +130,9 @@
       "source": "events",
       "format": "webp",
       "width": 960,
-      "height": 600,
-      "bytes": 80282,
+      "height": 640,
+      "bytes": 77636,
+      "sha256": "c33e30e38c24fa4a6ed496ca6cd44f23d58642cfcd4fdc7293d04b1c37ace701",
       "decoded": true,
       "metadataStripped": true
     },
@@ -135,6 +143,7 @@
       "width": 480,
       "height": 320,
       "bytes": 27464,
+      "sha256": "7f30ad26ff57d8929547ae53705acc526f91748bf93eff03904ff1c66d9b039a",
       "decoded": true,
       "metadataStripped": true
     },
@@ -145,6 +154,7 @@
       "width": 960,
       "height": 640,
       "bytes": 95612,
+      "sha256": "0158dd5682ba1521ae5c6ebd2ec00aea4e9301b7d302475fba717522ac955be6",
       "decoded": true,
       "metadataStripped": true
     },
@@ -155,6 +165,7 @@
       "width": 1440,
       "height": 960,
       "bytes": 185238,
+      "sha256": "eddd2c52607f4066727c4ee98b1b4334b79f9c1ca2ee45e130bd4dd4d245b6d2",
       "decoded": true,
       "metadataStripped": true
     },
@@ -165,15 +176,17 @@
       "width": 960,
       "height": 640,
       "bytes": 130808,
+      "sha256": "2c7624a96ebd367fbe50e7d21efbe5b50e50708fbbd230dfc8dd6fcb2f182cb1",
       "decoded": true,
       "metadataStripped": true
     }
   ],
   "totalFiles": 12,
-  "totalBytes": 1009221,
+  "totalBytes": 1106097,
   "validation": {
     "allFilesFullyDecoded": true,
     "allDimensionsVerified": true,
     "allMastersUnchanged": true
-  }
+  },
+  "updatedOn": "2026-09-06"
 }

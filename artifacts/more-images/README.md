@@ -1,4 +1,18 @@
-# Novas imagens dos projetos — 5 de setembro de 2026
+# Imagens dos projetos — atualização de 6 de setembro de 2026
+
+## Versões aprovadas em uso
+
+As novas imagens de Escolas e Eventos foram geradas com `image_gen`, mostradas ao usuário e aprovadas antes da aplicação. Ambas representam ambientes sem pessoas, com luz natural, e não documentam locais ou atividades reais do Nexo.
+
+- `school-v2.png`: sala de aula preparada para debates, com carteiras em semicírculo.
+- `events-v2.png`: auditório preparado para um encontro, com mesa e microfones.
+- `travel.png`: imagem de Viagens mantida sem alteração.
+- `prompts-v2.json`: prompts integrais das duas novas imagens.
+- `inventory.json`: inventário atualizado dos mestres e das 12 versões de entrega, com dimensões, tamanhos e SHA-256.
+
+Os dois novos mestres têm 1536 × 1024 px. Os arquivos AVIF e WebP substituem somente as versões anteriores de Escolas e Eventos em `src/assets/more`. As dimensões HTML e descrições alternativas acompanham o novo conteúdo. Viagens mantém os mesmos arquivos. A seção foi reorganizada com Escolas em destaque e Eventos e Viagens lado a lado no desktop; em telas pequenas, os três projetos ficam em uma coluna.
+
+## Primeiras versões — 5 de setembro de 2026
 
 Mestres PNG das três imagens geradas por IA, apresentados na conversa antes da solicitação de aplicação e publicação. As imagens são conceituais; não documentam participantes ou eventos reais do Nexo. O Palácio do Planalto usou a imagem histórica `../image-sources/more/planalto.jpg` como referência arquitetônica.
 
@@ -6,7 +20,7 @@ Mestres PNG das três imagens geradas por IA, apresentados na conversa antes da 
 - `events.png`: Eventos — painel acadêmico e plateia.
 - `travel.png`: Viagens — interpretação fotográfica do Palácio do Planalto.
 - `prompts.json`: instruções usadas na geração original.
-- `inventory.json`: dimensões e tamanhos das versões publicadas.
+- O inventário da primeira publicação permanece no histórico Git.
 
 Os mestres foram preservados sem edição. Entrega em AVIF de 480, 960 e 1440 px (qualidade 80, esforço 8, croma 4:4:4), com alternativa WebP de 960 px (qualidade 92). As derivações preservam a proporção, sem ampliação ou recorte; o enquadramento no cartão é aplicado por CSS. A legenda visível foi removida a pedido do usuário; a origem e os prompts permanecem documentados neste diretório.
 
