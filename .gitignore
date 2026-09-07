@@ -3,7 +3,13 @@ node_modules
 dist/
 data/
 .env
-.env.local
+.env.*
+!.env.example
+data-restored/
+data-restored-*/
+backups/
+.nexo-backup-*
+.nexo-restore-*
 playwright-report/
 test-results/
 artifacts/admin-qa/

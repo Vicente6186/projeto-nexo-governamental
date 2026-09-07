@@ -255,6 +255,10 @@ async function buildApp(options = {}) {
     Buffer.concat([Buffer.from(`${config.email}\0`), expectedPassword]),
   );
   const users = initializeUsers(db, config, now, fingerprint);
+  // Disabling the demonstration access is a revocation, not a temporary pause.
+  // Old local cookies must never become valid again if preview is enabled later.
+  if (!config.localPreview)
+    db.prepare("DELETE FROM sessions WHERE preview = 1").run();
   const cookieOptions = {
     path: "/",
     httpOnly: true,

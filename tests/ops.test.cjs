@@ -288,3 +288,89 @@ test("backup schedule is disabled outside production and validates intervals wit
     /entre 0 e 168/,
   );
 });
+
+test("production readiness requires the configured origin, valid proxy networks and authenticated access only", async (t) => {
+  const f = fixture(t);
+  const distDir = path.join(f.root, "dist");
+  fs.mkdirSync(path.join(distDir, "admin"), { recursive: true });
+  fs.writeFileSync(path.join(distDir, "index.html"), "ok");
+  fs.writeFileSync(path.join(distDir, "admin", "index.html"), "ok");
+  const env = {
+    NODE_ENV: "production",
+    CMS_LOCAL_PREVIEW: "0",
+    CMS_ORIGIN: "https://nexo.example.org",
+    ADMIN_EMAIL: "admin@example.org",
+    ADMIN_PASSWORD: "test-only-private-password",
+    DATA_DIR: f.dataDir,
+    CMS_TRUST_PROXY: "127.0.0.1,10.42.0.0/24,::1,fd00::/64",
+  };
+  let session = { authenticated: false, user: null, localPreview: false };
+  let requests = 0;
+  const fetchFn = async (url) => {
+    requests++;
+    if (url.pathname === "/api/session") return Response.json(session);
+    if (url.pathname === "/api/health") return Response.json({ ok: true });
+    if (url.pathname === "/api/content")
+      return Response.json({ content: DEFAULT_CONTENT });
+    return new Response("<!doctype html><title>Nexo Governamental</title>", {
+      headers: { "content-type": "text/html", "x-robots-tag": "noindex" },
+    });
+  };
+  const inspect = (options = {}) =>
+    readiness({ env, distDir, fetchFn, ...options });
+  const correct = await inspect();
+  assert.equal(correct.ok, true);
+  assert.equal(correct.publicGoLiveConfirmed, false);
+  assert(
+    correct.checks.some(
+      (check) => check.name === "Acesso autenticado" && check.state === "pass",
+    ),
+  );
+  const otherDomain = await inspect({ baseUrl: "https://outro.example.org" });
+  assert(
+    otherDomain.checks.some(
+      (check) => check.name === "Domínio verificado" && check.state === "fail",
+    ),
+  );
+  for (const invalid of [
+    "true",
+    "*",
+    "0.0.0.0/0",
+    "::/0",
+    "proxy.example.org",
+    "10.42.0.0/99",
+    "::1/129",
+    "127.0.0.1/32/32",
+  ]) {
+    const badProxy = await inspect({
+      env: { ...env, CMS_TRUST_PROXY: invalid },
+    });
+    assert(
+      badProxy.checks.some(
+        (check) => check.name === "Proxy" && check.state === "fail",
+      ),
+      invalid,
+    );
+  }
+  for (const invalidSession of [
+    { authenticated: false, user: null, localPreview: true },
+    { authenticated: true, user: { name: "Open access" }, localPreview: false },
+    { authenticated: false, user: null },
+  ]) {
+    session = invalidSession;
+    const unsafe = await inspect();
+    assert(
+      unsafe.checks.some(
+        (check) =>
+          check.name === "Acesso autenticado" && check.state === "fail",
+      ),
+    );
+  }
+  requests = 0;
+  const badUrl = await inspect({
+    baseUrl: "https://user:private@nexo.example.org",
+  });
+  assert.equal(badUrl.ok, false);
+  assert.equal(requests, 0, "URLs inválidas não devem gerar requisições");
+  assert.equal(JSON.stringify(badUrl).includes("private@nexo"), false);
+});

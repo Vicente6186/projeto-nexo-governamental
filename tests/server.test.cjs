@@ -132,6 +132,110 @@ test("local preview is explicitly enabled, loopback-only and protected against f
   );
 });
 
+test("disabling local preview permanently revokes demonstration sessions while preserving real accounts and editorial previews", async (t) => {
+  const env = {
+    NODE_ENV: "test",
+    CMS_LOCAL_PREVIEW: "1",
+    ADMIN_EMAIL: "admin@nexo.example.com",
+    ADMIN_PASSWORD: "real-account-private-password",
+  };
+  const { app, open, dataDir } = await fixture(t, env);
+  const demoHeaders = await localLogin(app);
+  const login = await app.inject({
+    method: "POST",
+    url: "/api/login",
+    headers: { origin: ORIGIN },
+    payload: { email: env.ADMIN_EMAIL, password: env.ADMIN_PASSWORD },
+  });
+  assert.equal(login.statusCode, 200, login.body);
+  const realHeaders = {
+    origin: ORIGIN,
+    cookie: `${login.cookies[0].name}=${login.cookies[0].value}`,
+    "x-csrf-token": login.json().csrfToken,
+  };
+  const original = await getState(app, realHeaders);
+  await app.close();
+  const disabled = await open({ ...env, CMS_LOCAL_PREVIEW: "0" });
+  const session = await disabled.inject({
+    url: "/api/session",
+    headers: demoHeaders,
+  });
+  assert.equal(session.json().authenticated, false);
+  assert.equal(session.json().localPreview, false);
+  assert.equal(
+    (await disabled.inject({ url: "/api/admin/content", headers: demoHeaders }))
+      .statusCode,
+    401,
+  );
+  assert.equal(
+    (
+      await disabled.inject({
+        method: "POST",
+        url: "/api/local-session",
+        headers: { origin: ORIGIN },
+      })
+    ).statusCode,
+    404,
+  );
+  const authenticated = await disabled.inject({
+    url: "/api/session",
+    headers: realHeaders,
+  });
+  assert.equal(authenticated.json().authenticated, true);
+  assert.equal(authenticated.json().user.id, login.json().user.id);
+  assert.deepEqual(await getState(disabled, realHeaders), original);
+  const editorialPreview = await disabled.inject({
+    url: "/api/admin/preview",
+    headers: realHeaders,
+  });
+  assert.equal(editorialPreview.statusCode, 200);
+  assert.deepEqual(editorialPreview.json().content, original.draft);
+  const freshLogin = await disabled.inject({
+    method: "POST",
+    url: "/api/login",
+    headers: { origin: ORIGIN },
+    payload: { email: env.ADMIN_EMAIL, password: env.ADMIN_PASSWORD },
+  });
+  assert.equal(freshLogin.statusCode, 200, freshLogin.body);
+  const database = new DatabaseSync(path.join(dataDir, "nexo.sqlite"));
+  try {
+    assert.equal(
+      database
+        .prepare("SELECT count(*) AS count FROM sessions WHERE preview = 1")
+        .get().count,
+      0,
+    );
+    assert.equal(
+      database
+        .prepare("SELECT count(*) AS count FROM users WHERE active = 1")
+        .get().count,
+      1,
+    );
+  } finally {
+    database.close();
+  }
+  await disabled.close();
+  const enabledAgain = await open(env);
+  assert.equal(
+    (
+      await enabledAgain.inject({
+        url: "/api/admin/content",
+        headers: demoHeaders,
+      })
+    ).statusCode,
+    401,
+  );
+  assert.equal(
+    (
+      await enabledAgain.inject({
+        url: "/api/admin/content",
+        headers: realHeaders,
+      })
+    ).statusCode,
+    200,
+  );
+});
+
 test("every editing operation requires the origin and CSRF token; logout revokes the session", async (t) => {
   const { app } = await fixture(t);
   const headers = await localLogin(app);

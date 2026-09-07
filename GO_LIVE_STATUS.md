@@ -6,13 +6,25 @@ O repositório contém a aplicação completa do site, painel e blog. A validaç
 
 ## Validação da versão final
 
-- `npm test`: 92 testes passaram, cobrindo API, usuários, publicação, imagens, recuperação, editor, temas e operação.
+- `npm test`: 94 testes passaram, cobrindo API, usuários, publicação, imagens, recuperação, editor, temas e operação.
 - `npm run test:e2e`: 38 cenários passaram no Chromium, incluindo publicação e prévias, capas, versões, recuperação entre abas, renovação de sessão, Desfazer, teclado, temas e telas estreitas.
 - `npm run build`: concluído; permanecem avisos de tamanho dos vídeos/imagens institucionais e dos pacotes JavaScript. O editor visual é carregado apenas ao abrir um artigo.
 - `npm audit --omit=dev`: nenhuma vulnerabilidade reportada.
 - `npm run check:readiness -- --url http://127.0.0.1:3001`: seis verificações locais passaram; `publicGoLiveConfirmed` permanece `false`.
-- Imagem Docker construída e executada em Linux ARM64 com Node 24.20.0, `NODE_ENV=production`, conta fictícia e volume temporário isolado. Foram confirmados login, rotas públicas, salvamento, conversão de PNG para WebP de 2.400 px, persistência após reiniciar o contêiner, backup e restauração em outro diretório. O contêiner de teste foi encerrado; nenhum serviço público foi ativado.
-- Dados de desenvolvimento preservados: site na versão 1, publicação na versão 1, três artigos demonstrativos na versão 1 e nenhum artigo publicado. Os hashes do rascunho e da publicação do site permaneceram iguais aos anteriores à revisão.
+- Imagem Docker reconstruída e executada em Linux ARM64 com Node 24.20.0, `NODE_ENV=production`, conta fictícia e volume temporário isolado. Foram confirmados login, acesso demonstrativo desabilitado, rotas públicas, salvamento, conversão de PNG para WebP de 2.400 px, persistência após reiniciar o contêiner, backup e restauração em outro diretório. O contêiner de teste foi encerrado; nenhum serviço público foi ativado.
+- A revisão não publicou nem substituiu conteúdo no banco de desenvolvimento. Na conferência final, o rascunho estava na versão 4, com alteração no status do processo seletivo; a publicação permaneceu na versão 1 e com o hash anterior. Os três artigos continuavam na versão 1, sem publicação. Os testes de escrita usaram bancos temporários isolados.
+
+## Preparação para acesso autenticado e produção
+
+- O acesso de demonstração fica desabilitado por configuração; as prévias editoriais continuam privadas e disponíveis após login. Desabilitar esse acesso não publica nem apaga rascunhos existentes.
+- A configuração local foi atualizada para `CMS_LOCAL_PREVIEW=0`. A tela de login foi conferida no navegador, sem o bloco de apresentação; `/api/local-session` retornou 404 e os dados administrativos exigiram autenticação. A conta ativa de Vicente foi preservada.
+- Sessões antigas de demonstração são removidas quando esse acesso é desativado. O teste de regressão confirmou que reativar o modo futuramente não recupera esses cookies, preservando as sessões das contas individuais.
+- `compose.production.yml` fixa o modo de produção e desabilita o acesso demonstrativo, usa o Dockerfile existente e mantém os dados em um volume nomeado. A porta é exposta somente no loopback do servidor.
+- A configuração Compose foi validada com valores fictícios em um diretório temporário, inclusive a precedência das variáveis, a restrição de porta e o volume persistente. Nenhum serviço foi iniciado pelo Compose.
+- `deploy/production.env.example` é um modelo sem senha e sem domínio escolhido. A cópia preenchida `.env.production`, os diretórios de recuperação e os backups ficam fora do Git e do contexto de build.
+- A precedência do ambiente foi comprovada em subprocesso isolado: `NODE_ENV=production` e `CMS_LOCAL_PREVIEW=0` já definidos não são substituídos por um arquivo `.env` com outros valores.
+- O readiness de produção verifica a origem exata, a sintaxe dos proxies confiáveis e `/api/session`, recusando acesso demonstrativo ou uma sessão aberta sem autenticação.
+- Nenhum `compose up`, alteração de domínio ou nova infraestrutura foi executado na preparação deste kit. Hospedagem, TLS e publicação continuam dependendo do destino escolhido.
 
 ## Evidências locais
 

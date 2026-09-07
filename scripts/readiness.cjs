@@ -1,5 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const { isIP } = require("node:net");
 const { args, loadEnv } = require("./cli.cjs");
 
 async function readiness({
@@ -92,12 +93,25 @@ async function readiness({
     );
     const trust = (env.CMS_TRUST_PROXY || "")
       .split(",")
-      .map((item) => item.trim());
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const validProxy = trust.every((value) => {
+      const [address, prefix, ...extra] = value.split("/");
+      const family = isIP(address);
+      return (
+        !!family &&
+        !extra.length &&
+        (prefix === undefined ||
+          (/^\d+$/.test(prefix) &&
+            Number(prefix) >= 1 &&
+            Number(prefix) <= (family === 4 ? 32 : 128)))
+      );
+    });
     check(
       "Proxy",
-      !trust.some((item) => ["true", "*", "0.0.0.0/0", "::/0"].includes(item)),
-      "Sem confiança irrestrita em endereços encaminhados.",
-      "Confie apenas no IP ou CIDR específico do proxy da hospedagem.",
+      validProxy,
+      "Lista de IPs/CIDRs explícitos válida; sem confiança irrestrita.",
+      "Configure apenas IPs ou CIDRs válidos e específicos do proxy da hospedagem, sem curingas.",
     );
   }
   let origin;
@@ -116,6 +130,7 @@ async function readiness({
     )
       throw new Error();
   } catch {
+    origin = undefined;
     checks.push({
       name: "HTTP",
       state: "fail",
@@ -124,18 +139,28 @@ async function readiness({
     });
   }
   if (origin) {
-    if (production)
+    if (production) {
       check(
         "HTTPS público",
         origin.protocol === "https:",
         "A verificação HTTP usa TLS validado pelo Node.",
         "A liberação de produção exige verificação no domínio HTTPS público.",
       );
+      check(
+        "Domínio verificado",
+        origin.origin === env.CMS_ORIGIN,
+        "A origem consultada é a mesma configurada em CMS_ORIGIN.",
+        "O endereço de --url deve corresponder exatamente à origem configurada em CMS_ORIGIN.",
+      );
+    }
     for (const [name, route, kind] of [
       ["Saúde da API", "/api/health", "health"],
       ["Conteúdo público", "/api/content", "content"],
       ["Blog", "/blog/", "html"],
       ["Painel", "/admin/", "admin"],
+      ...(production
+        ? [["Acesso autenticado", "/api/session", "session"]]
+        : []),
     ]) {
       try {
         const response = await fetchFn(new URL(route, origin), {
@@ -143,12 +168,16 @@ async function readiness({
           signal: AbortSignal.timeout(8_000),
         });
         let valid = response.ok;
-        if (valid && (kind === "health" || kind === "content")) {
+        if (valid && ["health", "content", "session"].includes(kind)) {
           const body = await response.json();
           valid =
             kind === "health"
               ? body.ok === true
-              : !!body.content?.site && !!body.content?.selection;
+              : kind === "session"
+                ? body.localPreview === false &&
+                  body.authenticated === false &&
+                  body.user === null
+                : !!body.content?.site && !!body.content?.selection;
         } else if (valid) {
           const html = await response.text();
           valid =

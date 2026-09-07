@@ -2,6 +2,11 @@
 node_modules
 dist
 data
+data-restored
+data-restored-*
+backups
+.nexo-backup-*
+.nexo-restore-*
 .env
 .env.*
 .DS_Store

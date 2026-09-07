@@ -11,7 +11,7 @@ npm ci
 cp .env.example .env
 ```
 
-Para conhecer o painel localmente, defina `CMS_LOCAL_PREVIEW=1` no arquivo `.env` e execute:
+No arquivo `.env`, configure `ADMIN_EMAIL` e uma `ADMIN_PASSWORD` exclusiva com pelo menos 12 caracteres. Mantenha `CMS_LOCAL_PREVIEW=0`. Depois execute:
 
 ```sh
 npm run dev
@@ -22,7 +22,7 @@ npm run dev
 - Painel: <http://127.0.0.1:8080/admin/>
 - API: <http://127.0.0.1:3001/>
 
-O Webpack atende a interface na porta 8080 e encaminha `/api`, `/uploads` e `/blog` para o Fastify na porta 3001. Os dois processos iniciam juntos. A prévia local permite avaliar o editor sem configurar credenciais; mantenha-a restrita ao computador de desenvolvimento.
+O Webpack atende a interface na porta 8080 e encaminha `/api`, `/uploads` e `/blog` para o Fastify na porta 3001. Os dois processos iniciam juntos. Entre no painel com o e-mail e a senha configurados. O acesso de demonstração está desabilitado; a pré-visualização editorial dos rascunhos permanece disponível após entrar.
 
 ## Painel essencial
 
@@ -60,7 +60,7 @@ Abra **Blog do Nexo** no painel para criar artigos, acompanhar rascunhos e geren
 
 O blog público tem busca, filtro por categoria e paginação. O servidor entrega o conteúdo completo das páginas, incluindo título, descrição e endereço canônico, sem depender de JavaScript para a leitura. O Markdown não executa HTML e restringe os protocolos de links; a prévia exige uma sessão administrativa. No editor, `⌘ S` ou `Ctrl S` salva o rascunho. O painel salva rascunhos automaticamente após a edição válida e mantém uma cópia de recuperação neste navegador, quando o armazenamento local está disponível. Publicar sempre exige revisão e confirmação. O histórico do artigo permite recuperar versões anteriores sem alterar a publicação no ar; mudanças simultâneas e recuperação de cópias antigas exigem revisão.
 
-No modo `CMS_LOCAL_PREVIEW=1`, o banco recebe três **rascunhos demonstrativos**, identificados no próprio texto. Eles ajudam a avaliar o layout e o fluxo editorial; não são publicações institucionais aprovadas e não aparecem para visitantes. Em produção não são criados artigos de exemplo. Publicar no ambiente local altera apenas esse ambiente; não envia conteúdo para uma hospedagem externa.
+Os bancos usados anteriormente para avaliação podem conter **rascunhos demonstrativos**, identificados no próprio texto. Eles permanecem sem publicação e devem ser revisados pela equipe antes de qualquer uso institucional. O acesso de demonstração fica desabilitado com `CMS_LOCAL_PREVIEW=0`; isso preserva os rascunhos existentes e a prévia editorial autenticada. Em produção não são criados artigos de exemplo. Publicar no ambiente local altera apenas esse ambiente; não envia conteúdo para uma hospedagem externa.
 
 ## Estrutura
 
@@ -120,7 +120,7 @@ npm run build
 NODE_ENV=production npm start
 ```
 
-Consulte `.env.example` para os nomes das configurações. Não adicione `.env`, senhas, banco de dados ou uploads ao Git.
+Consulte `.env.example` para desenvolvimento e `deploy/production.env.example` para produção. Variáveis já definidas no ambiente têm precedência sobre o arquivo `.env`. O comando `npm start` não muda o modo por conta própria: use `NODE_ENV=production npm start` com a origem HTTPS e as credenciais corretas. Não adicione arquivos de ambiente preenchidos, senhas, bancos ou uploads ao Git.
 
 ### Docker
 
@@ -142,6 +142,41 @@ docker run --rm --name nexo \
 ```
 
 Use um `.env` preparado para produção. Configure o domínio HTTPS e o encaminhamento da porta no ambiente de hospedagem. O exemplo expõe a porta somente no computador local.
+
+### Implantação preparada com Docker Compose
+
+O arquivo `compose.production.yml` prepara uma única aplicação Node, com volume nomeado persistente, reinício automático e logs com limite de tamanho. Ele fixa `NODE_ENV=production` e `CMS_LOCAL_PREVIEW=0`, mesmo se um arquivo de ambiente contiver outros valores. A porta do serviço fica restrita a `127.0.0.1` no servidor; o domínio público deve ser atendido por um proxy reverso com HTTPS.
+
+Prepare os arquivos no servidor escolhido:
+
+```sh
+cp deploy/production.env.example .env.production
+chmod 600 .env.production
+```
+
+Preencha `CMS_ORIGIN` com a origem HTTPS exata, `ADMIN_PASSWORD` com uma senha exclusiva e `CMS_TRUST_PROXY` com o IP/CIDR real do proxy. O modelo já identifica o administrador inicial; confira os demais valores. `.env.production` é ignorado pelo Git e pelo contexto de build. Não inclua segredos no arquivo de exemplo. Não há domínio, senha ou provedor contratado pelo Compose.
+
+Valide a configuração sem imprimir os segredos:
+
+```sh
+docker compose --env-file .env.production -f compose.production.yml config --quiet
+```
+
+Depois de preparar o destino e seu proxy, a ativação explícita é:
+
+```sh
+docker compose --env-file .env.production -f compose.production.yml up -d --build
+```
+
+O volume `nexo-data` recebe banco, uploads, originais e backups; trocar o contêiner preserva esses dados. `NEXO_HTTP_PORT` muda apenas a porta local do servidor. Configure o proxy para encaminhar o domínio HTTPS a essa porta e confirme o endereço de origem que chega ao Fastify antes de definir os proxies confiáveis. Não use curingas. O Compose não instala certificado nem altera DNS.
+
+Para repetir a verificação com as variáveis e o build do contêiner:
+
+```sh
+docker compose --env-file .env.production -f compose.production.yml exec nexo npm run check:readiness -- --production
+```
+
+Esse comando verifica o domínio de `CMS_ORIGIN`, inclusive a ausência de acesso demonstrativo na resposta real de sessão. Ainda é necessário confirmar o volume após um reinício, a cópia de backup fora do servidor, a recuperação e os acessos da equipe. Não execute `down --volumes` durante atualizações: essa opção remove os dados persistentes.
 
 ### Persistência e backup
 
@@ -199,4 +234,4 @@ npm run check:readiness -- --url http://127.0.0.1:3001
 npm run check:readiness -- --production --url https://SEU-DOMINIO
 ```
 
-A verificação consulta saúde da API, conteúdo público, blog e painel; confere o build e, em produção, a origem HTTPS, a desativação da prévia local, as credenciais iniciais e a configuração de backups. Não exibe senhas. Um retorno positivo comprova essas verificações, mas ainda exige validar persistência, recuperação, contas e monitoramento na hospedagem real. Consulte `GO_LIVE_STATUS.md` para os critérios de liberação.
+A verificação consulta saúde da API, conteúdo público, blog e painel; confere o build e, em produção, exige que o endereço verificado corresponda à origem HTTPS configurada. Também valida os IPs/CIDRs do proxy, as credenciais iniciais, o backup e a resposta real de `/api/session`: ela deve indicar visitante sem sessão e acesso demonstrativo desabilitado. Não exibe senhas. Um retorno positivo comprova essas verificações, mas ainda exige validar persistência, recuperação, contas e monitoramento na hospedagem real. Consulte `GO_LIVE_STATUS.md` para os critérios de liberação.
