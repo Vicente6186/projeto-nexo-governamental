@@ -41,6 +41,12 @@ import {
 } from "./components";
 import { api, setCsrf } from "./api";
 import ThemeMenu from "./ThemeMenu";
+import AccessPanel from "./AccessPanel";
+import SessionRecovery from "./SessionRecovery";
+import ConflictReview from "./ConflictReview";
+import useDraftRecovery from "./useDraftRecovery";
+import { changes, editableCopy, validateSite } from "./site-editing.cjs";
+import "./workflow.css";
 import { Overview, SelectionEditor, ContactEditor } from "./EssentialPages";
 
 const BlogWorkspace = lazy(() => import("./BlogWorkspace"));
@@ -210,6 +216,7 @@ function App() {
     <Workspace
       session={session}
       initialState={state}
+      onSession={setSession}
       onLogout={() => {
         setSession(null);
         setState(null);
@@ -323,7 +330,7 @@ function Login({ session, onLogin }) {
     </div>
   );
 }
-function Workspace({ session, initialState, onLogout }) {
+function Workspace({ session, initialState, onLogout, onSession }) {
   const [state, setState] = useState(initialState),
     [content, setContent] = useState(initialState.draft),
     [route, setRoute] = useState(routeFromHash),
@@ -335,7 +342,18 @@ function Workspace({ session, initialState, onLogout }) {
     [uploading, setUploading] = useState(false),
     [previewMobile, setPreviewMobile] = useState(false),
     [previewKey, setPreviewKey] = useState(0),
-    [blogDirty, setBlogDirty] = useState(false);
+    [blogDirty, setBlogDirty] = useState(false),
+    [errors, setErrors] = useState({}),
+    [autosaving, setAutosaving] = useState(false),
+    [savePaused, setSavePaused] = useState(false),
+    [previewAnchor, setPreviewAnchor] = useState("");
+  const contentRef = useRef(content),
+    stateRef = useRef(state),
+    savingRef = useRef(null),
+    uploadRef = useRef(false),
+    saveActionRef = useRef(null);
+  contentRef.current = content;
+  stateRef.current = state;
   const blogDirtyRef = useRef(false);
   const routeRef = useRef(route);
   routeRef.current = route;
@@ -347,10 +365,10 @@ function Workspace({ session, initialState, onLogout }) {
   const sidebarRef = useRef(null),
     menuRef = useRef(null);
   const [compact, setCompact] = useState(
-    () => window.matchMedia("(max-width: 760px)").matches,
+    () => window.matchMedia("(max-width: 900px)").matches,
   );
   useEffect(() => {
-    const media = window.matchMedia("(max-width: 760px)");
+    const media = window.matchMedia("(max-width: 900px)");
     const update = () => {
       setCompact(media.matches);
       if (!media.matches) setMobileNav(false);
@@ -394,7 +412,59 @@ function Workspace({ session, initialState, onLogout }) {
   const dirty = JSON.stringify(content) !== JSON.stringify(state.draft);
   const pending = JSON.stringify(content) !== JSON.stringify(state.published);
   const navId = route.startsWith("blog/") ? "blog" : route;
-  const status = effectiveStatus(content.selection);
+  const recovery = useDraftRecovery({
+    key: `site:${session.user?.id || session.user?.email || "local"}`,
+    value: content,
+    version: state.version,
+    base: state.draft,
+    dirty,
+  });
+  const publicationChanges = changes(content, state.published);
+  useEffect(() => {
+    const previous = document.activeElement;
+    const timer = setTimeout(() => {
+      const current = document.activeElement;
+      if (
+        current === previous ||
+        (current === document.body && !previous?.isConnected)
+      ) {
+        document
+          .getElementById("workspace-main")
+          ?.focus({ preventScroll: true });
+      }
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [route]);
+  useEffect(() => {
+    if (
+      !dirty ||
+      uploading ||
+      busy ||
+      autosaving ||
+      recovery.recovery ||
+      modal ||
+      savePaused ||
+      Object.keys(validateSite(content)).length
+    )
+      return;
+    const timer = setTimeout(() => {
+      setAutosaving(true);
+      saveDraft()
+        .catch(fail)
+        .finally(() => setAutosaving(false));
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [
+    content,
+    state.version,
+    dirty,
+    uploading,
+    busy,
+    autosaving,
+    recovery.recovery,
+    modal,
+    savePaused,
+  ]);
   const today = new Intl.DateTimeFormat("pt-BR", {
     day: "numeric",
     month: "long",
@@ -439,6 +509,14 @@ function Workspace({ session, initialState, onLogout }) {
   }, [dirty, blogDirty]);
   useEffect(() => {
     const handle = (e) => {
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        e.key.toLowerCase() === "s" &&
+        !routeRef.current.startsWith("blog")
+      ) {
+        e.preventDefault();
+        saveActionRef.current?.();
+      }
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setQuery("");
@@ -457,31 +535,76 @@ function Workspace({ session, initialState, onLogout }) {
   function notify(text, error = false) {
     setToast({ text, error });
   }
+  function focusError(field) {
+    navigate(field.startsWith("site.") ? "contato" : "processo");
+    setTimeout(() => {
+      const input = [...document.querySelectorAll("[data-field]")].find(
+        (item) => item.dataset.field === field,
+      );
+      input?.focus();
+      input?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 100);
+  }
+  function checkContent(publishing = false) {
+    const found = validateSite(contentRef.current, { publishing });
+    setErrors(found);
+    if (!Object.keys(found).length) return true;
+    focusError(Object.keys(found)[0]);
+    notify("Revise o campo indicado para continuar.", true);
+    return false;
+  }
   function fail(e) {
+    setSavePaused(true);
+    if (e.field) {
+      setErrors((current) => ({ ...current, [e.field]: e.message }));
+      if (modal === "publish") setModal(null);
+      focusError(e.field);
+    }
     notify(
-      e.status === 409
-        ? "Outra pessoa atualizou este conteúdo. Recarregue os dados para revisar a versão mais recente."
-        : e.message,
+      e.message || "Não foi possível concluir. Sua edição está preservada.",
       true,
     );
     if (e.status === 409) setModal("conflict");
     if (e.status === 401) setModal("expired");
   }
-  function accept(data) {
+  function accept(data, submitted) {
+    stateRef.current = data;
     setState(data);
-    setContent(data.draft);
+    if (
+      !submitted ||
+      JSON.stringify(contentRef.current) === JSON.stringify(submitted)
+    ) {
+      contentRef.current = data.draft;
+      setContent(data.draft);
+    }
+    setSavePaused(false);
     return data;
   }
   async function saveDraft() {
-    if (!dirty) return state;
-    return accept(
-      await api("/api/admin/content", {
-        method: "PUT",
-        body: { content, version: state.version },
-      }),
-    );
+    if (savingRef.current) await savingRef.current;
+    const snapshot = structuredClone(contentRef.current),
+      currentState = stateRef.current;
+    if (JSON.stringify(snapshot) === JSON.stringify(currentState.draft))
+      return currentState;
+    const found = validateSite(snapshot);
+    if (Object.keys(found).length)
+      throw Object.assign(new Error(found[Object.keys(found)[0]]), {
+        field: Object.keys(found)[0],
+      });
+    const request = api("/api/admin/content", {
+      method: "PUT",
+      body: { content: snapshot, version: currentState.version },
+    }).then((data) => accept(data, snapshot));
+    savingRef.current = request;
+    try {
+      return await request;
+    } finally {
+      if (savingRef.current === request) savingRef.current = null;
+    }
   }
   async function save() {
+    if (busy || uploadRef.current || recovery.recovery || !checkContent())
+      return;
     setBusy(true);
     try {
       await saveDraft();
@@ -492,7 +615,16 @@ function Workspace({ session, initialState, onLogout }) {
       setBusy(false);
     }
   }
+  saveActionRef.current = save;
+  function reviewPublication() {
+    if (busy || uploadRef.current || recovery.recovery || !checkContent(true))
+      return;
+    if (!changes(contentRef.current, stateRef.current.published).length)
+      return notify("O site já está atualizado.");
+    setModal("publish");
+  }
   async function publish() {
+    if (uploadRef.current || !checkContent(true)) return;
     setBusy(true);
     try {
       const latest = await saveDraft();
@@ -510,15 +642,57 @@ function Workspace({ session, initialState, onLogout }) {
     }
   }
   async function preview() {
+    if (uploadRef.current || recovery.recovery || !checkContent()) return;
     setBusy(true);
     try {
       await saveDraft();
+      setPreviewAnchor(
+        route === "processo"
+          ? "#selective-process"
+          : route === "contato"
+            ? "#contact"
+            : "",
+      );
       setPreviewKey((k) => k + 1);
       setModal("preview");
     } catch (e) {
       fail(e);
     } finally {
       setBusy(false);
+    }
+  }
+  function restoreLocal() {
+    const saved = recovery.recovery;
+    if (!saved) return;
+    try {
+      const recovered = editableCopy(stateRef.current.draft, saved.value);
+      if (
+        !Array.isArray(recovered.selection.stages) ||
+        recovered.selection.stages.some(
+          (stage) => !stage || typeof stage.title !== "string",
+        )
+      )
+        throw new Error();
+      validateSite(recovered);
+      if (saved.version !== stateRef.current.version) {
+        setModal({
+          type: "recovery-conflict",
+          base: saved.base || {},
+          local: recovered,
+        });
+        return;
+      }
+      recovery.restore();
+      contentRef.current = recovered;
+      setContent(recovered);
+      setSavePaused(false);
+      notify("Edição recuperada. Revise antes de publicar.");
+    } catch {
+      recovery.discard();
+      notify(
+        "A cópia local está incompleta e não pôde ser recuperada. O rascunho salvo continua disponível.",
+        true,
+      );
     }
   }
   async function logout() {
@@ -541,14 +715,32 @@ function Workspace({ session, initialState, onLogout }) {
       setBusy(false);
     }
   }
+  function clearFieldErrors(group, patch) {
+    setErrors((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(
+          ([field]) =>
+            !Object.keys(patch).some(
+              (key) =>
+                field === `${group}.${key}` ||
+                field.startsWith(`${group}.${key}.`),
+            ),
+        ),
+      ),
+    );
+    setSavePaused(false);
+  }
   function updateSelection(patch) {
+    clearFieldErrors("selection", patch);
     setContent((c) => ({ ...c, selection: { ...c.selection, ...patch } }));
   }
   function updateSite(patch) {
+    clearFieldErrors("site", patch);
     setContent((c) => ({ ...c, site: { ...c.site, ...patch } }));
   }
   async function uploadNotice(file) {
-    if (!file || uploading) return;
+    if (!file || uploadRef.current) return;
+    uploadRef.current = true;
     setUploading(true);
     try {
       if (file.size > 8 * 1024 * 1024)
@@ -562,6 +754,13 @@ function Workspace({ session, initialState, onLogout }) {
         method: "POST",
         form,
       });
+      setState((current) => ({
+        ...current,
+        assets: [
+          asset,
+          ...(current.assets || []).filter((item) => item.id !== asset.id),
+        ],
+      }));
       updateSelection({ noticeUrl: asset.url });
       notify(
         "Edital adicionado ao rascunho. Publique as alterações para atualizar o site.",
@@ -569,6 +768,7 @@ function Workspace({ session, initialState, onLogout }) {
     } catch (e) {
       fail(e);
     } finally {
+      uploadRef.current = false;
       setUploading(false);
     }
   }
@@ -649,15 +849,26 @@ function Workspace({ session, initialState, onLogout }) {
         </nav>
         <div className="sidebar-bottom">
           <div className="user-block">
-            <div className="avatar">NG</div>
-            <div>
-              <strong>{session.user?.name || "Equipe Nexo"}</strong>
-              <small>
-                {session.localPreview
-                  ? "Prévia local"
-                  : "Administração do site"}
-              </small>
-            </div>
+            <button
+              className="user-access"
+              aria-label="Meu acesso"
+              onClick={() => {
+                setMobileNav(false);
+                setModal("access");
+              }}
+            >
+              <span className="avatar">NG</span>
+              <span>
+                <strong>{session.user?.name || "Equipe Nexo"}</strong>
+                <small>
+                  {session.user?.id === "local-preview"
+                    ? "Prévia local"
+                    : session.user?.role === "admin"
+                      ? "Administrador"
+                      : "Editor"}
+                </small>
+              </span>
+            </button>
             <button
               onClick={logout}
               className="icon-button"
@@ -733,7 +944,39 @@ function Workspace({ session, initialState, onLogout }) {
               </div>
             </div>
           )}
-          <fieldset className="workspace-fields" disabled={busy}>
+          {navId !== "blog" && recovery.recovery && (
+            <div className="recovery-banner" role="status">
+              <div>
+                <strong>
+                  Encontramos uma edição não salva neste navegador.
+                </strong>
+                <p>
+                  Você pode recuperá-la ou continuar com o rascunho da equipe.
+                </p>
+              </div>
+              <div>
+                <Button onClick={recovery.discard}>
+                  Descartar cópia local
+                </Button>
+                <Button variant="primary" onClick={restoreLocal}>
+                  Recuperar edição
+                </Button>
+              </div>
+            </div>
+          )}
+          {navId !== "blog" && !recovery.available && dirty && (
+            <div className="notice">
+              <Info size={18} />
+              <p>
+                Este navegador não permite guardar uma cópia local. Salve o
+                rascunho antes de fechar a página.
+              </p>
+            </div>
+          )}
+          <fieldset
+            className="workspace-fields"
+            disabled={busy || (navId !== "blog" && Boolean(recovery.recovery))}
+          >
             {navId === "inicio" && (
               <Overview
                 content={content}
@@ -742,7 +985,7 @@ function Workspace({ session, initialState, onLogout }) {
                 pending={pending}
                 navigate={navigate}
                 onPreview={preview}
-                onPublish={() => setModal("publish")}
+                onPublish={reviewPublication}
                 busy={busy || uploading}
               />
             )}
@@ -753,18 +996,23 @@ function Workspace({ session, initialState, onLogout }) {
                 disabled={busy}
                 onUploadNotice={uploadNotice}
                 uploading={uploading}
+                assets={state.assets || []}
+                errors={errors}
               />
             )}
             {navId === "contato" && (
               <ContactEditor
                 site={content.site}
+                errors={errors}
                 onChange={updateSite}
                 disabled={busy}
               />
             )}
             {navId === "blog" && (
               <Suspense
-                fallback={<Loading label="Abrindo o espaço editorial…" />}
+                fallback={
+                  <Loading compact label="Abrindo o espaço editorial…" />
+                }
               >
                 <BlogWorkspace
                   route={route}
@@ -786,21 +1034,35 @@ function Workspace({ session, initialState, onLogout }) {
         </main>
         {navId !== "blog" && (dirty || pending) && (
           <div className="save-bar">
-            <div role="status">
+            <div role="status" data-testid="site-save-state">
               <span className={dirty ? "amber-dot" : "green-dot"} />
               <strong>
-                {dirty ? "Alterações não salvas" : "Rascunho salvo"}
+                {autosaving
+                  ? "Salvando rascunho…"
+                  : dirty
+                    ? savePaused
+                      ? "Salvamento pausado"
+                      : "Alterações não salvas"
+                    : "Rascunho salvo"}
               </strong>
               <span className="save-bar-detail">
                 {dirty
-                  ? "Salve para continuar depois."
+                  ? savePaused
+                    ? "Sua edição foi preservada. Revise e salve novamente."
+                    : "Salvamento automático após a edição."
                   : "Revise e publique quando estiver pronto."}
               </span>
             </div>
             <div>
               <Button
                 icon={Save}
-                disabled={!dirty || busy || uploading}
+                disabled={
+                  !dirty ||
+                  busy ||
+                  uploading ||
+                  autosaving ||
+                  Boolean(recovery.recovery)
+                }
                 onClick={save}
               >
                 {busy ? "Aguarde…" : "Salvar rascunho"}
@@ -808,8 +1070,10 @@ function Workspace({ session, initialState, onLogout }) {
               <Button
                 variant="primary"
                 icon={Upload}
-                disabled={busy || uploading}
-                onClick={() => setModal("publish")}
+                disabled={
+                  busy || uploading || autosaving || Boolean(recovery.recovery)
+                }
+                onClick={reviewPublication}
               >
                 Publicar alterações
               </Button>
@@ -835,20 +1099,22 @@ function Workspace({ session, initialState, onLogout }) {
           description="Confira as informações que serão atualizadas no site."
           onClose={() => !busy && setModal(null)}
         >
-          <div className="publish-summary">
-            {JSON.stringify(content.selection) !==
-              JSON.stringify(state.published.selection) && (
-              <span>
-                <CalendarDays size={18} /> Processo seletivo ·{" "}
-                {status.label.toLowerCase()}
-              </span>
-            )}
-            {JSON.stringify(content.site) !==
-              JSON.stringify(state.published.site) && (
-              <span>
-                <Mail size={18} /> Canais de contato atualizados
-              </span>
-            )}
+          <div className="publication-diff">
+            {publicationChanges.map((item) => (
+              <div className="diff-item" key={item.path}>
+                <strong>{item.label}</strong>
+                <div className="diff-values">
+                  <div>
+                    <small>No site agora</small>
+                    <p>{item.before}</p>
+                  </div>
+                  <div>
+                    <small>Após publicar</small>
+                    <p>{item.after}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
           <p className="modal-text">
             {dirty
@@ -908,7 +1174,11 @@ function Workspace({ session, initialState, onLogout }) {
                 <Smartphone size={18} />
               </button>
             </div>
-            <a href="/?preview=1" target="_blank" rel="noreferrer">
+            <a
+              href={`/?preview=1${previewAnchor}`}
+              target="_blank"
+              rel="noreferrer"
+            >
               Abrir <ArrowUpRight size={15} />
             </a>
           </div>
@@ -918,7 +1188,7 @@ function Workspace({ session, initialState, onLogout }) {
             <iframe
               key={previewKey}
               title="Prévia do site Nexo Governamental"
-              src="/?preview=1"
+              src={`/?preview=1${previewAnchor}`}
             />
           </div>
         </Modal>
@@ -972,8 +1242,8 @@ function Workspace({ session, initialState, onLogout }) {
           onClose={() => setModal(null)}
         >
           <p className="modal-text">
-            Volte à edição para salvar o rascunho ou descarte apenas as
-            alterações desta sessão.
+            Volte à edição para salvar o rascunho. Ao sair, o painel mantém a
+            versão que já chegou ao servidor.
           </p>
           <div className="modal-actions">
             <Button onClick={() => setModal(null)}>Continuar editando</Button>
@@ -991,35 +1261,58 @@ function Workspace({ session, initialState, onLogout }) {
           </div>
         </Modal>
       )}
-      {["conflict", "expired", "logout"].includes(modal) && (
+      {modal === "access" && (
+        <AccessPanel
+          session={session}
+          onClose={() => setModal(null)}
+          onSession={onSession}
+          notify={notify}
+          onExpired={() => setModal("expired")}
+        />
+      )}
+      {modal === "expired" && (
+        <SessionRecovery
+          session={session}
+          onSession={(next) => {
+            onSession(next);
+            setSavePaused(false);
+          }}
+          onClose={() => setModal(null)}
+          notify={notify}
+        />
+      )}
+      {(modal === "conflict" || modal?.type === "recovery-conflict") && (
+        <ConflictReview
+          base={modal?.type === "recovery-conflict" ? modal.base : state.draft}
+          local={modal?.type === "recovery-conflict" ? modal.local : content}
+          onClose={() => setModal(null)}
+          onExpired={() => setModal("expired")}
+          onApply={(latest, merged) => {
+            if (modal?.type === "recovery-conflict") recovery.restore();
+            stateRef.current = latest;
+            contentRef.current = merged;
+            setState(latest);
+            setContent(merged);
+            setSavePaused(false);
+            setErrors({});
+            setModal(null);
+            notify("Escolhas aplicadas ao rascunho. Revise antes de publicar.");
+          }}
+        />
+      )}
+      {modal === "logout" && (
         <Modal
-          title={
-            modal === "conflict"
-              ? "Há uma versão mais recente."
-              : modal === "expired"
-                ? "Sua sessão expirou."
-                : "Sair com alterações pendentes?"
-          }
+          title="Sair com alterações pendentes?"
           onClose={() => setModal(null)}
         >
           <p className="modal-text">
-            {modal === "conflict"
-              ? "Suas alterações continuam nesta tela. Copie o que deseja preservar antes de recarregar, pois o rascunho será substituído pela versão mais recente."
-              : modal === "expired"
-                ? "Copie os textos que ainda não foram salvos. Entre novamente para continuar a edição."
-                : "O que ainda não foi salvo será perdido. Você pode voltar, salvar o rascunho e sair em seguida."}
+            Há alterações que ainda não chegaram ao servidor. Volte à edição
+            para salvar antes de sair.
           </p>
           <div className="modal-actions">
             <Button onClick={() => setModal(null)}>Voltar à edição</Button>
-            <Button
-              variant="primary"
-              onClick={
-                modal === "logout"
-                  ? performLogout
-                  : () => window.location.reload()
-              }
-            >
-              {modal === "logout" ? "Sair sem salvar" : "Recarregar painel"}
+            <Button variant="primary" disabled={busy} onClick={performLogout}>
+              Sair sem salvar
             </Button>
           </div>
         </Modal>

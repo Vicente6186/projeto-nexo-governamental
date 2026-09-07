@@ -21,6 +21,7 @@
   --subtle: #626b83;
   --line: #e0e4ef;
   --line-strong: #c8cfe1;
+  --control-border: #8590a9;
   --accent: var(--brand-primary);
   --accent-hover: #2b3671;
   --accent-soft: #eceef8;
@@ -62,6 +63,7 @@
   --subtle: #99a5c1;
   --line: #2c3553;
   --line-strong: #435174;
+  --control-border: #657699;
   --accent: #a9b6f5;
   --accent-hover: #c0cafb;
   --accent-soft: #252e56;
@@ -183,12 +185,24 @@ fieldset {
   }
 }
 .loading {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   gap: 12px;
   align-items: center;
   justify-content: center;
   color: var(--muted);
+}
+
+/* Embedded loading states should not push the surrounding page off screen. */
+.loading-compact,
+.main-content .loading,
+.modal .loading {
+  min-height: 220px;
+  border-radius: 12px;
+  background: var(--surface-inset);
+}
+.modal .loading {
+  min-height: 160px;
 }
 
 /* A quiet, consistent frame leaves the content in focus. */
@@ -273,13 +287,13 @@ fieldset {
 .workspace-switch small {
   display: block;
   margin-top: 3px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
 }
 .nav-label {
   padding: 0 11px;
   margin-bottom: 10px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--muted);
   letter-spacing: 0.6px;
@@ -314,11 +328,11 @@ fieldset {
 }
 .nav-item small {
   margin-left: auto;
-  font-size: 11px;
+  font-size: 12px;
 }
 .soon-label {
   margin-left: auto;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--subtle);
 }
 .sidebar-bottom {
@@ -341,7 +355,7 @@ fieldset {
   border-radius: 50%;
   background: var(--surface-muted);
   color: var(--accent);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
 }
 .avatar {
@@ -360,7 +374,7 @@ fieldset {
   display: block;
   margin-top: 3px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .user-block .icon-button {
   margin-left: auto;
@@ -441,7 +455,7 @@ fieldset {
   border-radius: 5px;
   color: var(--subtle);
   font: inherit;
-  font-size: 11px;
+  font-size: 12px;
 }
 .topbar-separator {
   width: 1px;
@@ -483,7 +497,7 @@ fieldset {
 .eyebrow {
   display: block;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.5;
   font-weight: 500;
   letter-spacing: 1.1px;
@@ -530,7 +544,7 @@ fieldset {
   padding-top: 20px;
   border-top: 1px solid var(--line);
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.6;
 }
 .workspace-footer > span:first-child {
@@ -576,7 +590,7 @@ fieldset {
 .button-secondary {
   color: var(--text);
   background: var(--surface);
-  border-color: var(--line-strong);
+  border-color: var(--control-border);
 }
 .button-secondary:hover:not(:disabled) {
   background: var(--surface-hover);
@@ -622,7 +636,7 @@ fieldset {
   width: fit-content;
   padding: 4px 8px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   line-height: 1.4;
   white-space: nowrap;
@@ -689,7 +703,7 @@ fieldset {
 }
 .card-count {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   white-space: nowrap;
 }
 .card-heading h2 {
@@ -767,7 +781,7 @@ fieldset {
 .theme-option-copy span {
   display: block;
   margin-top: 3px;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.4;
   color: var(--muted);
 }
@@ -824,7 +838,7 @@ fieldset {
 .dashboard-intro .eyebrow {
   color: var(--hero-muted);
   letter-spacing: 1.45px;
-  font-size: 11px;
+  font-size: 12px;
 }
 .dashboard-intro h2 {
   margin-top: 9px;
@@ -875,7 +889,7 @@ fieldset {
   color: var(--muted);
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
-  font-size: 11px;
+  font-size: 12px;
 }
 .section-row {
   display: grid;
@@ -908,7 +922,7 @@ fieldset {
 .section-number {
   flex-shrink: 0;
   color: var(--subtle);
-  font-size: 11px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 .section-row-info img {
@@ -936,7 +950,7 @@ fieldset {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.5;
 }
 .section-overview-footer {
@@ -950,7 +964,7 @@ fieldset {
   background: var(--surface-inset);
   border: 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .section-overview-footer > span {
   display: inline-flex;
@@ -1011,7 +1025,7 @@ fieldset {
 }
 .selection-dates span {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
 }
 .selection-dates strong {
@@ -1105,7 +1119,7 @@ fieldset {
   padding-top: 14px;
   border-top: 1px solid var(--line);
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.65;
 }
 .last-published i {
@@ -1114,7 +1128,7 @@ fieldset {
 .last-published .text-button {
   min-height: 34px;
   padding-block: 5px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 /* Content table and editor. */
@@ -1125,7 +1139,7 @@ fieldset {
   gap: 15px;
   margin-bottom: 15px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.6;
 }
 .content-toolbar-label {
@@ -1151,7 +1165,7 @@ fieldset {
   background: var(--surface-inset);
   border-bottom: 1px solid var(--line);
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .content-row {
   border-bottom: 1px solid var(--line);
@@ -1212,7 +1226,7 @@ fieldset {
   align-items: center;
   gap: 8px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .content-row-action {
   justify-self: end;
@@ -1371,7 +1385,7 @@ fieldset {
 .field-label > span {
   flex-shrink: 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 .field input,
@@ -1382,7 +1396,7 @@ fieldset {
   max-width: 100%;
   min-height: 44px;
   padding: 11px 13px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--control-border);
   border-radius: 8px;
   background: var(--surface-inset);
   color: var(--text);
@@ -1416,8 +1430,26 @@ fieldset {
 .field-hint {
   margin-top: 8px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.7;
+}
+.field-error {
+  margin-top: 8px;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.7;
+}
+.field-invalid input,
+.field-invalid textarea,
+.field-invalid select {
+  border-color: var(--danger);
+}
+.field-invalid input:focus,
+.field-invalid textarea:focus,
+.field-invalid select:focus {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger), transparent 85%);
 }
 .field:has(+ .field-hint) {
   margin-bottom: 4px;
@@ -1437,7 +1469,7 @@ fieldset {
 .setting-row p {
   margin-top: 5px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.75;
 }
 .editor-aside {
@@ -1456,7 +1488,7 @@ fieldset {
   padding: 13px 19px;
   border-bottom: 1px solid var(--line);
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.35px;
 }
@@ -1470,7 +1502,7 @@ fieldset {
 }
 .mini-section-content > span {
   color: var(--accent);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.6;
 }
 .mini-section-content h2 {
@@ -1504,7 +1536,7 @@ fieldset {
   border-top: 1px solid var(--line);
   background: var(--surface-inset);
   color: var(--accent);
-  font-size: 11px;
+  font-size: 12px;
 }
 .preview-card-footer:hover {
   background: var(--accent-soft);
@@ -1529,7 +1561,7 @@ fieldset {
   border-radius: 6px;
 }
 .asset-field-bottom > .text-button {
-  font-size: 11px;
+  font-size: 12px;
 }
 .item-intro,
 .form-section-title {
@@ -1584,7 +1616,7 @@ fieldset {
 }
 .item-index {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 .item-editor-body {
@@ -1645,7 +1677,7 @@ fieldset {
 .status-options > button > span {
   margin-top: -6px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.55;
 }
 .status-options > button.selected {
@@ -1683,7 +1715,7 @@ fieldset {
 .process-edition {
   display: block;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.6;
 }
 .process-preview-body h2 {
@@ -1720,7 +1752,7 @@ fieldset {
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   color: var(--text);
-  font-size: 11px;
+  font-size: 12px;
 }
 .process-fake-button.application {
   margin-top: 9px;
@@ -1764,7 +1796,7 @@ fieldset {
   padding-top: 16px;
   border-top: 1px solid var(--line);
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.75;
 }
 .stage-editor {
@@ -1785,7 +1817,7 @@ fieldset {
   border-radius: 7px;
   background: var(--accent-soft);
   color: var(--accent);
-  font-size: 11px;
+  font-size: 12px;
   flex-shrink: 0;
 }
 .stage-fields {
@@ -1844,7 +1876,7 @@ fieldset {
 .upload-zone > span:last-child {
   margin-top: 12px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.6;
 }
 .library-toolbar {
@@ -1948,7 +1980,7 @@ fieldset {
   border-radius: 5px;
   background: var(--surface);
   color: var(--text);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
 }
 .media-card > section {
@@ -1969,7 +2001,7 @@ fieldset {
   justify-content: space-between;
   margin-top: 9px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .history-intro {
   display: flex;
@@ -2039,7 +2071,7 @@ fieldset {
   display: block;
   margin-top: 7px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .history-row > .button {
   margin-left: auto;
@@ -2056,7 +2088,7 @@ fieldset {
   align-items: center;
   gap: 8px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .search-preview-domain img {
   width: 24px;
@@ -2101,7 +2133,7 @@ fieldset {
   padding-top: 14px;
   border-top: 1px solid var(--line);
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   overflow-wrap: anywhere;
 }
 .blog-future {
@@ -2145,7 +2177,7 @@ fieldset {
   max-width: 500px;
   margin-top: 24px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.8;
 }
 .blog-future > .button {
@@ -2212,7 +2244,7 @@ fieldset {
 }
 .save-bar-detail {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .toast {
   position: fixed;
@@ -2368,7 +2400,7 @@ fieldset {
   align-items: center;
   gap: 8px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .preview-toolbar > div {
   display: flex;
@@ -2396,7 +2428,7 @@ fieldset {
   gap: 5px;
   min-height: 40px;
   color: var(--accent);
-  font-size: 11px;
+  font-size: 12px;
 }
 .preview-frame-wrap {
   display: flex;
@@ -2468,7 +2500,7 @@ fieldset {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .search-results > button > svg {
   color: var(--muted);
@@ -2534,7 +2566,7 @@ fieldset {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text);
-  font-size: 11px;
+  font-size: 12px;
 }
 .asset-picker-grid button:hover {
   border-color: var(--accent);
@@ -2583,7 +2615,7 @@ fieldset {
 }
 .login-copy > .eyebrow {
   color: var(--hero-muted);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 1.7px;
 }
 .login-copy h1 {
@@ -2606,7 +2638,7 @@ fieldset {
 }
 .login-credit {
   color: var(--hero-muted);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.5px;
 }
 .login-main {
@@ -2649,7 +2681,7 @@ fieldset {
   gap: 6px;
   margin-top: 28px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .local-entry {
   margin-top: 27px;
@@ -2661,7 +2693,7 @@ fieldset {
   display: block;
   margin-bottom: 13px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.7px;
 }
 .local-entry > .button {
@@ -2670,7 +2702,7 @@ fieldset {
 .local-entry p {
   margin-top: 12px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.8;
 }
 
@@ -2750,7 +2782,7 @@ fieldset {
     padding-inline: 22px;
   }
   .tabs > button {
-    font-size: 11px;
+    font-size: 12px;
   }
   .status-options {
     gap: 7px;
@@ -2825,7 +2857,7 @@ fieldset {
     padding-inline: 33px;
   }
 }
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .sidebar {
     width: 248px;
     padding: 26px 19px 0;
@@ -2932,7 +2964,7 @@ fieldset {
   }
   .view-site {
     padding-inline: 7px;
-    font-size: 11px;
+    font-size: 12px;
   }
   .view-site > svg {
     width: 13px;
@@ -2941,7 +2973,7 @@ fieldset {
     gap: 0;
   }
   .breadcrumbs strong {
-    font-size: 11px;
+    font-size: 12px;
     max-width: 125px;
   }
   .page-heading {
@@ -2955,7 +2987,7 @@ fieldset {
     font-size: 12px;
   }
   .page-heading .eyebrow {
-    font-size: 11px;
+    font-size: 12px;
   }
   .heading-actions {
     width: 100%;
@@ -2999,7 +3031,7 @@ fieldset {
     font-size: 15px;
   }
   .card-heading .text-button {
-    font-size: 11px;
+    font-size: 12px;
   }
   .section-list-head,
   .section-row {
@@ -3025,7 +3057,7 @@ fieldset {
     font-size: 12px;
   }
   .section-row-info div > span {
-    font-size: 11px;
+    font-size: 12px;
   }
   .section-row .badge {
     padding-inline: 6px;
@@ -3052,7 +3084,7 @@ fieldset {
   }
   .content-toolbar {
     flex-wrap: wrap;
-    font-size: 11px;
+    font-size: 12px;
   }
   .content-table-head {
     display: none;
@@ -3074,7 +3106,7 @@ fieldset {
     font-size: 13px;
   }
   .content-row-open div > span {
-    font-size: 11px;
+    font-size: 12px;
   }
   .content-row > .button,
   .content-row > .text-button {
@@ -3127,10 +3159,10 @@ fieldset {
     padding: 12px 9px;
   }
   .status-options > button > strong {
-    font-size: 11px;
+    font-size: 12px;
   }
   .status-options > button > span {
-    font-size: 11px;
+    font-size: 12px;
   }
   .status-options .option-check {
     top: 14px;
@@ -3169,13 +3201,13 @@ fieldset {
   }
   .item-actions .text-button,
   .item-actions .button {
-    font-size: 11px;
+    font-size: 12px;
   }
   .setting-row {
     gap: 14px;
   }
   .asset-field-bottom > .text-button {
-    font-size: 11px;
+    font-size: 12px;
     justify-content: flex-start;
   }
   .section-live-card > img {
@@ -3222,12 +3254,12 @@ fieldset {
     padding: 12px 10px;
   }
   .media-card strong {
-    font-size: 11px;
+    font-size: 12px;
   }
   .media-type {
     left: 8px;
     bottom: 8px;
-    font-size: 11px;
+    font-size: 12px;
     padding: 3px 5px;
   }
   .history-intro {
@@ -3264,10 +3296,10 @@ fieldset {
     font-size: 12px;
   }
   .history-row p {
-    font-size: 11px;
+    font-size: 12px;
   }
   .history-row .badge {
-    font-size: 11px;
+    font-size: 12px;
   }
   .blog-future {
     padding: 42px 23px;
@@ -3295,7 +3327,7 @@ fieldset {
     flex: 1;
     min-width: 0;
     padding-inline: 8px;
-    font-size: 11px;
+    font-size: 12px;
   }
   .save-bar .button > svg {
     width: 14px;
@@ -3340,7 +3372,7 @@ fieldset {
   }
   .preview-toolbar > span {
     max-width: 125px;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.5;
   }
   .preview-toolbar > span > i {
@@ -3351,7 +3383,7 @@ fieldset {
     height: 40px;
   }
   .preview-toolbar a {
-    font-size: 11px;
+    font-size: 12px;
   }
   .preview-frame-wrap.preview-mobile {
     padding-inline: 0;
@@ -3459,12 +3491,53 @@ fieldset {
     padding-inline: 11px;
   }
   .save-bar .button {
-    font-size: 11px;
+    font-size: 12px;
     gap: 5px;
     padding-inline: 5px;
   }
   .preview-toolbar > span {
     max-width: 92px;
+  }
+}
+/* Keep precise actions comfortable on touch screens without shrinking text. */
+@media (max-width: 900px), (pointer: coarse) {
+  .button,
+  .icon-button,
+  .text-button,
+  .theme-trigger,
+  .theme-option,
+  .search-trigger,
+  .view-site,
+  .preview-toolbar button,
+  .preview-toolbar a,
+  .tabs > button,
+  .segmented-tabs > button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .icon-button,
+  .theme-trigger,
+  .search-trigger,
+  .preview-toolbar button {
+    width: 44px;
+    height: 44px;
+  }
+  .topbar-actions {
+    gap: 5px;
+  }
+}
+@media (max-width: 359px) {
+  .topbar {
+    gap: 8px;
+  }
+  .topbar-actions {
+    gap: 2px;
+  }
+  .view-site {
+    font-size: 12px;
+  }
+  .breadcrumbs strong {
+    max-width: 66px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

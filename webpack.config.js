@@ -95,6 +95,7 @@ module.exports = {
     host: "127.0.0.1",
     port: 8080,
     open: false,
+    headers: { "Cache-Control": "no-store" },
     proxy: [
       {
         context: ["/api", "/uploads", "/blog"],
@@ -102,7 +103,7 @@ module.exports = {
       },
     ],
     historyApiFallback: {
-      rewrites: [{ from: /^\/admin/, to: "/admin/index.html" }],
+      rewrites: [{ from: /^\/admin(?:\/|$)/, to: "/admin/index.html" }],
     },
     watchFiles: ["./src"],
   },

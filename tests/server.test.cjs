@@ -1,8 +1,15 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { mkdtempSync, rmSync, mkdirSync, writeFileSync } = require("node:fs");
+const {
+  mkdtempSync,
+  rmSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+} = require("node:fs");
 const { tmpdir } = require("node:os");
 const path = require("node:path");
+const sharp = require("sharp");
 const { DatabaseSync } = require("node:sqlite");
 const { buildApp } = require("../server/app.cjs");
 const { DEFAULT_CONTENT } = require("../shared/content.cjs");
@@ -102,8 +109,10 @@ test("local preview is explicitly enabled, loopback-only and protected against f
   const authenticated = await app.inject({ url: "/api/session", headers });
   assert.equal(authenticated.json().authenticated, true);
   assert.deepEqual(authenticated.json().user, {
+    id: "local-preview",
     name: "Equipe Nexo",
     email: "",
+    role: "admin",
   });
   const disabled = await open({ NODE_ENV: "test" });
   assert.equal(
@@ -349,6 +358,36 @@ test("concurrent editors cannot overwrite or publish a stale version", async (t)
     assert.equal(response.statusCode, 409, response.body);
     assert.equal(response.json().currentVersion, saved.json().version);
   }
+});
+
+test("renewed cookies explicitly report stale CSRF before any content mutation", async (t) => {
+  const { app } = await fixture(t);
+  const firstTab = await localLogin(app);
+  const renewed = await localLogin(app);
+  const original = await getState(app, renewed);
+  const content = copy(original.draft);
+  content.selection.edition = "Alteração preservada";
+  const rejected = await app.inject({
+    method: "PUT",
+    url: "/api/admin/content",
+    headers: { ...renewed, "x-csrf-token": firstTab["x-csrf-token"] },
+    payload: { version: original.version, content },
+  });
+  assert.equal(rejected.statusCode, 403);
+  assert.equal(rejected.json().code, "CSRF_EXPIRED");
+  assert.deepEqual(await getState(app, renewed), original);
+  const session = await app.inject({
+    url: "/api/session",
+    headers: { cookie: renewed.cookie },
+  });
+  const saved = await app.inject({
+    method: "PUT",
+    url: "/api/admin/content",
+    headers: { ...renewed, "x-csrf-token": session.json().csrfToken },
+    payload: { version: original.version, content },
+  });
+  assert.equal(saved.statusCode, 200, saved.body);
+  assert.equal(saved.json().draft.selection.edition, content.selection.edition);
 });
 
 test("content validation rejects script URLs, invalid shapes, duplicate sections and impossible dates", async (t) => {
@@ -745,7 +784,7 @@ test("production refuses missing or weak credentials, HTTP origins and local pre
 });
 
 test("uploads verify signatures, persist metadata, use random names and serve with nosniff", async (t) => {
-  const { app } = await fixture(t);
+  const { app, dataDir } = await fixture(t);
   const headers = await localLogin(app);
   const boundary = "nexo-test-boundary";
   const upload = (buffer, mime = "image/png", name = "capa.png") =>
@@ -768,10 +807,16 @@ test("uploads verify signatures, persist metadata, use random names and serve wi
     (await upload(Buffer.from("<script>alert(1)</script>"))).statusCode,
     400,
   );
-  const png = Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=",
-    "base64",
-  );
+  const png = await sharp({
+    create: { width: 3000, height: 1600, channels: 3, background: "#191f51" },
+  })
+    .png()
+    .toBuffer();
+  const truncated = Buffer.alloc(24);
+  png.copy(truncated, 0, 0, 24);
+  const corrupt = await upload(truncated);
+  assert.equal(corrupt.statusCode, 400);
+  assert.equal(corrupt.json().code, "INVALID_IMAGE");
   assert.equal(
     (await upload(png, "application/pdf", "bad.pdf")).statusCode,
     400,
@@ -780,12 +825,25 @@ test("uploads verify signatures, persist metadata, use random names and serve wi
   assert.equal(response.statusCode, 201, response.body);
   const asset = response.json().asset;
   assert.equal(asset.name, "capa.png");
-  assert.match(asset.url, /^\/uploads\/[a-f0-9-]{36}\.png$/);
-  assert.equal(asset.size, png.length);
+  assert.match(asset.url, /^\/uploads\/[a-f0-9-]{36}\.webp$/);
+  assert.equal(asset.type, "image/webp");
+  assert.equal(asset.width, 2400);
+  assert.equal(asset.height, 1280);
+  assert.ok(asset.createdAt);
+  assert.ok(asset.size < png.length);
   const served = await app.inject(asset.url);
   assert.equal(served.statusCode, 200);
   assert.equal(served.headers["x-content-type-options"], "nosniff");
-  assert.deepEqual(served.rawPayload, png);
+  assert.equal(served.rawPayload.length, asset.size);
+  assert.equal((await sharp(served.rawPayload).metadata()).format, "webp");
+  assert.deepEqual(
+    readFileSync(path.join(dataDir, "originals", `${asset.id}.png`)),
+    png,
+  );
+  assert.equal(
+    (await app.inject(`/originals/${asset.id}.png`)).statusCode,
+    404,
+  );
   assert.deepEqual(
     (await app.inject({ url: "/api/admin/assets", headers })).json().assets,
     [asset],
@@ -803,6 +861,15 @@ test("uploads verify signatures, persist metadata, use random names and serve wi
     "attachment",
   );
   const current = await getState(app, headers);
+  current.draft.selection.noticeUrl = asset.url;
+  const wrongType = await app.inject({
+    method: "PUT",
+    url: "/api/admin/content",
+    headers,
+    payload: { content: current.draft, version: current.version },
+  });
+  assert.equal(wrongType.statusCode, 400, wrongType.body);
+  assert.equal(wrongType.json().code, "ASSET_TYPE_MISMATCH");
   current.draft.selection.noticeUrl = pdfResponse.json().asset.url;
   const saved = await app.inject({
     method: "PUT",
@@ -811,6 +878,18 @@ test("uploads verify signatures, persist metadata, use random names and serve wi
     payload: { content: current.draft, version: current.version },
   });
   assert.equal(saved.statusCode, 200, saved.body);
+  rmSync(
+    path.join(dataDir, "uploads", path.basename(pdfResponse.json().asset.url)),
+  );
+  const missingOnPublish = await app.inject({
+    method: "POST",
+    url: "/api/admin/publish",
+    headers,
+    payload: { version: saved.json().version },
+  });
+  assert.equal(missingOnPublish.statusCode, 400, missingOnPublish.body);
+  assert.equal(missingOnPublish.json().field, "selection.noticeUrl");
+  assert.equal(missingOnPublish.json().code, "ASSET_NOT_FOUND");
   assert.equal(
     (await upload(Buffer.alloc(8 * 1024 * 1024 + 1))).statusCode,
     413,
@@ -848,4 +927,309 @@ test("built site and admin are served from dist while unknown API routes remain 
   const missing = await app.inject("/api/missing");
   assert.equal(missing.statusCode, 404);
   assert.match(missing.headers["content-type"], /application\/json/);
+});
+
+test("incomplete stage and blank contact drafts are saved, publication names the required field", async (t) => {
+  const { app } = await fixture(t);
+  const headers = await localLogin(app);
+  const original = await getState(app, headers);
+  const content = copy(original.draft);
+  content.selection.stages = [
+    { id: "new-stage", title: "", date: "", description: "Em elaboração" },
+  ];
+  let response = await app.inject({
+    method: "PUT",
+    url: "/api/admin/content",
+    headers,
+    payload: { content, version: original.version },
+  });
+  assert.equal(response.statusCode, 200, response.body);
+  response = await app.inject({
+    method: "POST",
+    url: "/api/admin/publish",
+    headers,
+    payload: { version: response.json().version },
+  });
+  assert.equal(response.statusCode, 400);
+  assert.equal(response.json().field, "selection.stages.0.title");
+  assert.equal(response.json().code, "FIELD_REQUIRED");
+  assert.equal(response.json().error, "Informe o nome desta etapa.");
+  assert.deepEqual(
+    (await app.inject("/api/content")).json().content,
+    original.published,
+  );
+  const current = await getState(app, headers);
+  content.selection.stages = [];
+  content.site.email = "";
+  response = await app.inject({
+    method: "PUT",
+    url: "/api/admin/content",
+    headers,
+    payload: { content, version: current.version },
+  });
+  assert.equal(response.statusCode, 200, response.body);
+  response = await app.inject({
+    method: "POST",
+    url: "/api/admin/publish",
+    headers,
+    payload: { version: response.json().version },
+  });
+  assert.equal(response.json().field, "site.email");
+});
+
+test("contact links must identify a matching Instagram profile and local documents must exist", async (t) => {
+  const { app } = await fixture(t);
+  const headers = await localLogin(app);
+  const original = await getState(app, headers);
+  for (const [field, value, errorCode] of [
+    [
+      "site.instagramUrl",
+      "https://example.com/nexogovernamental/",
+      "VALIDATION_ERROR",
+    ],
+    [
+      "site.instagramUrl",
+      "https://www.instagram.com/another-account/",
+      "VALIDATION_ERROR",
+    ],
+    [
+      "site.instagramUrl",
+      "https://www.instagram.com/p/some-post/",
+      "VALIDATION_ERROR",
+    ],
+    ["site.instagramHandle", "@invalid handle", "VALIDATION_ERROR"],
+    ["selection.noticeUrl", "/uploads/missing-document.pdf", "ASSET_NOT_FOUND"],
+    [
+      "selection.noticeUrl",
+      `${ORIGIN}/uploads/missing-document.pdf`,
+      "ASSET_NOT_FOUND",
+    ],
+    ["selection.applicationUrl", "/uploads/form.pdf", "ASSET_TYPE_MISMATCH"],
+  ]) {
+    const content = copy(original.draft);
+    const [group, key] = field.split(".");
+    content[group][key] = value;
+    const response = await app.inject({
+      method: "PUT",
+      url: "/api/admin/content",
+      headers,
+      payload: { content, version: original.version },
+    });
+    assert.equal(response.statusCode, 400, response.body);
+    assert.equal(response.json().field, field);
+    assert.equal(response.json().code, errorCode);
+  }
+  assert.deepEqual(await getState(app, headers), original);
+});
+
+test("individual accounts enforce roles, revocation and password changes without losing bootstrap compatibility", async (t) => {
+  const env = {
+    NODE_ENV: "test",
+    ADMIN_EMAIL: "admin@nexo.example.com",
+    ADMIN_PASSWORD: "initial-private-password",
+  };
+  const { app, open, dataDir } = await fixture(t, env);
+  const login = async (target, email, password) => {
+    const response = await target.inject({
+      method: "POST",
+      url: "/api/login",
+      headers: { origin: ORIGIN },
+      payload: { email, password },
+    });
+    assert.equal(response.statusCode, 200, response.body);
+    return {
+      response,
+      headers: {
+        origin: ORIGIN,
+        cookie: `${response.cookies[0].name}=${response.cookies[0].value}`,
+        "x-csrf-token": response.json().csrfToken,
+      },
+    };
+  };
+  const admin = await login(app, env.ADMIN_EMAIL, env.ADMIN_PASSWORD);
+  const created = await app.inject({
+    method: "POST",
+    url: "/api/admin/users",
+    headers: admin.headers,
+    payload: {
+      name: "Editora Nexo",
+      email: "editora@nexo.example.com",
+      password: "individual-editor-password",
+      role: "editor",
+    },
+  });
+  assert.equal(created.statusCode, 201, created.body);
+  const editor = await login(
+    app,
+    "editora@nexo.example.com",
+    "individual-editor-password",
+  );
+  assert.equal(editor.response.json().user.role, "editor");
+  assert.equal(
+    (await app.inject({ url: "/api/admin/users", headers: editor.headers }))
+      .statusCode,
+    403,
+  );
+  const current = await getState(app, editor.headers);
+  assert.equal(
+    (
+      await app.inject({
+        method: "PUT",
+        url: "/api/admin/content",
+        headers: editor.headers,
+        payload: { content: current.draft, version: current.version },
+      })
+    ).statusCode,
+    200,
+  );
+  const self = await app.inject({
+    method: "PATCH",
+    url: `/api/admin/users/${admin.response.json().user.id}`,
+    headers: admin.headers,
+    payload: { active: false },
+  });
+  assert.equal(self.statusCode, 403);
+  assert.equal(self.json().code, "SELF_DEACTIVATION");
+  const deactivated = await app.inject({
+    method: "PATCH",
+    url: `/api/admin/users/${created.json().user.id}`,
+    headers: admin.headers,
+    payload: { active: false },
+  });
+  assert.equal(deactivated.statusCode, 200, deactivated.body);
+  assert.equal(
+    (await app.inject({ url: "/api/admin/content", headers: editor.headers }))
+      .statusCode,
+    401,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: "/api/login",
+        headers: { origin: ORIGIN },
+        payload: {
+          email: "editora@nexo.example.com",
+          password: "individual-editor-password",
+        },
+      })
+    ).statusCode,
+    401,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: "PATCH",
+        url: `/api/admin/users/${created.json().user.id}`,
+        headers: admin.headers,
+        payload: { active: true },
+      })
+    ).statusCode,
+    200,
+  );
+  assert.equal(
+    (await app.inject({ url: "/api/admin/content", headers: editor.headers }))
+      .statusCode,
+    401,
+  );
+  const changed = await app.inject({
+    method: "POST",
+    url: "/api/admin/password",
+    headers: admin.headers,
+    payload: {
+      currentPassword: env.ADMIN_PASSWORD,
+      newPassword: "changed-private-password",
+    },
+  });
+  assert.equal(changed.statusCode, 200, changed.body);
+  assert.equal(changed.json().authenticated, true);
+  assert.equal(
+    (await app.inject({ url: "/api/admin/content", headers: admin.headers }))
+      .statusCode,
+    401,
+  );
+  await app.close();
+  const restarted = await open();
+  await login(restarted, env.ADMIN_EMAIL, "changed-private-password");
+  const db = new DatabaseSync(path.join(dataDir, "nexo.sqlite"));
+  const user = db
+    .prepare("SELECT * FROM users WHERE email = ?")
+    .get(env.ADMIN_EMAIL);
+  assert.notEqual(user.password_hash, "changed-private-password");
+  assert.equal(user.password_hash.length, 128);
+  assert.equal(user.password_salt.length, 64);
+  db.close();
+});
+
+test("successful logins do not consume failed-login budget and trusted proxy input is explicit", async (t) => {
+  const env = {
+    NODE_ENV: "test",
+    ADMIN_EMAIL: "admin@nexo.example.com",
+    ADMIN_PASSWORD: "a-long-private-passphrase",
+  };
+  const { app } = await fixture(t, env);
+  for (let count = 0; count < 9; count++) {
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/login",
+      headers: { origin: ORIGIN },
+      payload: { email: env.ADMIN_EMAIL, password: env.ADMIN_PASSWORD },
+    });
+    assert.equal(response.statusCode, 200, response.body);
+  }
+  for (const proxy of [
+    "true",
+    "*",
+    "0.0.0.0/0",
+    "::/0",
+    "127.0.0.1/33",
+    "127.0.0.1/nope",
+  ])
+    await assert.rejects(
+      () =>
+        buildApp({ env: { ...env, CMS_TRUST_PROXY: proxy }, logger: false }),
+      /CMS_TRUST_PROXY/,
+    );
+});
+
+test("trusted proxy separates client login limits while forwarded clients cannot use local preview", async (t) => {
+  const env = {
+    NODE_ENV: "test",
+    CMS_LOCAL_PREVIEW: "1",
+    CMS_TRUST_PROXY: "127.0.0.1/32",
+    ADMIN_EMAIL: "admin@nexo.example.com",
+    ADMIN_PASSWORD: "long-private-passphrase",
+  };
+  const { app } = await fixture(t, env);
+  const attempt = (client) =>
+    app.inject({
+      method: "POST",
+      url: "/api/login",
+      remoteAddress: "127.0.0.1",
+      headers: { origin: ORIGIN, "x-forwarded-for": client },
+      payload: { email: env.ADMIN_EMAIL, password: "incorrect" },
+    });
+  for (let count = 0; count < 8; count++)
+    assert.equal((await attempt("192.0.2.10")).statusCode, 401);
+  assert.equal((await attempt("192.0.2.10")).statusCode, 429);
+  assert.equal((await attempt("192.0.2.11")).statusCode, 401);
+  const forwardedPreview = await app.inject({
+    method: "POST",
+    url: "/api/local-session",
+    remoteAddress: "127.0.0.1",
+    headers: { origin: ORIGIN, "x-forwarded-for": "192.0.2.11" },
+  });
+  assert.equal(forwardedPreview.statusCode, 404);
+  const preview = await localLogin(app);
+  const adminId = (
+    await app.inject({ url: "/api/admin/users", headers: preview })
+  ).json().users[0].id;
+  const lastAdmin = await app.inject({
+    method: "PATCH",
+    url: `/api/admin/users/${adminId}`,
+    headers: preview,
+    payload: { active: false },
+  });
+  assert.equal(lastAdmin.statusCode, 403);
+  assert.equal(lastAdmin.json().code, "LAST_ADMIN");
 });

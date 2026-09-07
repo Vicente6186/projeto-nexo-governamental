@@ -1,14 +1,19 @@
 const { DEFAULT_CONTENT } = require("../shared/content.cjs");
 
 class ValidationError extends Error {
-  constructor(message) {
+  constructor(message, field = null, code = "VALIDATION_ERROR") {
     super(message);
     this.statusCode = 400;
+    this.code = code;
+    if (field) this.field = field;
   }
 }
 
 function fail(path, message) {
-  throw new ValidationError(`${path}: ${message}`);
+  const field = path
+    .replace(/^Site\./, "site.")
+    .replace(/^Processo seletivo\./, "selection.");
+  throw new ValidationError(message, field);
 }
 function object(value, keys, path) {
   if (!value || typeof value !== "object" || Array.isArray(value))
@@ -21,6 +26,18 @@ function object(value, keys, path) {
     fail(path, "campos ausentes ou não reconhecidos.");
 }
 function string(value, path, max = 4000, required = false) {
+  if (required && typeof value === "string" && !value.trim()) {
+    const label =
+      path.includes("stages.") && path.endsWith(".title")
+        ? "Informe o nome desta etapa."
+        : path === "Site.email"
+          ? "Informe o e-mail de contato."
+          : "Preencha este campo.";
+    const field = path
+      .replace(/^Site\./, "site.")
+      .replace(/^Processo seletivo\./, "selection.");
+    throw new ValidationError(label, field, "FIELD_REQUIRED");
+  }
   if (
     typeof value !== "string" ||
     value.length > max ||
@@ -96,10 +113,16 @@ function validateContent(content, { publishing = false } = {}) {
     "Site",
   );
   for (const key of ["name", "instagramHandle", "footerTitle"])
-    string(content.site[key], `Site.${key}`, 200, true);
+    string(
+      content.site[key],
+      `Site.${key}`,
+      200,
+      key !== "instagramHandle" || publishing,
+    );
   string(content.site.description, "Site.description", 1500);
-  string(content.site.email, "Site.email", 254, true);
+  string(content.site.email, "Site.email", 254, publishing);
   if (
+    content.site.email &&
     !/^[^\s@?&<>"\\]+@[^\s@?&<>"\\]+\.[^\s@?&<>"\\]+$/.test(content.site.email)
   )
     fail("Site.email", "e-mail inválido.");
@@ -206,8 +229,8 @@ function validateContent(content, { publishing = false } = {}) {
     selection.opensAt > selection.closesAt
   )
     fail(
-      "Processo seletivo",
-      "o encerramento deve ser igual ou posterior à abertura.",
+      "selection.closesAt",
+      "O encerramento deve ser igual ou posterior à abertura.",
     );
   url(selection.noticeUrl, "Processo seletivo.noticeUrl");
   url(selection.applicationUrl, "Processo seletivo.applicationUrl");
@@ -215,18 +238,19 @@ function validateContent(content, { publishing = false } = {}) {
     image: true,
   });
   array(selection.stages, "Processo seletivo.stages", 30);
-  for (const stage of selection.stages) {
-    object(stage, ["id", "title", "date", "description"], "Etapa");
-    id(stage.id, "Etapa.id");
-    string(stage.title, "Etapa.title", 240, true);
-    date(stage.date, "Etapa.date");
-    string(stage.description, "Etapa.description", 2000);
+  for (const [index, stage] of selection.stages.entries()) {
+    const prefix = `selection.stages.${index}`;
+    object(stage, ["id", "title", "date", "description"], prefix);
+    id(stage.id, `${prefix}.id`);
+    string(stage.title, `${prefix}.title`, 240, publishing);
+    date(stage.date, `${prefix}.date`);
+    string(stage.description, `${prefix}.description`, 2000);
   }
   if (publishing && selection.status === "open") {
     if (!selection.applicationUrl || !selection.buttonLabel.trim())
       fail(
-        "Processo seletivo",
-        "informe o link e o texto do botão de inscrição para abrir as inscrições.",
+        "selection.applicationUrl",
+        "Informe o link do formulário para abrir as inscrições.",
       );
   }
   return content;

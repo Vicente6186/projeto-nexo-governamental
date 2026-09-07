@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowRight,
@@ -14,31 +14,25 @@ import {
   LockKeyhole,
   Mail,
   Plus,
+  RotateCcw,
   Send,
   Trash2,
   Upload,
 } from "lucide-react";
-import {
-  Badge,
-  Button,
-  Field,
-  dateLabel,
-  dayLabel,
-  effectiveStatus,
-} from "./components";
+import { Badge, Button, Field, dateLabel, effectiveStatus } from "./components";
 import "./essentials.css";
 
 const STATUS_OPTIONS = [
   {
     value: "upcoming",
     label: "Em breve",
-    description: "Prepare a próxima edição.",
+    description: "Abertura manual, quando estiver pronto.",
     Icon: Clock3,
   },
   {
     value: "open",
     label: "Inscrições abertas",
-    description: "Receba novas inscrições.",
+    description: "Inscrições conforme as datas abaixo.",
     Icon: CheckCircle2,
   },
   {
@@ -48,6 +42,88 @@ const STATUS_OPTIONS = [
     Icon: LockKeyhole,
   },
 ];
+
+function fullDate(value) {
+  if (!value) return "A definir";
+  const date = new Date(`${value}T12:00:00-03:00`);
+  if (Number.isNaN(date.getTime())) return "Data inválida";
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "America/Sao_Paulo",
+  }).format(date);
+}
+
+function safeLink(value) {
+  if (!value) return null;
+  if (/^\/uploads\/[a-zA-Z0-9._-]+$/.test(value)) return value;
+  try {
+    const parsed = new URL(value);
+    return ["https:", "http:"].includes(parsed.protocol) &&
+      !parsed.username &&
+      !parsed.password
+      ? parsed.href
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function fieldError(errors, name) {
+  return (
+    errors[name] || name.split(".").reduce((value, key) => value?.[key], errors)
+  );
+}
+
+function documentName(url, asset) {
+  if (asset?.name) return asset.name;
+  try {
+    const parsed = new URL(url, window.location.origin);
+    const name = decodeURIComponent(parsed.pathname.split("/").pop() || "");
+    return /\.pdf$/i.test(name) ? name : "Edital do processo seletivo";
+  } catch {
+    return "Edital do processo seletivo";
+  }
+}
+
+function fileSize(size) {
+  const megabytes = size / 1024 / 1024;
+  return megabytes >= 1
+    ? `${megabytes.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} MB`
+    : `${Math.max(1, Math.round(size / 1024))} KB`;
+}
+
+function instagramProfile(value) {
+  const raw = value.trim();
+  if (!raw) return { handle: "", url: "" };
+  let username = raw.replace(/^@/, "");
+  if (/^(?:https?:\/\/)?(?:www\.)?instagram\.com\//i.test(raw)) {
+    try {
+      const parsed = new URL(
+        /^https?:\/\//i.test(raw) ? raw : `https://${raw}`,
+      );
+      if (
+        !["instagram.com", "www.instagram.com"].includes(
+          parsed.hostname.toLowerCase(),
+        ) ||
+        parsed.username ||
+        parsed.password
+      )
+        return null;
+      const segments = parsed.pathname.split("/").filter(Boolean);
+      if (segments.length !== 1) return null;
+      username = segments[0];
+    } catch {
+      return null;
+    }
+  }
+  if (!/^[A-Za-z0-9._]{1,30}$/.test(username)) return null;
+  return {
+    handle: `@${username}`,
+    url: `https://www.instagram.com/${username}/`,
+  };
+}
 
 const WORKSPACES = [
   {
@@ -83,19 +159,17 @@ export function Overview({
   onPublish,
   busy,
 }) {
-  const selection = content.selection;
+  const selection = state.published.selection;
   const status = effectiveStatus(selection);
   const hasChanges = dirty || pending;
+  const selectionChanged =
+    JSON.stringify(content.selection) !== JSON.stringify(selection);
   return (
     <div className="essentials-overview">
       <section className="essentials-welcome">
         <div>
-          <span className="essentials-eyebrow">Seu espaço de gestão</span>
           <h2>O Nexo, sempre em dia.</h2>
-          <p>
-            Seleção, publicações e contato. O essencial para cuidar da presença
-            do Nexo.
-          </p>
+          <p>O essencial para cuidar da presença do Nexo.</p>
         </div>
         <div className="essentials-welcome-mark" aria-hidden="true">
           <img
@@ -130,7 +204,12 @@ export function Overview({
       <div className="essentials-summary-grid">
         <section className="essentials-card essentials-selection-summary">
           <div className="essentials-card-heading">
-            <h2>Processo seletivo</h2>
+            <div>
+              <h2>Processo seletivo</h2>
+              <span className="essentials-summary-caption">
+                Publicado no site
+              </span>
+            </div>
             <Badge tone={status.tone} dot>
               {status.short}
             </Badge>
@@ -141,13 +220,19 @@ export function Overview({
           <dl className="essentials-dates">
             <div>
               <dt>Abertura</dt>
-              <dd>{dayLabel(selection.opensAt)}</dd>
+              <dd>{fullDate(selection.opensAt)}</dd>
             </div>
             <div>
               <dt>Encerramento</dt>
-              <dd>{dayLabel(selection.closesAt)}</dd>
+              <dd>{fullDate(selection.closesAt)}</dd>
             </div>
           </dl>
+          {selectionChanged && (
+            <p className="essentials-draft-note">
+              <Clock3 size={15} /> Há alterações no rascunho. A situação acima
+              só muda após publicar.
+            </p>
+          )}
           <button
             type="button"
             className="text-button essentials-summary-link"
@@ -170,7 +255,7 @@ export function Overview({
               ? "Alterações em edição"
               : pending
                 ? "Rascunho pronto para revisar"
-                : "Tudo atualizado"}
+                : "Dados do site publicados"}
           </h3>
           <p>
             {hasChanges
@@ -208,14 +293,22 @@ export function SelectionEditor({
   disabled,
   onUploadNotice,
   uploading,
+  assets = [],
+  errors = {},
 }) {
   const statusName = useId();
   const uploadRef = useRef(null);
   const stageListRef = useRef(null);
   const addStageRef = useRef(null);
   const focusStageRef = useRef(null);
+  const [removedStage, setRemovedStage] = useState(null);
+  const [uploadName, setUploadName] = useState("");
   const stages = selection.stages || [];
   const status = effectiveStatus(selection);
+  const noticeLink = safeLink(selection.noticeUrl);
+  const applicationLink = safeLink(selection.applicationUrl);
+  const noticeAsset = assets.find((asset) => asset.url === selection.noticeUrl);
+  const errorFor = (name) => fieldError(errors, `selection.${name}`);
 
   useEffect(() => {
     if (!focusStageRef.current) return;
@@ -246,9 +339,22 @@ export function SelectionEditor({
     onChange({ stages: reordered });
   }
   function removeStage(index) {
+    setRemovedStage({ stage: stages[index], index });
     focusStageRef.current =
       stages[index + 1]?.id || stages[index - 1]?.id || "add";
     onChange({ stages: stages.filter((_, i) => i !== index) });
+  }
+  function undoRemoveStage() {
+    if (!removedStage || stages.length >= 30) return;
+    const restored = [...stages];
+    restored.splice(
+      Math.min(removedStage.index, restored.length),
+      0,
+      removedStage.stage,
+    );
+    focusStageRef.current = removedStage.stage.id;
+    onChange({ stages: restored });
+    setRemovedStage(null);
   }
   function addStage() {
     const id = crypto.randomUUID();
@@ -286,6 +392,11 @@ export function SelectionEditor({
                     checked={selection.status === value}
                     onChange={() => onChange({ status: value })}
                     aria-label={label}
+                    data-field="selection.status"
+                    aria-invalid={errorFor("status") ? true : undefined}
+                    aria-describedby={
+                      errorFor("status") ? `${statusName}-error` : undefined
+                    }
                   />
                   <span className="essentials-status-top">
                     <Icon size={18} strokeWidth={1.7} />
@@ -300,6 +411,15 @@ export function SelectionEditor({
                 </label>
               ))}
             </div>
+            {errorFor("status") && (
+              <p
+                className="field-error"
+                role="alert"
+                id={`${statusName}-error`}
+              >
+                {errorFor("status")}
+              </p>
+            )}
           </fieldset>
 
           <Field
@@ -308,6 +428,8 @@ export function SelectionEditor({
             onChange={(edition) => onChange({ edition })}
             placeholder="Ex.: Processo seletivo 2026.2"
             maxLength={100}
+            data-field="selection.edition"
+            error={errorFor("edition")}
           />
           <div className="essentials-field-row">
             <Field
@@ -315,6 +437,8 @@ export function SelectionEditor({
               type="date"
               value={selection.opensAt}
               onChange={(opensAt) => onChange({ opensAt })}
+              data-field="selection.opensAt"
+              error={errorFor("opensAt")}
             />
             <Field
               label="Encerramento das inscrições"
@@ -322,15 +446,27 @@ export function SelectionEditor({
               value={selection.closesAt}
               onChange={(closesAt) => onChange({ closesAt })}
               min={selection.opensAt || undefined}
+              data-field="selection.closesAt"
+              error={errorFor("closesAt")}
             />
           </div>
           <div className="essentials-status-note">
             <Clock3 size={15} />
-            <p>
-              As datas também controlam o período de inscrição. Com os dados
-              atuais:{" "}
-              <strong>{status.label.toLocaleLowerCase("pt-BR")}.</strong>
-            </p>
+            <div>
+              <p>
+                {selection.status === "upcoming"
+                  ? "“Em breve” mantém as inscrições fechadas até você mudar a situação. Para abrir automaticamente na data definida, selecione “Inscrições abertas”."
+                  : selection.status === "closed"
+                    ? "“Encerrado” mantém as inscrições fechadas, independentemente das datas."
+                    : "As inscrições abrem na data inicial e encerram ao final da data limite. Sem datas, ficam abertas até você encerrar o processo."}
+              </p>
+              <p>
+                Se publicar agora:{" "}
+                <strong>{status.label.toLocaleLowerCase("pt-BR")}.</strong>{" "}
+                Datas no horário de Brasília: abertura às 00h e encerramento às
+                23h59.
+              </p>
+            </div>
           </div>
 
           <div className="essentials-form-divider" />
@@ -344,7 +480,19 @@ export function SelectionEditor({
             spellCheck={false}
             maxLength={2048}
             hint="Necessário para publicar um processo com inscrições abertas."
+            data-field="selection.applicationUrl"
+            error={errorFor("applicationUrl")}
           />
+          {applicationLink && (
+            <a
+              className="essentials-inline-link"
+              href={applicationLink}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Testar formulário <ArrowUpRight size={15} />
+            </a>
+          )}
           <Field
             label="Link do edital"
             value={selection.noticeUrl}
@@ -354,7 +502,47 @@ export function SelectionEditor({
             autoCapitalize="none"
             spellCheck={false}
             maxLength={2048}
+            data-field="selection.noticeUrl"
+            error={errorFor("noticeUrl")}
+            disabled={disabled || uploading}
+            hint="Use o edital oficial ou envie um PDF de até 8 MB."
           />
+          {noticeLink && (
+            <div className="essentials-document-card">
+              <span className="essentials-document-icon">
+                <FileText size={21} />
+              </span>
+              <div className="essentials-document-info">
+                <strong>
+                  {documentName(selection.noticeUrl, noticeAsset)}
+                </strong>
+                <span>
+                  {noticeAsset?.size
+                    ? `PDF · ${fileSize(noticeAsset.size)}`
+                    : selection.noticeUrl.startsWith("/uploads/")
+                      ? "Documento enviado ao painel"
+                      : new URL(noticeLink).hostname}
+                </span>
+              </div>
+              <div className="essentials-document-actions">
+                <a
+                  className="essentials-inline-link"
+                  href={noticeLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Abrir edital <ArrowUpRight size={15} />
+                </a>
+                <Button
+                  icon={Trash2}
+                  disabled={disabled || uploading}
+                  onClick={() => onChange({ noticeUrl: "" })}
+                >
+                  Remover
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="essentials-upload-row">
             <input
               ref={uploadRef}
@@ -364,10 +552,16 @@ export function SelectionEditor({
               aria-label="Enviar edital em PDF"
               tabIndex={-1}
               disabled={disabled || uploading}
-              onChange={(event) => {
+              onChange={async (event) => {
                 const file = event.target.files?.[0];
                 event.target.value = "";
-                if (file) onUploadNotice(file);
+                if (!file) return;
+                setUploadName(file.name);
+                try {
+                  await onUploadNotice(file);
+                } finally {
+                  setUploadName("");
+                }
               }}
             />
             <Button
@@ -375,9 +569,17 @@ export function SelectionEditor({
               onClick={() => uploadRef.current?.click()}
               disabled={disabled || uploading}
             >
-              {uploading ? "Enviando PDF…" : "Enviar PDF"}
+              {uploading
+                ? "Enviando PDF…"
+                : noticeLink
+                  ? "Substituir PDF"
+                  : "Enviar PDF"}
             </Button>
-            <p>PDF de até 8 MB. O envio preenche o link do edital.</p>
+            <p role="status">
+              {uploading
+                ? `Enviando ${uploadName || "o edital"}. Aguarde para publicar.`
+                : "O envio preenche o link. Publique para atualizar o edital no site."}
+            </p>
           </div>
         </fieldset>
       </section>
@@ -396,6 +598,12 @@ export function SelectionEditor({
           </span>
         </header>
         <fieldset disabled={disabled} className="essentials-schedule-body">
+          {stages.length > 0 && (
+            <p className="field-hint essentials-stage-hint">
+              O nome de cada etapa é obrigatório. Datas e orientações são
+              opcionais.
+            </p>
+          )}
           {stages.length === 0 && (
             <div className="essentials-empty-schedule">
               <CalendarDays size={22} strokeWidth={1.5} />
@@ -461,28 +669,60 @@ export function SelectionEditor({
                       onChange={(title) => updateStage(index, { title })}
                       placeholder="Ex.: Entrevistas"
                       maxLength={240}
+                      required
+                      data-field={`selection.stages.${index}.title`}
+                      error={errorFor(`stages.${index}.title`)}
                     />
                     <Field
                       label={`Data da etapa ${index + 1}`}
                       type="date"
                       value={stage.date}
                       onChange={(date) => updateStage(index, { date })}
+                      data-field={`selection.stages.${index}.date`}
+                      error={errorFor(`stages.${index}.date`)}
                     />
                   </div>
-                  <Field
-                    label={`Orientações da etapa ${index + 1}`}
-                    multiline
-                    value={stage.description}
-                    onChange={(description) =>
-                      updateStage(index, { description })
+                  <details
+                    className="essentials-stage-details"
+                    open={
+                      stages.length <= 3 ||
+                      Boolean(stage.description) ||
+                      Boolean(errorFor(`stages.${index}.description`))
                     }
-                    placeholder="Local, horário ou outras orientações. Opcional."
-                    maxLength={2000}
-                  />
+                  >
+                    <summary>Orientações opcionais</summary>
+                    <Field
+                      label={`Orientações da etapa ${index + 1}`}
+                      multiline
+                      value={stage.description}
+                      onChange={(description) =>
+                        updateStage(index, { description })
+                      }
+                      placeholder="Local, horário ou outras orientações. Opcional."
+                      maxLength={2000}
+                      data-field={`selection.stages.${index}.description`}
+                      error={errorFor(`stages.${index}.description`)}
+                    />
+                  </details>
                 </div>
               </div>
             ))}
           </div>
+          {removedStage && (
+            <div className="essentials-undo" role="status">
+              <p>
+                Etapa “{removedStage.stage.title || "Sem nome"}” removida do
+                rascunho.
+              </p>
+              <Button
+                icon={RotateCcw}
+                onClick={undoRemoveStage}
+                disabled={disabled || stages.length >= 30}
+              >
+                Desfazer
+              </Button>
+            </div>
+          )}
           <Button
             ref={addStageRef}
             className="essentials-add-stage"
@@ -506,7 +746,36 @@ export function SelectionEditor({
   );
 }
 
-export function ContactEditor({ site, onChange, disabled }) {
+export function ContactEditor({ site, onChange, disabled, errors = {} }) {
+  const initialProfile = () => site.instagramHandle || site.instagramUrl || "";
+  const [profileInput, setProfileInput] = useState(initialProfile);
+  const ownUpdateRef = useRef(null);
+  useEffect(() => {
+    const next = `${site.instagramHandle}\n${site.instagramUrl}`;
+    if (ownUpdateRef.current === next) return;
+    setProfileInput(site.instagramHandle || site.instagramUrl || "");
+  }, [site.instagramHandle, site.instagramUrl]);
+  const parsedProfile = instagramProfile(profileInput);
+  const profileError =
+    fieldError(errors, "site.instagramUrl") ||
+    fieldError(errors, "site.instagramHandle") ||
+    (!parsedProfile &&
+      "Informe o @nome de usuário ou o link do perfil oficial no Instagram.");
+  const emailLink =
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(site.email || "") &&
+    !/[\r\n]/.test(site.email)
+      ? `mailto:${site.email}`
+      : null;
+  const profileLink = parsedProfile?.url || null;
+  function updateProfile(value) {
+    setProfileInput(value);
+    const profile = instagramProfile(value);
+    const patch = profile
+      ? { instagramHandle: profile.handle, instagramUrl: profile.url }
+      : { instagramHandle: "", instagramUrl: value };
+    ownUpdateRef.current = `${patch.instagramHandle}\n${patch.instagramUrl}`;
+    onChange(patch);
+  }
   return (
     <div className="essentials-contact-layout">
       <section className="essentials-card">
@@ -531,50 +800,53 @@ export function ContactEditor({ site, onChange, disabled }) {
             spellCheck={false}
             maxLength={254}
             hint="Endereço exibido na área de contato do site."
+            data-field="site.email"
+            error={fieldError(errors, "site.email")}
           />
           <div className="essentials-form-divider" />
           <Field
             label="Perfil do Instagram"
-            value={site.instagramUrl}
-            onChange={(instagramUrl) => onChange({ instagramUrl })}
-            placeholder="https://www.instagram.com/nexogovernamental/"
-            inputMode="url"
-            autoCapitalize="none"
-            spellCheck={false}
-            maxLength={2048}
-            hint="Cole o link completo do perfil oficial."
-          />
-          <Field
-            label="Nome de usuário no Instagram"
-            value={site.instagramHandle}
-            onChange={(instagramHandle) => onChange({ instagramHandle })}
+            value={profileInput}
+            onChange={updateProfile}
             placeholder="@nexogovernamental"
             autoCapitalize="none"
             spellCheck={false}
-            maxLength={100}
-            hint="Este é o nome que aparece nos links para o Instagram."
+            maxLength={2048}
+            hint="Digite o @nome de usuário ou cole o link do perfil. O endereço e o nome exibidos no site são atualizados juntos."
+            data-field="site.instagramUrl"
+            error={profileError}
           />
         </fieldset>
       </section>
       <aside className="essentials-contact-aside">
-        <span className="essentials-eyebrow">Um canal aberto</span>
-        <h2>Conexões começam por aqui.</h2>
-        <p>
-          Use os canais oficiais e mantenha os dados atualizados para facilitar
-          o contato com a equipe.
-        </p>
+        <h2>Confira os canais</h2>
+        <p>Abra os links para confirmar se levam à equipe do Nexo.</p>
         <div className="essentials-contact-preview">
           <div>
             <Mail size={17} />
-            <span>{site.email || "E-mail a definir"}</span>
+            {emailLink ? (
+              <a href={emailLink}>
+                {site.email}
+                <ArrowUpRight size={15} />
+              </a>
+            ) : (
+              <span>{site.email || "E-mail a definir"}</span>
+            )}
           </div>
           <div>
             <AtSign size={17} />
-            <span>{site.instagramHandle || "Perfil a definir"}</span>
+            {profileLink ? (
+              <a href={profileLink} target="_blank" rel="noopener noreferrer">
+                {parsedProfile.handle}
+                <ArrowUpRight size={15} />
+              </a>
+            ) : (
+              <span>Perfil a definir</span>
+            )}
           </div>
         </div>
         <p className="essentials-contact-footnote">
-          Salve suas alterações e publique quando estiver tudo certo.
+          As alterações aparecem no site depois de publicar.
         </p>
       </aside>
     </div>

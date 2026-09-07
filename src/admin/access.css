@@ -1,0 +1,329 @@
+.access-panel {
+  display: grid;
+  gap: 22px;
+  font-size: 14px;
+}
+.access-panel .notice {
+  margin: 0;
+}
+.access-panel .field {
+  margin-bottom: 0;
+}
+.access-panel .field input,
+.access-panel .field select,
+.access-panel .field-label label {
+  font-size: 14px;
+}
+.access-panel .field-hint,
+.access-panel .field-error {
+  font-size: 13px;
+}
+.access-profile {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-muted);
+}
+.access-avatar {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.access-profile > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+.access-profile strong,
+.access-user-details > strong {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.access-profile > div > span,
+.access-user-details > span {
+  color: var(--muted);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.access-team-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 76px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
+}
+.access-team-link:hover {
+  border-color: var(--accent);
+  background: var(--surface-muted);
+}
+.access-team-link > svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.access-team-link > span:first-of-type {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+}
+.access-team-link strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.access-team-link small {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.access-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.access-form {
+  display: grid;
+  gap: 18px;
+}
+.access-form h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.access-form h3 > svg {
+  color: var(--accent);
+}
+.access-password-field {
+  position: relative;
+}
+.access-password-field .field input {
+  padding-right: 51px;
+}
+.access-password-toggle {
+  position: absolute;
+  top: 30px;
+  right: 3px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.access-password-toggle:hover {
+  color: var(--text);
+  background: var(--surface-muted);
+}
+.access-password-toggle:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.access-actions,
+.access-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.access-actions {
+  padding-top: 4px;
+}
+.access-actions > .button:only-child {
+  margin-left: auto;
+}
+.access-panel .button {
+  min-height: 44px;
+  font-size: 13px;
+}
+.access-panel .access-danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.access-panel .access-danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
+.access-users {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.access-user {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 16px;
+}
+.access-user + .access-user {
+  border-top: 1px solid var(--line);
+}
+.access-user.is-inactive {
+  background: var(--surface-muted);
+}
+.access-user-details {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+.access-user-details > strong {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.access-you {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 400;
+}
+.access-user-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 4px;
+}
+.access-panel .badge {
+  font-size: 12px;
+}
+.access-user-action {
+  display: grid;
+  gap: 5px;
+  justify-items: center;
+  flex-shrink: 0;
+}
+.access-user-action small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.access-empty,
+.access-loading {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 12px;
+  padding: 32px 16px;
+  color: var(--muted);
+}
+.access-empty > svg,
+.access-loading > svg {
+  color: var(--accent);
+}
+.access-empty h3 {
+  color: var(--text);
+  font-size: 17px;
+  margin: 0;
+}
+.access-empty p {
+  max-width: 350px;
+  margin: 0;
+  line-height: 1.65;
+}
+.access-loading > svg,
+.access-panel .button:disabled > .lucide-loader-circle {
+  animation: access-spin 1s linear infinite;
+}
+.access-confirm {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+.access-confirm > svg {
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.access-confirm h3 {
+  margin: 0;
+  font-size: 19px;
+  overflow-wrap: anywhere;
+}
+.access-confirm > span {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.access-confirm p {
+  margin: 8px 0 0;
+  line-height: 1.7;
+}
+.access-success {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  color: var(--accent);
+  font-size: 14px;
+}
+@keyframes access-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (max-width: 520px) {
+  .access-panel {
+    gap: 18px;
+  }
+  .access-profile {
+    flex-wrap: wrap;
+    padding: 14px;
+  }
+  .access-profile > .badge {
+    margin-left: 57px;
+  }
+  .access-profile > div {
+    flex-basis: calc(100% - 57px);
+  }
+  .access-toolbar,
+  .access-actions {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .access-actions > .button:only-child {
+    margin-left: 0;
+  }
+  .access-user {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 16px;
+    gap: 12px;
+  }
+  .access-user-action {
+    width: 100%;
+    justify-items: stretch;
+    text-align: center;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .access-loading > svg,
+  .access-panel .button:disabled > .lucide-loader-circle {
+    animation: none;
+  }
+}

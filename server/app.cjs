@@ -21,9 +21,21 @@ const {
 } = require("node:crypto");
 const { DEFAULT_CONTENT } = require("../shared/content.cjs");
 const { validateContent, ValidationError } = require("./validation.cjs");
-const { editableDraft, validateEditableContent } = require("./site-policy.cjs");
+const {
+  editableDraft,
+  validateEditableContent,
+  validateContact,
+} = require("./site-policy.cjs");
 const { registerBlog } = require("./blog.cjs");
 const { registerBlogPages } = require("./blog-routes.cjs");
+
+const { initializeUsers } = require("./users.cjs");
+const {
+  createAssetValidator,
+  prepareImage,
+  migrateAssets,
+} = require("./assets.cjs");
+const { isIP } = require("node:net");
 
 const COOKIE_NAME = "nexo_session";
 const SESSION_MS = 12 * 60 * 60 * 1000;
@@ -77,7 +89,27 @@ function configuration(env, options) {
     throw new Error(
       "Produção exige ADMIN_EMAIL, ADMIN_PASSWORD e CMS_ORIGIN HTTPS.",
     );
+  const trustedProxies = (env.CMS_TRUST_PROXY || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  for (const value of trustedProxies) {
+    const [address, prefix, ...extra] = value.split("/");
+    const family = isIP(address);
+    if (
+      !family ||
+      extra.length ||
+      (prefix !== undefined &&
+        (!/^\d+$/.test(prefix) ||
+          Number(prefix) < 1 ||
+          Number(prefix) > (family === 4 ? 32 : 128)))
+    )
+      throw new Error(
+        "CMS_TRUST_PROXY exige IPs ou CIDRs explícitos de proxies confiáveis, sem curingas.",
+      );
+  }
   return {
+    trustedProxies: trustedProxies.length ? trustedProxies : false,
     production,
     localPreview,
     email,
@@ -147,7 +179,7 @@ async function buildApp(options = {}) {
   const app = Fastify({
     logger: options.logger ?? true,
     bodyLimit: 512 * 1024,
-    trustProxy: false,
+    trustProxy: config.trustedProxies,
   });
   const uploadsDir = path.join(config.dataDir, "uploads");
   mkdirSync(uploadsDir, { recursive: true, mode: 0o700 });
@@ -173,6 +205,8 @@ async function buildApp(options = {}) {
     );
     CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
   `);
+  migrateAssets(db);
+  const validateAssetReference = createAssetValidator(db, config);
   const initial = JSON.stringify(validateContent(DEFAULT_CONTENT));
   const initialAt = now().toISOString();
   if (!db.prepare("SELECT id FROM content WHERE id = 1").get()) {
@@ -220,6 +254,7 @@ async function buildApp(options = {}) {
   const fingerprint = digest(
     Buffer.concat([Buffer.from(`${config.email}\0`), expectedPassword]),
   );
+  const users = initializeUsers(db, config, now, fingerprint);
   const cookieOptions = {
     path: "/",
     httpOnly: true,
@@ -233,7 +268,7 @@ async function buildApp(options = {}) {
   const assets = () =>
     db
       .prepare(
-        "SELECT id, name, url, type, size FROM assets ORDER BY created_at DESC, rowid DESC",
+        "SELECT id, name, url, type, size, width, height, created_at AS createdAt FROM assets ORDER BY created_at DESC, rowid DESC",
       )
       .all();
   const state = () => {
@@ -255,7 +290,14 @@ async function buildApp(options = {}) {
   };
   const sessionResponse = (session) => ({
     authenticated: Boolean(session),
-    user: session ? { name: session.name, email: session.email } : null,
+    user: session
+      ? {
+          id: session.user_id || "local-preview",
+          name: session.name,
+          email: session.email,
+          role: session.role || "admin",
+        }
+      : null,
     localPreview: config.localPreview,
     ...(session ? { csrfToken: session.csrf } : {}),
   });
@@ -289,30 +331,36 @@ async function buildApp(options = {}) {
       )
     ) {
       const error = new Error(
-        "Sua sessão de edição precisa ser atualizada. Recarregue o painel.",
+        "Sua sessão de edição precisa ser atualizada. Entre novamente para continuar com a edição preservada.",
       );
       error.statusCode = 403;
+      error.code = "CSRF_EXPIRED";
       throw error;
     }
   };
-  const issueSession = (reply, preview = false) => {
+  const issueSession = (reply, preview = false, user = null) => {
     const value = token();
     const session = {
       csrf: token(),
-      email: preview ? "" : config.email,
-      name: config.name,
+      email: preview ? "" : user.email,
+      name: preview ? config.name : user.name,
+      user_id: preview ? null : user.id,
+      role: preview ? "admin" : user.role,
     };
     db.prepare("DELETE FROM sessions WHERE expires_at <= ?").run(
       now().getTime(),
     );
-    db.prepare("INSERT INTO sessions VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+    db.prepare(
+      "INSERT INTO sessions (hash, csrf, email, name, preview, expires_at, credential_fingerprint, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    ).run(
       digest(value),
       session.csrf,
       session.email,
       session.name,
       Number(preview),
       now().getTime() + SESSION_MS,
-      fingerprint,
+      preview ? fingerprint : users.fingerprint(user),
+      session.user_id,
     );
     reply.setCookie(COOKIE_NAME, value, cookieOptions);
     return sessionResponse(session);
@@ -339,6 +387,7 @@ async function buildApp(options = {}) {
           "O conteúdo mudou em outra sessão. Recarregue a versão mais recente antes de salvar.",
         );
         error.statusCode = 409;
+        error.code = "CONTENT_CONFLICT";
         error.currentVersion = row.version;
         throw error;
       }
@@ -353,6 +402,7 @@ async function buildApp(options = {}) {
           publishing: true,
           now: now(),
         });
+        validateContact(content.site, { publishing: true });
         // Once the team publishes a structured schedule, retiring its stages
         // must not bring the historical schedule image back onto the site.
         if (
@@ -361,6 +411,14 @@ async function buildApp(options = {}) {
         )
           content.selection.scheduleImage = "";
       }
+      validateAssetReference(content.selection.noticeUrl, {
+        kind: "pdf",
+        field: "selection.noticeUrl",
+      });
+      validateAssetReference(content.selection.applicationUrl, {
+        kind: "external",
+        field: "selection.applicationUrl",
+      });
       const serialized = JSON.stringify(content);
       const timestamp = now().toISOString();
       const nextVersion = row.version + 1;
@@ -392,7 +450,15 @@ async function buildApp(options = {}) {
   };
 
   await app.register(cookie);
-  await app.register(rateLimit, { global: false });
+  await app.register(rateLimit, {
+    global: false,
+    errorResponseBuilder: () => ({
+      statusCode: 429,
+      code: "RATE_LIMIT",
+      error: "Muitas tentativas. Aguarde 15 minutos e tente novamente.",
+      message: "Muitas tentativas. Aguarde 15 minutos e tente novamente.",
+    }),
+  });
   await app.register(multipart, {
     limits: { fileSize: MAX_FILE_SIZE, files: 1, fields: 0, parts: 1 },
   });
@@ -403,12 +469,27 @@ async function buildApp(options = {}) {
       const session = db
         .prepare("SELECT * FROM sessions WHERE hash = ? AND expires_at > ?")
         .get(digest(value), now().getTime());
-      if (
-        session &&
-        session.credential_fingerprint === fingerprint &&
-        (!session.preview || config.localPreview)
-      )
-        request.cmsSession = session;
+      if (session?.preview) {
+        if (
+          config.localPreview &&
+          isLoopback(request.raw.socket.remoteAddress) &&
+          isLoopback(request.ip) &&
+          session.credential_fingerprint === fingerprint
+        )
+          request.cmsSession = { ...session, role: "admin" };
+      } else if (session?.user_id) {
+        const user = users.get(session.user_id);
+        if (
+          user?.active &&
+          session.credential_fingerprint === users.fingerprint(user)
+        )
+          request.cmsSession = {
+            ...session,
+            role: user.role,
+            name: user.name,
+            email: user.email,
+          };
+      }
     }
   });
   app.addHook("onSend", async (request, reply, payload) => {
@@ -444,6 +525,21 @@ async function buildApp(options = {}) {
           : error.message;
     reply.code(statusCode).send({
       error: message,
+      code:
+        statusCode >= 500
+          ? "INTERNAL_ERROR"
+          : error.code ||
+            {
+              400: "VALIDATION_ERROR",
+              401: "SESSION_EXPIRED",
+              403: "FORBIDDEN",
+              404: "NOT_FOUND",
+              409: "CONTENT_CONFLICT",
+              413: "PAYLOAD_TOO_LARGE",
+              429: "RATE_LIMIT",
+            }[statusCode] ||
+            "REQUEST_ERROR",
+      ...(statusCode < 500 && error.field ? { field: error.field } : {}),
       ...(error.currentVersion ? { currentVersion: error.currentVersion } : {}),
     });
   });
@@ -451,39 +547,36 @@ async function buildApp(options = {}) {
   app.get("/api/session", async (request) =>
     sessionResponse(request.cmsSession),
   );
-  app.post(
-    "/api/login",
-    { config: { rateLimit: { max: 8, timeWindow: "15 minutes" } } },
-    async (request, reply) => {
-      requireOrigin(request);
-      const body = request.body;
-      if (
-        !body ||
-        typeof body.email !== "string" ||
-        typeof body.password !== "string" ||
-        body.email.length > 254 ||
-        body.password.length > 1024
-      )
-        throw new ValidationError("Informe e-mail e senha válidos.");
-      const passwordMatches = timingSafeEqual(
-        derivePassword(body.password),
-        expectedPassword,
-      );
-      if (
-        !config.email ||
-        body.email.trim().toLowerCase() !== config.email ||
-        !passwordMatches
-      )
-        return reply.code(401).send({ error: "E-mail ou senha incorretos." });
-      return issueSession(reply);
-    },
-  );
+  app.post("/api/login", {}, async (request, reply) => {
+    requireOrigin(request);
+    const body = request.body;
+    if (
+      !body ||
+      typeof body.email !== "string" ||
+      typeof body.password !== "string" ||
+      body.email.length > 254 ||
+      body.password.length > 1024
+    )
+      throw new ValidationError("Informe e-mail e senha válidos.");
+    const user = await users.login(
+      body.email.trim().toLowerCase(),
+      body.password,
+      request.ip,
+    );
+    return issueSession(reply, false, user);
+  });
   app.post(
     "/api/local-session",
     { config: { rateLimit: { max: 20, timeWindow: "15 minutes" } } },
     async (request, reply) => {
-      if (!config.localPreview || !isLoopback(request.ip))
-        return reply.code(404).send({ error: "Recurso indisponível." });
+      if (
+        !config.localPreview ||
+        !isLoopback(request.raw.socket.remoteAddress) ||
+        !isLoopback(request.ip)
+      )
+        return reply
+          .code(404)
+          .send({ error: "Recurso indisponível.", code: "NOT_FOUND" });
       requireOrigin(request);
       return issueSession(reply, true);
     },
@@ -499,6 +592,7 @@ async function buildApp(options = {}) {
       return sessionResponse(null);
     },
   );
+  users.register(app, { requireAuth, requireMutation, issueSession });
   app.get("/api/content", async () => {
     const row = record();
     return {
@@ -531,6 +625,7 @@ async function buildApp(options = {}) {
     { preHandler: requireMutation },
     async (_request, reply) =>
       reply.code(403).send({
+        code: "FORBIDDEN",
         error:
           "A restauração de versões completas não está disponível. Atualize o processo seletivo ou os canais de contato no painel.",
       }),
@@ -550,6 +645,9 @@ async function buildApp(options = {}) {
         throw new ValidationError(
           "Formato inválido. Envie uma imagem PNG, JPEG, WebP, AVIF ou um PDF válido.",
         );
+      const prepared = detected.type.startsWith("image/")
+        ? await prepareImage(buffer)
+        : { buffer, ...detected, width: null, height: null };
       const asset = {
         id: randomUUID(),
         name:
@@ -557,24 +655,50 @@ async function buildApp(options = {}) {
             .basename(file.filename || "arquivo")
             .replace(/[\u0000-\u001f\u007f]/g, "")
             .slice(0, 180) || "arquivo",
-        type: detected.type,
-        size: buffer.length,
+        type: prepared.type,
+        size: prepared.buffer.length,
+        width: prepared.width,
+        height: prepared.height,
+        createdAt: now().toISOString(),
       };
-      const filename = `${asset.id}.${detected.extension}`;
+      const filename = `${asset.id}.${prepared.extension}`;
       asset.url = `/uploads/${filename}`;
       const destination = path.join(uploadsDir, filename);
-      writeFileSync(destination, buffer, { flag: "wx", mode: 0o600 });
+      const originalRelative = detected.type.startsWith("image/")
+        ? `originals/${asset.id}.${detected.extension}`
+        : null;
+      const originalDestination = originalRelative
+        ? path.join(config.dataDir, originalRelative)
+        : null;
+      if (originalDestination)
+        mkdirSync(path.dirname(originalDestination), {
+          recursive: true,
+          mode: 0o700,
+        });
+      writeFileSync(destination, prepared.buffer, { flag: "wx", mode: 0o600 });
       try {
-        db.prepare("INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?)").run(
+        if (originalDestination)
+          writeFileSync(originalDestination, buffer, {
+            flag: "wx",
+            mode: 0o600,
+          });
+        db.prepare(
+          "INSERT INTO assets (id, name, url, type, size, created_at, width, height, original_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        ).run(
           asset.id,
           asset.name,
           asset.url,
           asset.type,
           asset.size,
-          now().toISOString(),
+          asset.createdAt,
+          asset.width,
+          asset.height,
+          originalRelative,
         );
       } catch (error) {
         unlinkSync(destination);
+        if (originalDestination && existsSync(originalDestination))
+          unlinkSync(originalDestination);
         throw error;
       }
       return reply.code(201).send({ asset });
@@ -586,6 +710,7 @@ async function buildApp(options = {}) {
     config,
     requireAuth,
     requireMutation,
+    validateAssetReference,
   });
   registerBlogPages(app, {
     blog,
@@ -618,7 +743,9 @@ async function buildApp(options = {}) {
     app.get("/admin/", async (_, reply) => reply.sendFile("admin/index.html"));
   }
   app.setNotFoundHandler((request, reply) =>
-    reply.code(404).send({ error: "Página ou recurso não encontrado." }),
+    reply
+      .code(404)
+      .send({ error: "Página ou recurso não encontrado.", code: "NOT_FOUND" }),
   );
   app.addHook("onClose", async () => db.close());
   await app.ready();

@@ -1,6 +1,7 @@
 const { test: base, expect } = require("@playwright/test");
 const path = require("node:path");
 const { DEFAULT_CONTENT } = require("../../shared/content.cjs");
+const { loginPreview } = require("./auth.cjs");
 
 const test = base.extend({
   verifyJavaScript: [
@@ -80,31 +81,16 @@ async function resetContent(page) {
 }
 
 async function login(page) {
-  await page.goto("/admin/");
-  await expect(
-    page.getByRole("heading", { name: "Bem-vindo ao Nexo Studio." }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Entrar na prévia local", exact: true })
-    .click();
-  await expect(page.locator("#workspace-main h1")).toHaveText("Visão geral");
+  await loginPreview(page);
   await resetContent(page);
   await page.reload();
   await expect(page.locator("#workspace-main h1")).toHaveText("Visão geral");
 }
 
 async function saveDraft(page) {
-  const response = page.waitForResponse(
-    (response) =>
-      response.url().endsWith("/api/admin/content") &&
-      response.request().method() === "PUT",
+  await expect(page.getByTestId("site-save-state")).toContainText(
+    "Rascunho salvo",
   );
-  await page
-    .getByRole("button", { name: "Salvar rascunho", exact: true })
-    .first()
-    .click();
-  expect((await response).ok()).toBeTruthy();
-  await expect(page.locator(".toast")).toContainText("Rascunho salvo.");
 }
 
 async function publish(page) {
@@ -179,10 +165,10 @@ test("contact changes persist as drafts, appear in private preview, and reach vi
     .fill("contato-teste@example.org");
   await page
     .getByLabel("Perfil do Instagram", { exact: true })
-    .fill("https://www.instagram.com/nexo_teste/");
-  await page
-    .getByLabel("Nome de usuário no Instagram", { exact: true })
     .fill("@nexo_teste");
+  await expect(
+    page.getByLabel("Nome de usuário no Instagram", { exact: true }),
+  ).toHaveCount(0);
   await saveDraft(page);
 
   const visitor = await publicPage(context);
@@ -503,6 +489,19 @@ test("selection stages can be ordered and removed on mobile without losing their
   await expect(page.getByLabel("Nome da etapa 2", { exact: true })).toHaveCount(
     0,
   );
+  await page.getByRole("button", { name: "Desfazer", exact: true }).click();
+  await expect(page.getByLabel("Nome da etapa 1", { exact: true })).toHaveValue(
+    "Entrevistas",
+  );
+  await expect(
+    page.getByLabel("Nome da etapa 1", { exact: true }),
+  ).toBeFocused();
+  await expect(page.getByLabel("Data da etapa 1", { exact: true })).toHaveValue(
+    dateFromToday(8),
+  );
+  await page
+    .getByRole("button", { name: "Remover etapa 1", exact: true })
+    .click();
   await saveDraft(page);
   await page.reload();
   await expect(page.getByLabel("Nome da etapa 1", { exact: true })).toHaveValue(
@@ -514,5 +513,157 @@ test("selection stages can be ordered and removed on mobile without losing their
   ]);
   expect(state.published.selection.stages).toEqual(
     DEFAULT_CONTENT.selection.stages,
+  );
+});
+
+test("invalid contact data is explained beside the field and focused before publication", async ({
+  page,
+}) => {
+  await login(page);
+  await page.getByRole("link", { name: "Contato", exact: true }).click();
+  const email = page.getByLabel("E-mail de contato", { exact: true });
+  await email.fill("endereco-sem-email");
+  await page
+    .getByRole("button", { name: "Publicar alterações", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(email).toHaveAttribute("aria-invalid", "true");
+  await expect(email).toHaveAccessibleDescription(/e-mail/i);
+  await expect(email).toBeFocused();
+  expect((await stateOf(page)).published.site.email).toBe(
+    DEFAULT_CONTENT.site.email,
+  );
+
+  await email.fill("contato-validado@example.org");
+  const instagram = page.getByLabel("Perfil do Instagram", { exact: true });
+  await instagram.fill("https://www.instagram.com/nexo.qa/");
+  await saveDraft(page);
+  const state = await stateOf(page);
+  expect(state.draft.site).toMatchObject({
+    email: "contato-validado@example.org",
+    instagramUrl: "https://www.instagram.com/nexo.qa/",
+    instagramHandle: "@nexo.qa",
+  });
+  await expect(email).not.toHaveAttribute("aria-invalid", "true");
+  await expect(
+    page.getByLabel("Nome de usuário no Instagram", { exact: true }),
+  ).toHaveCount(0);
+});
+
+test("an incomplete selection stage is saved as a draft but must be completed before publishing", async ({
+  page,
+}) => {
+  await login(page);
+  await page
+    .getByRole("link", { name: "Processo seletivo", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Adicionar etapa", exact: true })
+    .click();
+  await saveDraft(page);
+  const incomplete = await stateOf(page);
+  expect(incomplete.draft.selection.stages).toHaveLength(1);
+  expect(incomplete.draft.selection.stages[0].title).toBe("");
+  expect(incomplete.published.selection.stages).toHaveLength(0);
+  await page
+    .getByRole("button", { name: "Publicar alterações", exact: true })
+    .click();
+  const title = page.getByLabel("Nome da etapa 1", { exact: true });
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(title).toHaveAttribute("aria-invalid", "true");
+  await expect(title).toBeFocused();
+  await expect(title).toHaveAccessibleDescription(/nome|título|etapa/i);
+  await title.fill("Entrevistas com a equipe");
+  await saveDraft(page);
+  await publish(page);
+  expect((await stateOf(page)).published.selection.stages[0].title).toBe(
+    "Entrevistas com a equipe",
+  );
+});
+
+test("selection publication waits for its PDF upload and includes the file that finished uploading", async ({
+  page,
+}) => {
+  await login(page);
+  await page
+    .getByRole("link", { name: "Processo seletivo", exact: true })
+    .click();
+  await page
+    .getByLabel("Edição do processo", { exact: true })
+    .fill("Edital em preparação");
+  let releaseUpload;
+  const uploadGate = new Promise((resolve) => {
+    releaseUpload = resolve;
+  });
+  await page.route("**/api/admin/uploads", async (route) => {
+    await uploadGate;
+    await route.continue();
+  });
+  const uploaded = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/admin/uploads") &&
+      response.request().method() === "POST",
+  );
+  await page.getByLabel("Enviar edital em PDF", { exact: true }).setInputFiles({
+    name: "edital-completo.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from(
+      "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n",
+    ),
+  });
+  try {
+    await expect(
+      page.getByRole("button", { name: "Publicar alterações", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page
+        .getByRole("button", { name: "Salvar rascunho", exact: true })
+        .first(),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Pré-visualizar", exact: true }),
+    ).toBeDisabled();
+    expect((await stateOf(page)).published.selection.edition).toBe(
+      DEFAULT_CONTENT.selection.edition,
+    );
+  } finally {
+    releaseUpload();
+  }
+  const response = await uploaded;
+  expect(response.ok()).toBeTruthy();
+  const { asset } = await response.json();
+  await expect(page.getByLabel("Link do edital", { exact: true })).toHaveValue(
+    asset.url,
+  );
+  await expect(page.locator(".essentials-document-card")).toContainText(
+    "edital-completo.pdf",
+  );
+  await saveDraft(page);
+  await publish(page);
+  expect((await stateOf(page)).published.selection.noticeUrl).toBe(asset.url);
+});
+
+test("the overview distinguishes a saved selection draft from the information currently published", async ({
+  page,
+}) => {
+  await login(page);
+  await page
+    .getByRole("link", { name: "Processo seletivo", exact: true })
+    .click();
+  await page
+    .getByLabel("Edição do processo", { exact: true })
+    .fill("Nova edição ainda em revisão");
+  await page.getByRole("radio", { name: "Em breve", exact: true }).check();
+  await saveDraft(page);
+  await page.getByRole("link", { name: "Visão geral", exact: true }).click();
+  const summary = page.locator(".essentials-selection-summary");
+  await expect(summary).toContainText("Publicado no site");
+  await expect(summary).toContainText("Encerrado");
+  await expect(summary).not.toContainText("Nova edição ainda em revisão");
+  await expect(summary).toContainText("Há alterações no rascunho");
+  const state = await stateOf(page);
+  expect(state.draft.selection.edition).toBe("Nova edição ainda em revisão");
+  expect(state.published.selection.edition).toBe(
+    DEFAULT_CONTENT.selection.edition,
   );
 });

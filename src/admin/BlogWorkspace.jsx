@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -9,16 +9,11 @@ import {
   ExternalLink,
   Eye,
   FileText,
-  Heading2,
   Image as ImageIcon,
-  Italic,
-  Bold,
   Link as LinkIcon,
-  List,
   LoaderCircle,
   Monitor,
   Plus,
-  Quote,
   Search,
   Send,
   Settings2,
@@ -32,6 +27,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { api } from "./api";
+import { CATEGORIES, validatePost } from "../../shared/blog.cjs";
+import { useDraftRecovery } from "./useDraftRecovery";
 import {
   Badge,
   Button,
@@ -44,11 +41,13 @@ import {
   dateLabel,
 } from "./components";
 import "./blog.css";
+const RichTextEditor = lazy(() => import("./RichTextEditor"));
 
 const STATUS_TABS = [
   { id: "all", label: "Todos" },
   { id: "draft", label: "Rascunhos" },
   { id: "published", label: "Publicados" },
+  { id: "pending", label: "Alterações" },
   { id: "archived", label: "Arquivados" },
 ];
 const normalize = (value) =>
@@ -97,9 +96,116 @@ const blankPost = (category = "") => ({
 function postStatus(post) {
   if (post.archived) return { label: "Arquivado", tone: "neutral" };
   if (!post.published) return { label: "Rascunho", tone: "amber" };
-  if (!equivalent(post.draft, post.published))
+  if (post.hasChanges ?? !equivalent(post.draft, post.published))
     return { label: "Alterações em rascunho", tone: "amber" };
   return { label: "Publicado", tone: "green" };
+}
+
+const FIELD_LABELS = {
+  title: "Título",
+  excerpt: "Resumo",
+  author: "Autoria",
+  authorRole: "Descrição da autoria",
+  category: "Categoria",
+  body: "Texto do artigo",
+  slug: "Endereço do artigo",
+  tags: "Temas",
+  coverImage: "Imagem de capa",
+  coverAlt: "Descrição da imagem",
+  coverCredit: "Crédito da imagem",
+  featured: "Destaque",
+};
+function errorField(error) {
+  if (error.field && error.field !== "version") return error.field;
+  const label = String(error.message || "").split(":")[0];
+  return {
+    Título: "title",
+    Resumo: "excerpt",
+    Autoria: "author",
+    Categoria: "category",
+    Texto: "body",
+    Endereço: "slug",
+    "Palavras-chave": "tags",
+    "Palavra-chave": "tags",
+    "Imagem de capa": "coverImage",
+    "Descrição da imagem": "coverAlt",
+    "Crédito da imagem": "coverCredit",
+  }[label];
+}
+function validationErrors(content, publishing = false) {
+  const result = {};
+  if (!content) return result;
+  if (publishing) {
+    [
+      "title",
+      "excerpt",
+      "author",
+      "category",
+      "body",
+      "slug",
+      ...(content.coverImage ? ["coverAlt"] : []),
+    ].forEach((field) => {
+      if (!String(content[field] || "").trim())
+        result[field] =
+          `Preencha ${FIELD_LABELS[field].toLocaleLowerCase("pt-BR")} antes de publicar.`;
+    });
+  }
+  try {
+    validatePost(content, { publishing });
+  } catch (error) {
+    result[errorField(error) || "body"] = error.message;
+  }
+  return result;
+}
+function downloadCopy(content) {
+  const text = `# ${content.title || "Artigo sem título"}\n\n${content.excerpt || ""}\n\n${content.body || ""}\n\n---\n\nDados completos para recuperação:\n\n\`\`\`json\n${JSON.stringify(content, null, 2)}\n\`\`\`\n`;
+  const url = URL.createObjectURL(
+    new Blob([text], { type: "text/markdown;charset=utf-8" }),
+  );
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${slugify(content.title) || "rascunho-nexo"}.md`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function compareRecovery(copy, current, preserveSlug = false) {
+  const merged = structuredClone(current),
+    conflicts = [],
+    changes = [];
+  for (const field of Object.keys(FIELD_LABELS)) {
+    if (field === "slug" && preserveSlug) continue;
+    const mine = copy.value?.[field],
+      theirs = current[field];
+    if (equivalent(mine, theirs)) continue;
+    if (copy.base && equivalent(mine, copy.base[field])) continue;
+    changes.push(field);
+    if (copy.base && equivalent(theirs, copy.base[field])) merged[field] = mine;
+    else conflicts.push(field);
+  }
+  return { merged, conflicts, changes };
+}
+function readableValue(value) {
+  if (typeof value === "boolean") return value ? "Sim" : "Não";
+  if (Array.isArray(value)) return value.join(", ") || "Nenhum tema";
+  return value || "Não informado";
+}
+function focusField(field) {
+  requestAnimationFrame(() => {
+    const element =
+      document.querySelector(`[data-blog-field="${field}"]`) ||
+      document.querySelector(
+        field === "body"
+          ? '#blog-body, [contenteditable="true"]'
+          : `#blog-${field}`,
+      );
+    let parent = element?.parentElement;
+    while (parent) {
+      if (parent.tagName === "DETAILS") parent.open = true;
+      parent = parent.parentElement;
+    }
+    element?.focus();
+    element?.scrollIntoView({ block: "center", behavior: "smooth" });
+  });
 }
 
 export default function BlogWorkspace({
@@ -112,7 +218,7 @@ export default function BlogWorkspace({
 }) {
   const postId = route.startsWith("blog/") ? route.slice(5) : null;
   const [posts, setPosts] = useState([]),
-    [categories, setCategories] = useState([]);
+    [categories, setCategories] = useState(CATEGORIES);
   const [record, setRecord] = useState(null),
     [draft, setDraft] = useState(null);
   const [tagsText, setTagsText] = useState(""),
@@ -123,19 +229,37 @@ export default function BlogWorkspace({
     [busy, setBusy] = useState("");
   const [query, setQuery] = useState(""),
     [status, setStatus] = useState("all");
+  const [search, setSearch] = useState(""),
+    [category, setCategory] = useState("");
+  const [page, setPage] = useState(1),
+    [pagination, setPagination] = useState({ total: 0, pages: 1, counts: {} });
+  const [listLoading, setListLoading] = useState(false);
+  const [errors, setErrors] = useState({}),
+    [autosaveFailed, setAutosaveFailed] = useState(false);
+  const [connectionOnline, setConnectionOnline] = useState(navigator.onLine);
+  const [assetQuery, setAssetQuery] = useState(""),
+    [assetError, setAssetError] = useState("");
+  const [uploadError, setUploadError] = useState(""),
+    [coverReview, setCoverReview] = useState(false);
+  const [coverError, setCoverError] = useState(false),
+    [coverRetry, setCoverRetry] = useState(0);
+  const [revisions, setRevisions] = useState([]),
+    [revisionLoading, setRevisionLoading] = useState(false);
   const [modal, setModal] = useState(null),
     [preview, setPreview] = useState(null),
     [previewMobile, setPreviewMobile] = useState(false);
   const [assets, setAssets] = useState([]),
     [assetLoading, setAssetLoading] = useState(false),
     [uploading, setUploading] = useState(false);
-  const [editorView, setEditorView] = useState("write");
-  const bodyRef = useRef(null),
-    fileRef = useRef(null),
+  const fileRef = useRef(null),
     draftRef = useRef(draft),
     recordRef = useRef(record);
   const activeId = useRef(postId),
-    saveRef = useRef(null);
+    saveRef = useRef(null),
+    operationRef = useRef(false),
+    uploadRef = useRef(false),
+    uploadController = useRef(null),
+    lastUpload = useRef(null);
   activeId.current = postId;
   draftRef.current = draft;
   recordRef.current = record;
@@ -145,37 +269,74 @@ export default function BlogWorkspace({
     draft &&
     !equivalent(draft, record.draft)
   );
-  const locked = !!busy || !!record?.archived;
+  const hasPublicationChanges =
+    !!draft && (!record?.published || !equivalent(draft, record.published));
+  const recovery = useDraftRecovery({
+    key: `blog:${session?.user?.id || session?.user?.email || session?.email || "local"}:${postId || "list"}`,
+    value: draft,
+    version: record?.version,
+    base: record?.draft,
+    dirty,
+    ready: !!postId && record?.id === postId && !loading,
+  });
+  const locked =
+    (!!busy && busy !== "autosave") ||
+    !!record?.archived ||
+    !!recovery.recovery;
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
-  function fail(error) {
+  function fail(error, { automatic = false } = {}) {
+    setAutosaveFailed(true);
     if (error.status === 401) {
       onSessionExpired?.();
       return;
     }
-    if (error.status === 409) setModal({ type: "conflict" });
+    const field = errorField(error);
+    if (field) {
+      setErrors((current) => ({
+        ...current,
+        [field]:
+          error.code === "SLUG_TAKEN"
+            ? "Este endereço já está em uso. Escolha outro para este artigo."
+            : error.message,
+      }));
+      if (!automatic) focusField(field);
+    }
+    if (error.code === "VERSION_CONFLICT" || (error.status === 409 && !field)) {
+      setAutosaveFailed(true);
+      setModal({ type: "conflict" });
+    }
+    if (automatic) {
+      setAutosaveFailed(true);
+      return;
+    }
     notify?.(
       error.message || "Não foi possível concluir. Tente novamente.",
       true,
     );
   }
-  function accept(post) {
+  function accept(post, { preserve = false, submitted = null } = {}) {
     setPosts((current) => [
       post,
       ...current.filter((item) => item.id !== post.id),
     ]);
     if (activeId.current === post.id) {
+      const keepEditing =
+        preserve || (submitted && !equivalent(draftRef.current, submitted));
+      const nextDraft = keepEditing
+        ? draftRef.current
+        : structuredClone(post.draft);
       setRecord(post);
-      setDraft(structuredClone(post.draft));
-      setTagsText((post.draft.tags || []).join(", "));
+      setDraft(nextDraft);
+      setTagsText((nextDraft.tags || []).join(", "));
       setSlugManual(
         !!post.published || post.draft.slug !== slugify(post.draft.title),
       );
       recordRef.current = post;
-      draftRef.current = post.draft;
+      draftRef.current = nextDraft;
     }
     return post;
   }
@@ -185,22 +346,25 @@ export default function BlogWorkspace({
     setLoadError("");
     setModal(null);
     setPreview(null);
-    setEditorView("write");
     setRecord(null);
     setDraft(null);
+    setErrors({});
+    setAutosaveFailed(false);
+    setCoverReview(false);
+    setCoverError(false);
+    setUploadError("");
     onDirtyChange?.(false);
     async function load() {
       try {
-        const result = await api("/api/admin/blog");
-        if (!active) return;
-        setPosts(result.posts || []);
-        setCategories(result.categories || []);
         if (postId) {
           const detail = await api(
             `/api/admin/blog/${encodeURIComponent(postId)}`,
           );
           if (!active) return;
           accept(detail.post);
+          requestAnimationFrame(() =>
+            document.querySelector(".blog-editor-title")?.focus(),
+          );
         }
       } catch (error) {
         if (!active) return;
@@ -215,6 +379,94 @@ export default function BlogWorkspace({
       active = false;
     };
   }, [postId, retry]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(query.trim());
+      setPage(1);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [query]);
+  useEffect(() => {
+    if (postId) return;
+    let active = true;
+    setListLoading(true);
+    setLoadError("");
+    const params = new URLSearchParams({
+      summary: "1",
+      page: String(page),
+      search,
+      status,
+      category,
+    });
+    api(`/api/admin/blog?${params}`)
+      .then((result) => {
+        if (!active) return;
+        setPosts(result.posts || []);
+        setCategories(result.categories || CATEGORIES);
+        setPagination({
+          total: result.total,
+          pages: result.pages || 1,
+          counts: result.counts || {},
+        });
+        if (page > (result.pages || 1)) setPage(result.pages || 1);
+      })
+      .catch((error) => {
+        if (active) {
+          setLoadError(error.message);
+          if (error.status === 401) onSessionExpired?.();
+        }
+      })
+      .finally(() => {
+        if (active) setListLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [postId, retry, page, search, status, category]);
+  useEffect(() => {
+    const online = () => {
+      setConnectionOnline(true);
+      setAutosaveFailed(false);
+    };
+    const offline = () => setConnectionOnline(false);
+    window.addEventListener("online", online);
+    window.addEventListener("offline", offline);
+    return () => {
+      window.removeEventListener("online", online);
+      window.removeEventListener("offline", offline);
+      uploadController.current?.abort();
+    };
+  }, []);
+  useEffect(() => {
+    if (
+      !dirty ||
+      busy ||
+      uploading ||
+      record?.archived ||
+      autosaveFailed ||
+      recovery.recovery ||
+      modal ||
+      !connectionOnline ||
+      Object.keys(validationErrors(draft)).length
+    )
+      return;
+    const timer = setTimeout(() => save(true), 1500);
+    return () => clearTimeout(timer);
+  }, [
+    draft,
+    dirty,
+    busy,
+    uploading,
+    record?.archived,
+    autosaveFailed,
+    connectionOnline,
+    recovery.recovery,
+    modal,
+  ]);
+  useEffect(() => {
+    setAutosaveFailed(false);
+  }, [session]);
 
   useEffect(() => {
     function keyDown(event) {
@@ -232,41 +484,96 @@ export default function BlogWorkspace({
   }, [postId]);
 
   function patch(values) {
-    setDraft((current) => ({ ...current, ...values }));
+    const next = { ...draftRef.current, ...values };
+    draftRef.current = next;
+    setDraft(next);
+    setErrors((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(([key]) => !(key in values)),
+      ),
+    );
+    setAutosaveFailed(false);
+  }
+  function recoverEditing() {
+    const copy = recovery.recovery;
+    if (!copy?.value) return;
+    if (copy.version !== recordRef.current.version) {
+      const comparison = compareRecovery(
+        copy,
+        recordRef.current.draft,
+        !!recordRef.current.published,
+      );
+      setModal({ type: "recover", copy, comparison, choices: {} });
+      return;
+    }
+    applyRecovered(copy.value);
+  }
+  function applyRecovered(value) {
+    if (recordRef.current.published)
+      value = { ...value, slug: recordRef.current.draft.slug };
+    recovery.restore();
+    patch(value);
+    setTagsText((value.tags || []).join(", "));
+    setAutosaveFailed(true);
+    setModal(null);
+    notify?.(
+      "Edição recuperada. Confira os campos e salve quando estiver pronto.",
+    );
   }
   function changeTitle(title) {
-    setDraft((current) => ({
-      ...current,
+    patch({
       title,
       ...(!slugManual && !record?.published ? { slug: slugify(title) } : {}),
-    }));
+    });
   }
   async function saveCurrent() {
+    if (uploadRef.current)
+      throw new Error(
+        "Aguarde o envio da capa terminar antes de salvar ou publicar.",
+      );
     const current = recordRef.current,
       content = draftRef.current;
     if (!current || !content || current.archived) return current;
     if (equivalent(content, current.draft)) return current;
+    const invalid = validationErrors(content);
+    if (Object.keys(invalid).length) {
+      const field = Object.keys(invalid)[0];
+      setErrors(invalid);
+      const error = new Error(invalid[field]);
+      error.field = field;
+      throw error;
+    }
     const result = await api(`/api/admin/blog/${current.id}`, {
       method: "PUT",
       body: { post: content, version: current.version },
     });
-    return accept(result.post);
+    return accept(result.post, { submitted: content });
   }
-  async function save() {
-    if (busy || !dirty || record?.archived) return;
-    setBusy("save");
+  async function save(automatic = false) {
+    if (
+      operationRef.current ||
+      uploadRef.current ||
+      !dirty ||
+      recordRef.current?.archived
+    )
+      return;
+    operationRef.current = true;
+    setBusy(automatic ? "autosave" : "save");
     try {
       await saveCurrent();
-      notify?.("Rascunho do artigo salvo.");
+      setAutosaveFailed(false);
+      if (!automatic) notify?.("Rascunho do artigo salvo.");
     } catch (error) {
-      fail(error);
+      fail(error, { automatic });
     } finally {
       setBusy("");
+      operationRef.current = false;
     }
   }
-  saveRef.current = save;
+  saveRef.current = () => save(false);
   async function create() {
-    if (busy) return;
+    if (operationRef.current || uploadRef.current) return;
+    operationRef.current = true;
     setBusy("create");
     try {
       const result = await api("/api/admin/blog", {
@@ -278,10 +585,12 @@ export default function BlogWorkspace({
       fail(error);
     } finally {
       setBusy("");
+      operationRef.current = false;
     }
   }
   async function showPreview(post = record) {
-    if (busy || !post) return;
+    if (operationRef.current || uploadRef.current || !post) return;
+    operationRef.current = true;
     const startingRoute = activeId.current;
     setBusy("preview");
     try {
@@ -295,18 +604,34 @@ export default function BlogWorkspace({
       fail(error);
     } finally {
       setBusy("");
+      operationRef.current = false;
     }
   }
   async function runAction(action) {
-    if (busy || !record) return;
+    if (operationRef.current || uploadRef.current || !record) return;
+    if (action === "publish") {
+      const invalid = validationErrors(draftRef.current, true);
+      if (Object.keys(invalid).length) {
+        setErrors(invalid);
+        setModal(null);
+        focusField(Object.keys(invalid)[0]);
+        return;
+      }
+      if (!hasPublicationChanges) return;
+    }
+    operationRef.current = true;
     setBusy(action);
     try {
-      const current = action !== "restore" ? await saveCurrent() : record;
+      const preserve =
+        action === "unpublish" || action === "archive" || action === "restore";
+      if (preserve && dirty) recovery.persist();
+      const current =
+        action === "publish" ? await saveCurrent() : recordRef.current;
       const result = await api(`/api/admin/blog/${current.id}/${action}`, {
         method: "POST",
         body: { version: current.version },
       });
-      accept(result.post);
+      accept(result.post, { preserve: preserve && dirty });
       setModal(null);
       notify?.(
         {
@@ -320,17 +645,20 @@ export default function BlogWorkspace({
       fail(error);
     } finally {
       setBusy("");
+      operationRef.current = false;
     }
   }
   async function openAssets() {
     setModal({ type: "assets" });
     setAssetLoading(true);
+    setAssetQuery("");
+    setAssetError("");
     try {
       const result = await api("/api/admin/assets");
       setAssets(
         Array.from(
           new Map(
-            [...mediaAssets, ...(result.assets || [])].map((asset) => [
+            [...(result.assets || []), ...mediaAssets].map((asset) => [
               asset.url,
               asset,
             ]),
@@ -342,13 +670,14 @@ export default function BlogWorkspace({
         ),
       );
     } catch (error) {
-      fail(error);
+      setAssetError(error.message);
+      if (error.status === 401) onSessionExpired?.();
     } finally {
       setAssetLoading(false);
     }
   }
   async function uploadCover(file) {
-    if (!file || uploading) return;
+    if (!file || uploadRef.current || operationRef.current) return;
     if (!/^image\/(jpeg|png|webp|avif)$/.test(file.type)) {
       notify?.("Escolha uma imagem JPG, PNG, WebP ou AVIF.", true);
       return;
@@ -358,121 +687,136 @@ export default function BlogWorkspace({
       return;
     }
     const startingPost = activeId.current;
+    lastUpload.current = file;
+    uploadRef.current = true;
+    uploadController.current = new AbortController();
     setUploading(true);
+    setUploadError("");
     try {
       const form = new FormData();
       form.append("file", file);
-      const result = await api("/api/admin/uploads", { method: "POST", form });
-      if (activeId.current === startingPost)
-        patch({ coverImage: result.asset.url });
+      const result = await api("/api/admin/uploads", {
+        method: "POST",
+        form,
+        signal: uploadController.current.signal,
+      });
+      if (activeId.current === startingPost) selectCover(result.asset.url);
       setAssets((current) => [result.asset, ...current]);
       notify?.(
         activeId.current === startingPost
-          ? "Capa adicionada. Salve o rascunho para guardar a alteração."
+          ? "Capa adicionada. Confira a descrição e o crédito desta imagem."
           : "Imagem enviada à biblioteca.",
       );
     } catch (error) {
-      fail(error);
+      if (
+        error.name === "AbortError" ||
+        uploadController.current?.signal.aborted
+      ) {
+        setUploadError("Envio cancelado. A capa anterior foi mantida.");
+      } else {
+        setUploadError(
+          error.message || "Não foi possível enviar a imagem. Tente novamente.",
+        );
+        if (error.status === 401) onSessionExpired?.();
+      }
     } finally {
+      uploadRef.current = false;
+      uploadController.current = null;
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
     }
   }
-  function format(action) {
-    const input = bodyRef.current;
-    if (!input || locked) return;
-    const start = input.selectionStart,
-      end = input.selectionEnd,
-      text = draft.body || "",
-      selected = text.slice(start, end);
-    let insert, from, to;
-    if (action === "heading" || action === "quote" || action === "list") {
-      const prefix = { heading: "## ", quote: "> ", list: "- " }[action];
-      const lineStart = text.lastIndexOf("\n", start - 1) + 1;
-      const chunk = text.slice(lineStart, end) || "Texto";
-      insert = chunk
-        .split("\n")
-        .map((line) => prefix + line)
-        .join("\n");
-      patch({ body: text.slice(0, lineStart) + insert + text.slice(end) });
-      from = lineStart + prefix.length;
-      to = lineStart + insert.length;
-    } else {
-      const wrappers = {
-        bold: ["**", "**"],
-        italic: ["_", "_"],
-        link: ["[", "](https://)"],
-      };
-      const [before, after] = wrappers[action];
-      insert = before + (selected || "Texto") + after;
-      patch({ body: text.slice(0, start) + insert + text.slice(end) });
-      from = start + before.length;
-      to = from + (selected || "Texto").length;
-    }
-    requestAnimationFrame(() => {
-      input.focus();
-      input.setSelectionRange(from, to);
-    });
+  function selectCover(coverImage) {
+    if (coverImage === draftRef.current?.coverImage) return;
+    patch({ coverImage, coverAlt: "", coverCredit: "" });
+    setCoverReview(!!coverImage);
+    setCoverError(false);
   }
-
-  const filtered = useMemo(
-    () =>
-      posts
-        .filter((post) => {
-          const matchStatus =
-            status === "all"
-              ? !post.archived
-              : status === "archived"
-                ? post.archived
-                : !post.archived &&
-                  (status === "published"
-                    ? !!post.published
-                    : !post.published ||
-                      !equivalent(post.draft, post.published));
-          const searchable = [
-            post.draft.title,
-            post.draft.author,
-            post.draft.category,
-            ...(post.draft.tags || []),
-          ].join(" ");
-          return (
-            matchStatus &&
-            normalize(searchable).includes(normalize(query.trim()))
-          );
-        })
-        .sort(
-          (left, right) => new Date(right.updatedAt) - new Date(left.updatedAt),
-        ),
-    [posts, query, status],
-  );
-  const requirements = draft
-    ? [
-        { label: "Título", valid: !!draft.title.trim() },
-        { label: "Resumo", valid: !!draft.excerpt.trim() },
-        { label: "Autoria", valid: !!draft.author.trim() },
-        { label: "Categoria", valid: !!draft.category },
-        { label: "Texto do artigo", valid: !!draft.body.trim() },
+  async function openRevisions() {
+    setModal({ type: "revisions" });
+    setRevisionLoading(true);
+    try {
+      const result = await api(
+        `/api/admin/blog/${recordRef.current.id}/revisions`,
+      );
+      setRevisions(result.revisions || []);
+    } catch (error) {
+      fail(error);
+    } finally {
+      setRevisionLoading(false);
+    }
+  }
+  async function inspectRevision(revision) {
+    setRevisionLoading(true);
+    try {
+      const result = await api(
+        `/api/admin/blog/${recordRef.current.id}/revisions/${revision.id}`,
+      );
+      setModal({ type: "revision", revision: result.revision });
+    } catch (error) {
+      fail(error);
+    } finally {
+      setRevisionLoading(false);
+    }
+  }
+  async function restoreRevision(revision) {
+    if (operationRef.current || uploadRef.current) return;
+    operationRef.current = true;
+    setBusy("revision");
+    try {
+      if (dirty) {
+        recovery.persist();
+        downloadCopy(draftRef.current);
+      }
+      const result = await api(
+        `/api/admin/blog/${recordRef.current.id}/restore-revision`,
         {
-          label: "Endereço do artigo",
-          valid:
-            /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(draft.slug || "") &&
-            !["preview", "admin", "api"].includes(draft.slug),
+          method: "POST",
+          body: { revisionId: revision.id, version: recordRef.current.version },
         },
-        ...(draft.coverImage
-          ? [
-              {
-                label: "Descrição acessível da capa",
-                valid: !!draft.coverAlt.trim(),
-              },
-            ]
-          : []),
-      ]
+      );
+      accept(result.post);
+      setModal(null);
+      setErrors({});
+      setAutosaveFailed(false);
+      notify?.(
+        "Versão recuperada como rascunho. Confira a prévia antes de publicar.",
+      );
+    } catch (error) {
+      fail(error);
+    } finally {
+      operationRef.current = false;
+      setBusy("");
+    }
+  }
+  const filtered = posts;
+  const publicationErrors = validationErrors(draft, true);
+  const requirements = Object.entries(publicationErrors).map(
+    ([field, message]) => ({
+      field,
+      label: FIELD_LABELS[field] || field,
+      message,
+      valid: false,
+    }),
+  );
+  const ready = requirements.length === 0 && !coverError;
+  const changedFields = draft
+    ? Object.keys(FIELD_LABELS).filter(
+        (field) => !equivalent(draft[field], record?.published?.[field]),
+      )
     : [];
-  const ready = requirements.every((item) => item.valid);
+  const filteredAssets = assets.filter((asset) =>
+    normalize([asset.name, asset.filename, asset.type].join(" ")).includes(
+      normalize(assetQuery.trim()),
+    ),
+  );
 
   if (loading)
     return (
-      <Loading label={postId ? "Abrindo o artigo…" : "Carregando o blog…"} />
+      <Loading
+        compact
+        label={postId ? "Abrindo o artigo…" : "Carregando o blog…"}
+      />
     );
   if (loadError || (postId && !record))
     return (
@@ -544,8 +888,21 @@ export default function BlogWorkspace({
               <Tabs
                 label="Filtrar artigos por status"
                 value={status}
-                onChange={setStatus}
-                tabs={STATUS_TABS}
+                onChange={(next) => {
+                  setStatus(next);
+                  setPage(1);
+                }}
+                tabs={STATUS_TABS.map((tab) => ({
+                  ...tab,
+                  label: (
+                    <>
+                      {tab.label}{" "}
+                      <span className="blog-tab-count">
+                        {pagination.counts[tab.id] ?? 0}
+                      </span>
+                    </>
+                  ),
+                }))}
                 panelId="blog-posts-panel"
               />
               <label className="blog-search">
@@ -567,18 +924,51 @@ export default function BlogWorkspace({
                 )}
               </label>
             </div>
+            <div className="blog-list-filters">
+              <label htmlFor="blog-filter-category">Categoria</label>
+              <select
+                id="blog-filter-category"
+                value={category}
+                onChange={(event) => {
+                  setCategory(event.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="">Todas as categorias</option>
+                {categories.map((item) => (
+                  <option key={categoryValue(item)} value={categoryValue(item)}>
+                    {categoryLabel(item)}
+                  </option>
+                ))}
+              </select>
+              <p>
+                {status === "pending"
+                  ? "Artigos no ar com alterações salvas que ainda precisam ser publicadas."
+                  : status === "draft"
+                    ? "Artigos que ainda não estão disponíveis no blog."
+                    : "A publicação é sempre uma escolha da equipe."}
+              </p>
+              {listLoading && (
+                <span role="status" className="blog-list-updating">
+                  <LoaderCircle size={15} /> Atualizando…
+                </span>
+              )}
+            </div>
             <div
               role="tabpanel"
               id="blog-posts-panel"
               aria-labelledby={`blog-posts-panel-tab-${status}`}
               tabIndex={0}
+              aria-busy={listLoading}
             >
-              {filtered.length > 0 ? (
+              {listLoading && filtered.length === 0 ? (
+                <Loading compact label="Carregando artigos…" />
+              ) : filtered.length > 0 ? (
                 <>
                   <div className="blog-table-heading">
                     <span>
-                      {filtered.length}{" "}
-                      {filtered.length === 1 ? "artigo" : "artigos"}
+                      {pagination.total}{" "}
+                      {pagination.total === 1 ? "artigo" : "artigos"}
                     </span>
                     <span>Última edição</span>
                     <span>Status</span>
@@ -630,7 +1020,9 @@ export default function BlogWorkspace({
                               <p>
                                 {content.author || "Autoria a definir"}
                                 <span>·</span>
-                                {minutes(content.body)} min de leitura
+                                {post.readingMinutes ||
+                                  minutes(content.body)}{" "}
+                                min de leitura
                               </p>
                             </div>
                           </a>
@@ -668,24 +1060,28 @@ export default function BlogWorkspace({
                       ? "Nenhum artigo encontrado"
                       : status === "archived"
                         ? "Nenhum artigo arquivado"
-                        : status === "published"
-                          ? "O próximo artigo começa aqui"
-                          : "Um espaço para boas ideias"
+                        : status === "pending"
+                          ? "Publicações em dia"
+                          : status === "published"
+                            ? "O próximo artigo começa aqui"
+                            : "Um espaço para boas ideias"
                   }
                   description={
                     query
                       ? "Tente outro título, autor ou tema."
                       : status === "archived"
                         ? "Artigos arquivados ficam guardados aqui e podem ser recuperados."
-                        : status === "published"
-                          ? "Os artigos aparecem no blog depois que você os publica."
-                          : "Crie o primeiro rascunho e transforme o conhecimento do Nexo em leitura."
+                        : status === "pending"
+                          ? "Nenhum artigo publicado tem alterações de rascunho aguardando publicação."
+                          : status === "published"
+                            ? "Os artigos aparecem no blog depois que você os publica."
+                            : "Crie o primeiro rascunho e transforme o conhecimento do Nexo em leitura."
                   }
                 >
                   {query ? (
                     <Button onClick={() => setQuery("")}>Limpar busca</Button>
                   ) : (
-                    status !== "archived" && (
+                    !["archived", "pending"].includes(status) && (
                       <Button
                         variant="primary"
                         icon={Plus}
@@ -699,17 +1095,42 @@ export default function BlogWorkspace({
                 </Empty>
               )}
             </div>
+            {pagination.pages > 1 && (
+              <nav
+                className="blog-pagination"
+                aria-label="Paginação dos artigos"
+              >
+                <Button
+                  disabled={page <= 1 || listLoading}
+                  onClick={() => setPage((value) => value - 1)}
+                >
+                  Anterior
+                </Button>
+                <span>
+                  Página {page} de {pagination.pages}
+                </span>
+                <Button
+                  disabled={page >= pagination.pages || listLoading}
+                  onClick={() => setPage((value) => value + 1)}
+                >
+                  Próxima
+                </Button>
+              </nav>
+            )}
           </section>
           <div className="blog-editorial-note">
             <BookOpen size={17} />
             <p>
-              <strong>Da ideia à publicação.</strong> Salve seu rascunho,
-              confira a prévia e publique quando estiver pronto.
+              <strong>Rascunhos salvos automaticamente.</strong> Confira a
+              prévia e publique quando o artigo estiver pronto.
             </p>
           </div>
         </>
       ) : (
         <>
+          <h1 className="sr-only blog-editor-title" tabIndex={-1}>
+            Editar artigo
+          </h1>
           <div className="blog-editor-heading">
             <a href="#blog" className="text-button">
               <ArrowLeft size={16} /> Todos os artigos
@@ -730,6 +1151,78 @@ export default function BlogWorkspace({
               )}
             </div>
           </div>
+          {recovery.recovery && (
+            <div className="blog-recovery-notice" role="status">
+              <div>
+                <strong>Encontramos uma edição neste navegador.</strong>
+                <p>
+                  Guardada em {dateLabel(recovery.recovery.savedAt, true)}.
+                  Recupere para conferir antes de salvar.
+                </p>
+              </div>
+              <div className="blog-inline-actions">
+                <Button variant="primary" onClick={recoverEditing}>
+                  Recuperar edição
+                </Button>
+                <Button onClick={recovery.discard}>
+                  Descartar cópia local
+                </Button>
+              </div>
+            </div>
+          )}
+          {(!connectionOnline || autosaveFailed) && dirty && (
+            <div
+              className="blog-recovery-notice blog-connection-notice"
+              role="status"
+            >
+              <div>
+                <strong>
+                  {connectionOnline
+                    ? "O rascunho precisa de atenção."
+                    : "Você está sem conexão."}
+                </strong>
+                <p>
+                  {connectionOnline
+                    ? recovery.available
+                      ? "Confira os campos e tente salvar novamente. Sua edição permanece neste navegador."
+                      : "Confira os campos e tente salvar novamente. Baixe uma cópia antes de fechar esta tela."
+                    : recovery.available
+                      ? "Continue escrevendo. O salvamento será retomado quando a conexão voltar."
+                      : "Baixe uma cópia antes de fechar esta tela. Este navegador não permitiu guardar sua edição."}
+                </p>
+              </div>
+              <div className="blog-inline-actions">
+                <Button
+                  onClick={() => save(false)}
+                  disabled={
+                    !connectionOnline || !!busy || uploading || record.archived
+                  }
+                >
+                  Tentar salvar
+                </Button>
+                <Button onClick={() => downloadCopy(draftRef.current)}>
+                  Baixar cópia
+                </Button>
+              </div>
+            </div>
+          )}
+          {!recovery.available &&
+            dirty &&
+            connectionOnline &&
+            !autosaveFailed && (
+              <div className="blog-recovery-notice" role="status">
+                <div>
+                  <strong>Guarde uma cópia antes de fechar.</strong>
+                  <p>
+                    O armazenamento deste navegador não está disponível. Seu
+                    texto continua aberto nesta tela.
+                  </p>
+                </div>
+                <Button onClick={() => downloadCopy(draftRef.current)}>
+                  Baixar cópia
+                </Button>
+              </div>
+            )}
           {record.archived && (
             <div className="blog-archive-notice">
               <Archive size={19} />
@@ -765,9 +1258,25 @@ export default function BlogWorkspace({
                     placeholder="Dê um título à sua ideia"
                     rows={2}
                     maxLength={180}
+                    data-blog-field="title"
+                    aria-invalid={!!errors.title}
+                    aria-describedby={
+                      errors.title ? "blog-title-error" : undefined
+                    }
                   />
+                  {errors.title && (
+                    <p
+                      className="field-error"
+                      id="blog-title-error"
+                      role="alert"
+                    >
+                      {errors.title}
+                    </p>
+                  )}
                   <Field
                     label="Resumo"
+                    data-blog-field="excerpt"
+                    error={errors.excerpt}
                     value={draft.excerpt}
                     onChange={(excerpt) => patch({ excerpt })}
                     multiline
@@ -775,6 +1284,53 @@ export default function BlogWorkspace({
                     placeholder="Apresente a ideia central em poucas linhas."
                     hint="Aparece na lista do blog e nas prévias de compartilhamento."
                   />
+                  <div className="blog-essential-fields">
+                    <div className="field">
+                      <div className="field-label">
+                        <label htmlFor="blog-category">Categoria</label>
+                      </div>
+                      <select
+                        id="blog-category"
+                        data-blog-field="category"
+                        aria-invalid={!!errors.category}
+                        aria-describedby={
+                          errors.category ? "blog-category-error" : undefined
+                        }
+                        value={draft.category}
+                        onChange={(event) =>
+                          patch({ category: event.target.value })
+                        }
+                      >
+                        <option value="">Selecione uma categoria</option>
+                        {categories.map((item) => (
+                          <option
+                            key={categoryValue(item)}
+                            value={categoryValue(item)}
+                          >
+                            {categoryLabel(item)}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.category && (
+                        <p
+                          className="field-error"
+                          id="blog-category-error"
+                          role="alert"
+                        >
+                          {errors.category}
+                        </p>
+                      )}
+                    </div>
+                    <Field
+                      label="Autoria"
+                      data-blog-field="author"
+                      error={errors.author}
+                      value={draft.author}
+                      onChange={(author) => patch({ author })}
+                      maxLength={160}
+                      placeholder="Nome da pessoa ou equipe"
+                    />
+                  </div>
                 </fieldset>
                 <div className="blog-editor-divider" />
                 <div className="blog-body-heading">
@@ -782,88 +1338,22 @@ export default function BlogWorkspace({
                     <h2>Texto do artigo</h2>
                     <span>{minutes(draft.body)} min de leitura</span>
                   </div>
-                  <button
-                    type="button"
-                    className={`text-button ${editorView === "help" ? "is-active" : ""}`}
-                    aria-expanded={editorView === "help"}
-                    onClick={() =>
-                      setEditorView((value) =>
-                        value === "help" ? "write" : "help",
-                      )
-                    }
-                  >
-                    Como formatar <ChevronDown size={14} />
-                  </button>
                 </div>
-                {editorView === "help" && (
-                  <div className="blog-markdown-help">
-                    <p>
-                      Use a barra para formatar o texto selecionado. A prévia
-                      mostra o resultado final.
-                    </p>
-                    <div>
-                      <span>
-                        <code>## Subtítulo</code>
-                      </span>
-                      <span>
-                        <code>**Negrito**</code>
-                      </span>
-                      <span>
-                        <code>[Fonte](https://…)</code>
-                      </span>
+                <Suspense
+                  fallback={
+                    <div className="blog-editor-loading">
+                      <Loading compact label="Abrindo editor de texto…" />
                     </div>
-                    <p>
-                      Para referências, adicione uma seção “Referências” ao
-                      final e inclua os links das fontes.
-                    </p>
-                  </div>
-                )}
-                <div
-                  className="blog-format-toolbar"
-                  role="toolbar"
-                  aria-label="Formatar texto do artigo"
+                  }
                 >
-                  {[
-                    {
-                      action: "heading",
-                      label: "Inserir subtítulo",
-                      icon: Heading2,
-                    },
-                    { action: "bold", label: "Negrito", icon: Bold },
-                    { action: "italic", label: "Itálico", icon: Italic },
-                    { action: "link", label: "Inserir link", icon: LinkIcon },
-                    { action: "quote", label: "Inserir citação", icon: Quote },
-                    { action: "list", label: "Inserir lista", icon: List },
-                  ].map(({ action, label, icon: Icon }) => (
-                    <button
-                      key={action}
-                      type="button"
-                      className="icon-button"
-                      aria-label={label}
-                      title={label}
-                      onClick={() => format(action)}
-                      disabled={locked}
-                    >
-                      <Icon size={17} />
-                    </button>
-                  ))}
-                  <span>Markdown</span>
-                </div>
-                <label htmlFor="blog-body" className="sr-only">
-                  Texto do artigo
-                </label>
-                <textarea
-                  ref={bodyRef}
-                  id="blog-body"
-                  className="blog-body-input"
-                  value={draft.body}
-                  onChange={(event) => patch({ body: event.target.value })}
-                  placeholder="Comece a escrever. Contextualize a ideia, desenvolva seu argumento e compartilhe as fontes."
-                  disabled={locked}
-                  spellCheck
-                  lang="pt-BR"
-                  maxLength={100000}
-                />
+                  <RichTextEditor
+                    key={record.id}
+                    value={draft.body}
+                    onChange={(body) => patch({ body })}
+                    disabled={locked}
+                    error={errors.body}
+                  />
+                </Suspense>
                 <div className="blog-body-footer">
                   <span>
                     {String(draft.body || "")
@@ -892,18 +1382,15 @@ export default function BlogWorkspace({
                       <>
                         <img
                           src={draft.coverImage}
+                          key={`${draft.coverImage}-${coverRetry}`}
+                          onError={() => setCoverError(true)}
+                          onLoad={() => setCoverError(false)}
                           alt={draft.coverAlt || "Prévia da capa do artigo"}
                         />
                         <button
                           type="button"
                           className="blog-remove-cover"
-                          onClick={() =>
-                            patch({
-                              coverImage: "",
-                              coverAlt: "",
-                              coverCredit: "",
-                            })
-                          }
+                          onClick={() => selectCover("")}
                           aria-label="Remover capa"
                         >
                           <X size={16} />
@@ -917,6 +1404,29 @@ export default function BlogWorkspace({
                       </div>
                     )}
                   </div>
+                  {draft.coverImage && (
+                    <p className="field-hint blog-cover-crop-note">
+                      Prévia do recorte da capa. Prefira uma imagem horizontal e
+                      mantenha o assunto principal no centro.
+                    </p>
+                  )}
+                  {coverError && (
+                    <div className="blog-cover-warning" role="alert">
+                      <AlertCircle size={17} />
+                      <p>
+                        A imagem não abriu. Confira o link ou escolha outra capa
+                        antes de publicar.
+                      </p>
+                      <Button
+                        onClick={() => {
+                          setCoverError(false);
+                          setCoverRetry((value) => value + 1);
+                        }}
+                      >
+                        Tentar novamente
+                      </Button>
+                    </div>
+                  )}
                   <div className="blog-cover-actions">
                     <Button
                       icon={uploading ? LoaderCircle : Upload}
@@ -951,15 +1461,25 @@ export default function BlogWorkspace({
                     <summary>Usar uma imagem por link</summary>
                     <Field
                       label="Link da imagem de capa"
+                      data-blog-field="coverImage"
+                      error={errors.coverImage}
                       value={draft.coverImage}
-                      onChange={(coverImage) => patch({ coverImage })}
+                      onChange={selectCover}
                       placeholder="https://… ou /uploads/…"
                     />
                   </details>
                   {draft.coverImage && (
                     <div className="blog-cover-metadata">
+                      {coverReview && (
+                        <p className="blog-cover-review">
+                          A imagem mudou. Preencha a descrição desta capa e
+                          confira se ela precisa de crédito.
+                        </p>
+                      )}
                       <Field
                         label="Descrição da imagem"
+                        data-blog-field="coverAlt"
+                        error={errors.coverAlt}
                         value={draft.coverAlt}
                         onChange={(coverAlt) => patch({ coverAlt })}
                         maxLength={300}
@@ -968,6 +1488,8 @@ export default function BlogWorkspace({
                       />
                       <Field
                         label="Crédito da imagem"
+                        data-blog-field="coverCredit"
+                        error={errors.coverCredit}
                         value={draft.coverCredit}
                         onChange={(coverCredit) => patch({ coverCredit })}
                         maxLength={240}
@@ -976,6 +1498,27 @@ export default function BlogWorkspace({
                     </div>
                   )}
                 </fieldset>
+                {uploading && (
+                  <div className="blog-upload-status" role="status">
+                    <LoaderCircle className="spin" size={17} />
+                    <span>Enviando capa… Aguarde para salvar ou publicar.</span>
+                    <Button onClick={() => uploadController.current?.abort()}>
+                      Cancelar envio
+                    </Button>
+                  </div>
+                )}
+                {uploadError && (
+                  <div className="blog-upload-status is-error" role="alert">
+                    <AlertCircle size={17} />
+                    <span>{uploadError}</span>
+                    <Button
+                      onClick={() => uploadCover(lastUpload.current)}
+                      disabled={uploading || !!busy}
+                    >
+                      Tentar novamente
+                    </Button>
+                  </div>
+                )}
               </section>
             </div>
             <aside
@@ -989,37 +1532,10 @@ export default function BlogWorkspace({
                   </h2>
                 </div>
                 <fieldset disabled={locked}>
-                  <div className="field">
-                    <div className="field-label">
-                      <label htmlFor="blog-category">Categoria</label>
-                    </div>
-                    <select
-                      id="blog-category"
-                      value={draft.category}
-                      onChange={(event) =>
-                        patch({ category: event.target.value })
-                      }
-                    >
-                      <option value="">Selecione uma categoria</option>
-                      {categories.map((item) => (
-                        <option
-                          key={categoryValue(item)}
-                          value={categoryValue(item)}
-                        >
-                          {categoryLabel(item)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <Field
-                    label="Autoria"
-                    value={draft.author}
-                    onChange={(author) => patch({ author })}
-                    maxLength={160}
-                    placeholder="Nome da pessoa ou equipe"
-                  />
                   <Field
                     label="Descrição da autoria"
+                    data-blog-field="authorRole"
+                    error={errors.authorRole}
                     value={draft.authorRole}
                     onChange={(authorRole) => patch({ authorRole })}
                     maxLength={180}
@@ -1028,6 +1544,8 @@ export default function BlogWorkspace({
                   />
                   <Field
                     label="Temas"
+                    data-blog-field="tags"
+                    error={errors.tags}
                     value={tagsText}
                     onChange={(text) => {
                       setTagsText(text);
@@ -1067,6 +1585,8 @@ export default function BlogWorkspace({
                 <fieldset disabled={locked}>
                   <Field
                     label="Endereço do artigo"
+                    data-blog-field="slug"
+                    error={errors.slug}
                     value={draft.slug}
                     onChange={(slug) => {
                       setSlugManual(true);
@@ -1101,6 +1621,13 @@ export default function BlogWorkspace({
                   )}
                 </div>
               </div>
+              <Button
+                icon={Clock3}
+                onClick={openRevisions}
+                disabled={!!busy || uploading}
+              >
+                Versões anteriores
+              </Button>
               {!record.archived && (
                 <div className="blog-secondary-actions">
                   {record.published && (
@@ -1134,19 +1661,25 @@ export default function BlogWorkspace({
               ) : (
                 <CheckCircle2 size={16} />
               )}
-              <span>
-                {busy === "save"
-                  ? "Salvando rascunho…"
-                  : dirty
-                    ? "Alterações não salvas"
-                    : "Rascunho salvo"}
+              <span aria-live="polite">
+                {uploading
+                  ? "Enviando capa…"
+                  : ["save", "autosave"].includes(busy)
+                    ? "Salvando rascunho…"
+                    : dirty
+                      ? autosaveFailed || !connectionOnline
+                        ? recovery.available
+                          ? "Edição guardada neste navegador"
+                          : "Edição aberta nesta tela"
+                        : "Alterações não salvas"
+                      : "Rascunho salvo"}
               </span>
             </div>
             <div className="blog-savebar-actions">
               <Button
                 icon={Eye}
                 onClick={() => showPreview()}
-                disabled={!!busy}
+                disabled={!!busy || uploading}
               >
                 Prévia
               </Button>
@@ -1154,16 +1687,18 @@ export default function BlogWorkspace({
                 <>
                   <Button
                     icon={Save}
-                    onClick={save}
-                    disabled={!!busy || !dirty}
+                    onClick={() => save(false)}
+                    disabled={!!busy || uploading || !dirty}
                   >
                     {busy === "save" ? "Salvando…" : "Salvar rascunho"}
                   </Button>
                   <Button
                     variant="primary"
                     icon={Send}
-                    onClick={() => setModal({ type: "publish" })}
-                    disabled={!!busy}
+                    onClick={() => {
+                      if (!uploadRef.current) setModal({ type: "publish" });
+                    }}
+                    disabled={!!busy || uploading || !hasPublicationChanges}
                   >
                     {record.published
                       ? "Publicar alterações"
@@ -1233,6 +1768,13 @@ export default function BlogWorkspace({
           }}
         >
           <div className="blog-publish-summary">
+            {draft.coverImage && (
+              <img
+                className="blog-publish-cover"
+                src={draft.coverImage}
+                alt={draft.coverAlt || "Capa a revisar"}
+              />
+            )}
             <span>{draft.category || "Categoria a definir"}</span>
             <h3>{draft.title || "Artigo sem título"}</h3>
             <p>{draft.excerpt || "Adicione um resumo antes de publicar."}</p>
@@ -1241,17 +1783,64 @@ export default function BlogWorkspace({
               {minutes(draft.body)} min de leitura
             </div>
           </div>
+          <div className="blog-change-review">
+            <strong>
+              {record.published
+                ? "O que será atualizado"
+                : "Confira os dados da publicação"}
+            </strong>
+            <dl>
+              {changedFields.map((field) => (
+                <div key={field}>
+                  <dt>{FIELD_LABELS[field]}</dt>
+                  <dd>
+                    {field === "body"
+                      ? `${minutes(draft.body)} min de leitura · ${
+                          String(draft.body || "")
+                            .trim()
+                            .split(/\s+/)
+                            .filter(Boolean).length
+                        } palavras`
+                      : field === "featured"
+                        ? draft.featured
+                          ? "Em destaque"
+                          : "Sem destaque"
+                        : field === "coverImage"
+                          ? draft.coverImage
+                            ? "Capa exibida acima"
+                            : "Sem capa"
+                          : Array.isArray(draft[field])
+                            ? draft[field].join(", ") || "Nenhum tema"
+                            : draft[field] || "Não informado"}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
           {!ready && (
             <div className="blog-publish-requirements">
               <strong>Complete antes de publicar</strong>
               {requirements
                 .filter((item) => !item.valid)
                 .map((item) => (
-                  <span key={item.label}>
+                  <button
+                    type="button"
+                    key={item.label}
+                    onClick={() => {
+                      setErrors(publicationErrors);
+                      setModal(null);
+                      focusField(item.field);
+                    }}
+                  >
                     <AlertCircle size={14} /> {item.label}
-                  </span>
+                  </button>
                 ))}
             </div>
+          )}
+          {coverError && (
+            <p className="field-error">
+              A capa precisa abrir corretamente antes de publicar.
+            </p>
           )}
           {dirty && (
             <p className="blog-dialog-note">
@@ -1266,7 +1855,7 @@ export default function BlogWorkspace({
               variant="primary"
               icon={Send}
               onClick={() => runAction("publish")}
-              disabled={!!busy || !ready}
+              disabled={!!busy || uploading || !ready || !hasPublicationChanges}
             >
               {busy === "publish" ? "Publicando…" : "Confirmar publicação"}
             </Button>
@@ -1302,7 +1891,9 @@ export default function BlogWorkspace({
           </div>
           {dirty && (
             <p className="blog-dialog-note">
-              Suas alterações serão salvas antes de continuar.
+              As alterações desta tela permanecem no navegador. Esta ação usa a
+              versão salva e pode ser concluída mesmo se houver campos
+              incompletos.
             </p>
           )}
           <div className="blog-modal-actions">
@@ -1325,26 +1916,260 @@ export default function BlogWorkspace({
           </div>
         </Modal>
       )}
+      {modal?.type === "recover" && (
+        <Modal
+          title="Revisar edição recuperada"
+          description="O artigo recebeu alterações desde que esta cópia foi guardada. Confira quais informações deseja recuperar."
+          wide
+          onClose={() => setModal(null)}
+        >
+          {modal.comparison.conflicts.length ? (
+            <div className="blog-recovery-conflicts">
+              <p className="blog-dialog-note">
+                Escolha uma versão para cada campo abaixo. Os demais campos
+                mantêm as alterações de cada edição.
+              </p>
+              {modal.comparison.conflicts.map((field) => (
+                <fieldset key={field}>
+                  <legend>{FIELD_LABELS[field]}</legend>
+                  <div className="blog-conflict-comparison">
+                    {[
+                      {
+                        id: "theirs",
+                        label: "Última versão salva",
+                        value: record.draft[field],
+                      },
+                      {
+                        id: "mine",
+                        label: "Sua cópia neste navegador",
+                        value: modal.copy.value[field],
+                      },
+                    ].map((choice) => (
+                      <label
+                        key={choice.id}
+                        className={
+                          modal.choices[field] === choice.id
+                            ? "is-selected"
+                            : ""
+                        }
+                      >
+                        <span>
+                          <input
+                            type="radio"
+                            name={`recover-${field}`}
+                            checked={modal.choices[field] === choice.id}
+                            onChange={() =>
+                              setModal((current) => ({
+                                ...current,
+                                choices: {
+                                  ...current.choices,
+                                  [field]: choice.id,
+                                },
+                              }))
+                            }
+                          />
+                          {choice.label}
+                        </span>
+                        <pre>{readableValue(choice.value)}</pre>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              ))}
+            </div>
+          ) : (
+            <p className="blog-dialog-note">
+              As duas edições alteraram campos diferentes. É possível recuperar
+              sua cópia preservando todas as alterações que já foram salvas.
+            </p>
+          )}
+          {modal.comparison.changes.length > 0 && (
+            <p className="blog-dialog-note">
+              Campos da sua cópia:{" "}
+              {modal.comparison.changes
+                .map((field) => FIELD_LABELS[field])
+                .join(", ")}
+              .
+            </p>
+          )}
+          {record.published && (
+            <p className="field-hint">
+              O endereço do artigo publicado será mantido para preservar os
+              links compartilhados.
+            </p>
+          )}
+          <div className="blog-modal-actions">
+            <Button onClick={() => setModal(null)}>Voltar sem alterar</Button>
+            <Button onClick={() => downloadCopy(modal.copy.value)}>
+              Baixar cópia local
+            </Button>
+            <Button
+              variant="primary"
+              disabled={modal.comparison.conflicts.some(
+                (field) => !modal.choices[field],
+              )}
+              onClick={() => {
+                const merged = { ...modal.comparison.merged };
+                for (const field of modal.comparison.conflicts)
+                  merged[field] =
+                    modal.choices[field] === "mine"
+                      ? modal.copy.value[field]
+                      : recordRef.current.draft[field];
+                applyRecovered(merged);
+              }}
+            >
+              Aplicar edição revisada
+            </Button>
+          </div>
+        </Modal>
+      )}
       {modal?.type === "conflict" && (
         <Modal
           title="Este artigo foi atualizado"
-          description="Outra edição foi salva depois que você abriu o artigo. Seu texto continua aqui para você copiá-lo, se precisar."
+          description="Outra edição foi salva depois que você abriu o artigo. Sua edição continua preservada neste navegador."
           onClose={() => setModal(null)}
         >
           <p className="blog-dialog-note">
-            Recarregar traz a versão mais recente e descarta as alterações não
-            salvas desta tela.
+            Você pode baixar uma cópia completa do seu texto antes de abrir a
+            versão atual do servidor. Nenhuma edição será publicada
+            automaticamente.
           </p>
+          {modal.latest && (
+            <div className="blog-conflict-comparison">
+              <section>
+                <h3>Sua edição</h3>
+                <strong>{draft.title || "Sem título"}</strong>
+                <p>{draft.excerpt}</p>
+                <p>{minutes(draft.body)} min de leitura</p>
+              </section>
+              <section>
+                <h3>Última versão salva</h3>
+                <strong>{modal.latest.draft.title || "Sem título"}</strong>
+                <p>{modal.latest.draft.excerpt}</p>
+                <p>{dateLabel(modal.latest.updatedAt, true)}</p>
+              </section>
+            </div>
+          )}
           <div className="blog-modal-actions">
             <Button onClick={() => setModal(null)}>Manter meu texto</Button>
+            <Button onClick={() => downloadCopy(draftRef.current)}>
+              Baixar cópia
+            </Button>
+            {!modal.latest && (
+              <Button
+                onClick={async () => {
+                  try {
+                    const latest = await api(
+                      `/api/admin/blog/${recordRef.current.id}`,
+                    );
+                    setModal({ type: "conflict", latest: latest.post });
+                  } catch (error) {
+                    notify?.(error.message, true);
+                  }
+                }}
+              >
+                Comparar versões
+              </Button>
+            )}
             <Button
               variant="primary"
               onClick={() => {
+                recovery.persist();
+                if (dirty) downloadCopy(draftRef.current);
                 setModal(null);
                 setRetry((value) => value + 1);
               }}
             >
-              Recarregar artigo
+              Baixar minha cópia e recarregar
+            </Button>
+          </div>
+        </Modal>
+      )}
+      {modal?.type === "revisions" && (
+        <Modal
+          title="Histórico do artigo"
+          description="Versões guardadas automaticamente. Recuperar uma versão altera somente o rascunho."
+          onClose={() => setModal(null)}
+        >
+          {revisionLoading ? (
+            <Loading compact label="Carregando versões…" />
+          ) : revisions.length ? (
+            <div className="blog-revision-list">
+              {revisions.map((revision) => (
+                <article key={revision.id} data-revision-id={revision.id}>
+                  <div>
+                    <Badge
+                      tone={
+                        revision.source === "published" ? "green" : "neutral"
+                      }
+                    >
+                      {revision.source === "published"
+                        ? "Publicação"
+                        : "Rascunho"}
+                    </Badge>
+                    <strong>{revision.title || "Artigo sem título"}</strong>
+                    <p>
+                      {dateLabel(revision.createdAt, true)}
+                      {revision.actor ? ` · ${revision.actor}` : ""}
+                    </p>
+                  </div>
+                  <Button onClick={() => inspectRevision(revision)}>
+                    Ver versão
+                  </Button>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <Empty
+              icon={Clock3}
+              title="Nenhuma versão anterior"
+              description="As próximas alterações e publicações serão guardadas aqui."
+            />
+          )}
+        </Modal>
+      )}
+      {modal?.type === "revision" && (
+        <Modal
+          title="Conferir versão anterior"
+          description={`${modal.revision.source === "published" ? "Publicação" : "Rascunho"} de ${dateLabel(modal.revision.createdAt, true)}.`}
+          wide
+          onClose={() => setModal(null)}
+        >
+          <div className="blog-revision-preview">
+            <h3>{modal.revision.post.title || "Artigo sem título"}</h3>
+            <p>{modal.revision.post.excerpt}</p>
+            <p className="field-hint">
+              {modal.revision.post.author} · {modal.revision.post.category}
+            </p>
+            {modal.revision.post.coverImage && (
+              <img
+                src={modal.revision.post.coverImage}
+                alt={modal.revision.post.coverAlt || "Capa desta versão"}
+              />
+            )}
+            <pre>{modal.revision.post.body}</pre>
+          </div>
+          {record.archived && (
+            <p className="blog-dialog-note">
+              Recupere o artigo arquivado para restaurar esta versão.
+            </p>
+          )}
+          {dirty && (
+            <p className="blog-dialog-note">
+              Sua edição atual será baixada como cópia antes da restauração.
+            </p>
+          )}
+          <div className="blog-modal-actions">
+            <Button onClick={openRevisions}>Voltar às versões</Button>
+            <Button onClick={() => downloadCopy(modal.revision.post)}>
+              Baixar versão
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => restoreRevision(modal.revision)}
+              disabled={!!busy || uploading || record.archived}
+            >
+              Restaurar este rascunho
             </Button>
           </div>
         </Modal>
@@ -1356,16 +2181,38 @@ export default function BlogWorkspace({
           wide
           onClose={() => setModal(null)}
         >
-          {assetLoading ? (
-            <Loading label="Carregando imagens…" />
-          ) : assets.length ? (
+          <label className="blog-search blog-asset-search">
+            <Search size={17} />
+            <span className="sr-only">Buscar imagens</span>
+            <input
+              value={assetQuery}
+              onChange={(event) => setAssetQuery(event.target.value)}
+              placeholder="Buscar imagem pelo nome…"
+            />
+          </label>
+          <p className="field-hint">
+            Imagens enviadas recentemente aparecem primeiro. A capa atual fica
+            marcada.
+          </p>
+          {assetError ? (
+            <div className="blog-upload-status is-error" role="alert">
+              <span>{assetError}</span>
+              <Button onClick={openAssets}>Tentar novamente</Button>
+            </div>
+          ) : assetLoading ? (
+            <Loading compact label="Carregando imagens…" />
+          ) : filteredAssets.length ? (
             <div className="blog-asset-grid">
-              {assets.map((asset) => (
+              {filteredAssets.map((asset) => (
                 <button
                   type="button"
                   key={asset.id || asset.url}
+                  className={
+                    asset.url === draft.coverImage ? "is-selected" : ""
+                  }
+                  aria-pressed={asset.url === draft.coverImage}
                   onClick={() => {
-                    patch({ coverImage: asset.url });
+                    selectCover(asset.url);
                     setModal(null);
                   }}
                 >
@@ -1373,14 +2220,31 @@ export default function BlogWorkspace({
                   <span>
                     {asset.name || asset.filename || "Imagem da biblioteca"}
                   </span>
+                  <small>
+                    {asset.url === draft.coverImage ? "Capa atual · " : ""}
+                    {asset.width && asset.height
+                      ? `${asset.width} × ${asset.height} · `
+                      : ""}
+                    {asset.size
+                      ? `${Math.max(1, Math.round(asset.size / 1024))} KB`
+                      : "Imagem do Nexo"}
+                  </small>
                 </button>
               ))}
             </div>
           ) : (
             <Empty
               icon={ImageIcon}
-              title="A biblioteca ainda não tem imagens"
-              description="Envie uma imagem na área de capa para adicioná-la ao artigo."
+              title={
+                assetQuery
+                  ? "Nenhuma imagem encontrada"
+                  : "A biblioteca ainda não tem imagens"
+              }
+              description={
+                assetQuery
+                  ? "Tente outro nome ou limpe a busca."
+                  : "Envie uma imagem na área de capa para adicioná-la ao artigo."
+              }
             />
           )}
         </Modal>

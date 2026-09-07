@@ -1,5 +1,6 @@
 const { test: base, expect } = require("@playwright/test");
 const path = require("node:path");
+const { loginPreview } = require("./auth.cjs");
 
 const test = base.extend({
   verifyJavaScript: [
@@ -26,11 +27,7 @@ const themeTrigger = (page) =>
   page.getByRole("button", { name: /^Aparência:/ });
 
 async function login(page) {
-  await page.goto("/admin/");
-  await page
-    .getByRole("button", { name: "Entrar na prévia local", exact: true })
-    .click();
-  await expect(page.locator("#workspace-main h1")).toHaveText("Visão geral");
+  await loginPreview(page);
 }
 
 async function setTheme(page, label) {
@@ -134,6 +131,14 @@ test("dark appearance covers every workspace and dialog while public content and
   await login(page);
   const initialResponse = await page.request.get("/api/admin/content");
   const initial = await initialResponse.json();
+  const appearanceWrites = [];
+  page.on("request", (request) => {
+    if (
+      request.url().endsWith("/api/admin/content") &&
+      request.method() === "PUT"
+    )
+      appearanceWrites.push(request);
+  });
   const visitor = await context.newPage();
   await visitor.goto("/");
   await expect(visitor.locator("#about-title")).toBeVisible();
@@ -156,6 +161,10 @@ test("dark appearance covers every workspace and dialog while public content and
     await noOverflow(page);
     await screenshot(page, `dark-desktop-${name}`);
   }
+  expect(
+    appearanceWrites,
+    "Changing appearance and navigating never saves site content",
+  ).toHaveLength(0);
 
   await page.getByRole("link", { name: "Contato", exact: true }).click();
   const email = page.getByLabel("E-mail de contato", { exact: true });
@@ -212,11 +221,14 @@ test("dark appearance covers every workspace and dialog while public content and
       scheme: getComputedStyle(document.documentElement).colorScheme,
     })),
   ).toEqual(publicAppearance);
-  const finalResponse = await page.request.get("/api/admin/content");
-  const final = await finalResponse.json();
-  expect(final.draft).toEqual(initial.draft);
+  await expect
+    .poll(
+      async () =>
+        (await (await page.request.get("/api/admin/content")).json()).draft,
+    )
+    .toEqual(initial.draft);
+  const final = await (await page.request.get("/api/admin/content")).json();
   expect(final.published).toEqual(initial.published);
-  expect(final.version).toBe(initial.version);
   await visitor.close();
 });
 
@@ -345,4 +357,89 @@ test("mobile drawer contains focus, closes with Escape, and dark pages fit narro
   await page.getByRole("menuitemradio", { name: "Claro", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await noOverflow(page);
+});
+
+test("the site preview includes iframe controls in its focus loop and Escape inside the frame restores the trigger", async ({
+  page,
+}) => {
+  await login(page);
+  await page.getByRole("link", { name: "Contato", exact: true }).click();
+  const trigger = page.getByRole("button", {
+    name: "Pré-visualizar",
+    exact: true,
+  });
+  await trigger.click();
+  const dialog = page.getByRole("dialog");
+  const frameElement = page.locator(
+    'iframe[title="Prévia do site Nexo Governamental"]',
+  );
+  const frame = page.frameLocator(
+    'iframe[title="Prévia do site Nexo Governamental"]',
+  );
+  await expect(frame.locator(".cms-preview-banner")).toBeVisible();
+  await expect(page.locator("#root")).toHaveAttribute("inert", "");
+  // A pointer/focus entry into the document must support Escape even when no
+  // parent Tab event has connected its keyboard handlers yet.
+  await frame.locator(".instagram-profile").focus();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await expect(page.locator("#root")).not.toHaveAttribute("inert", "");
+  await trigger.click();
+  await expect(frame.locator(".cms-preview-banner")).toBeVisible();
+  const close = dialog.getByRole("button", {
+    name: "Fechar janela",
+    exact: true,
+  });
+  await close.focus();
+  await page.keyboard.press("Shift+Tab");
+  await expect(frameElement).toBeFocused();
+  await expect(frame.locator(":focus")).toBeVisible();
+  await page.keyboard.press("Tab");
+  await expect(close).toBeFocused();
+
+  await frame.locator(".instagram-profile").focus();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await expect(page.locator("#root")).not.toHaveAttribute("inert", "");
+});
+
+test("contact and selection cards fill their columns at tablet and phone widths", async ({
+  page,
+}) => {
+  await login(page);
+  for (const width of [768, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const [route, parentSelector, cardSelector] of [
+      [
+        "processo",
+        ".essentials-editor",
+        ".essentials-editor > .essentials-card",
+      ],
+      [
+        "contato",
+        ".essentials-contact-layout",
+        ".essentials-contact-layout > .essentials-card",
+      ],
+    ]) {
+      await page.goto(`/admin/#${route}`);
+      await expect(page.locator(cardSelector).first()).toBeVisible();
+      await noOverflow(page);
+      const parent = await page.locator(parentSelector).boundingBox();
+      expect(
+        parent.width,
+        `${route} uses the available mobile workspace`,
+      ).toBeGreaterThan(width * 0.75);
+      for (const card of await page.locator(cardSelector).all()) {
+        const box = await card.boundingBox();
+        expect(
+          Math.abs(box.width - parent.width),
+          `${route} card fills its column at ${width}px`,
+        ).toBeLessThanOrEqual(2);
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(width + 1);
+      }
+    }
+  }
 });

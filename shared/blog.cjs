@@ -123,6 +123,24 @@ function renderMarkdown(body) {
 function fail(label, message) {
   const error = new Error(`${label}: ${message}`);
   error.statusCode = 400;
+  error.code = "VALIDATION_ERROR";
+  error.field =
+    {
+      Artigo: "post",
+      Título: "title",
+      Endereço: "slug",
+      Resumo: "excerpt",
+      Categoria: "category",
+      Autoria: "author",
+      "Descrição da autoria": "authorRole",
+      "Imagem de capa": "coverImage",
+      "Descrição da imagem": "coverAlt",
+      "Crédito da imagem": "coverCredit",
+      Texto: "body",
+      Destaque: "featured",
+      "Palavras-chave": "tags",
+      "Palavra-chave": "tags",
+    }[label] || "post";
   throw error;
 }
 function text(value, label, max, required = false) {

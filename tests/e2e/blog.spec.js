@@ -1,6 +1,7 @@
 const { test: base, expect } = require("@playwright/test");
 const path = require("node:path");
 const { emptyPost, CATEGORIES } = require("../../shared/blog.cjs");
+const { loginPreview } = require("./auth.cjs");
 
 const test = base.extend({
   verifyJavaScript: [
@@ -61,11 +62,7 @@ function article(overrides = {}) {
 }
 
 async function login(page) {
-  await page.goto("/admin/");
-  await page
-    .getByRole("button", { name: "Entrar na prévia local", exact: true })
-    .click();
-  await expect(page.locator("#workspace-main h1")).toHaveText("Visão geral");
+  await loginPreview(page);
 }
 
 async function mutation(page, route, data, method = "POST") {
@@ -108,15 +105,24 @@ async function openEditor(page, id) {
 }
 
 async function saveDraft(page) {
-  const response = page.waitForResponse(
-    (result) =>
-      /\/api\/admin\/blog\/[a-f0-9-]+$/.test(new URL(result.url()).pathname) &&
-      result.request().method() === "PUT",
+  // Manual saving and debounce autosaving can finish in either order.
+  // The shortcut is safe even if the latest change has already been saved.
+  await page.keyboard.press("Control+s");
+  await expect(page.locator(".blog-save-status")).toContainText(
+    "Rascunho salvo",
   );
+}
+
+async function fillMarkdown(page, body) {
   await page
-    .getByRole("button", { name: "Salvar rascunho", exact: true })
+    .getByRole("button", { name: "Editar Markdown", exact: true })
     .click();
-  expect((await response).ok()).toBeTruthy();
+  await page
+    .getByRole("textbox", {
+      name: "Conteúdo do artigo em Markdown",
+      exact: true,
+    })
+    .fill(body);
 }
 
 async function publish(page) {
@@ -205,7 +211,7 @@ test("an article can be written and saved in the editor while its preview remain
     .getByLabel("Título do artigo", { exact: true })
     .fill(content.title);
   await page.getByLabel("Resumo", { exact: true }).fill(content.excerpt);
-  await page.getByLabel("Texto do artigo", { exact: true }).fill(content.body);
+  await fillMarkdown(page, content.body);
   await page.getByText("Endereço e compartilhamento", { exact: true }).click();
   await page
     .getByLabel("Endereço do artigo", { exact: true })
@@ -412,6 +418,16 @@ test("withdrawing, archiving and restoring an article never republishes it autom
     .poll(async () => (await readArticle(page, post.id)).archived)
     .toBe(true);
   await openEditor(page, post.id);
+  await page.getByRole("button", { name: "Prévia", exact: true }).click();
+  const archivedPreview = page.frameLocator(
+    'iframe[title="Prévia privada do artigo no blog"]',
+  );
+  await expect(archivedPreview.getByRole("heading", { level: 1 })).toHaveText(
+    post.draft.title,
+  );
+  await page
+    .getByRole("button", { name: "Fechar janela", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "Recuperar artigo", exact: true })
     .click();
@@ -432,6 +448,25 @@ test("the editor guards unsaved work and preserves local text when another sessi
 }) => {
   const post = await createArticle(page, article());
   await openEditor(page, post.id);
+  // Advance the actual server revision before the browser edits, so autosave
+  // cannot accidentally turn this into an ordinary successful save.
+  await mutation(
+    page,
+    `/api/admin/blog/${post.id}`,
+    {
+      post: { ...post.draft, title: "Versão salva em outra sessão" },
+      version: post.version,
+    },
+    "PUT",
+  );
+  let releaseSave;
+  const saveGate = new Promise((resolve) => {
+    releaseSave = resolve;
+  });
+  await page.route(`**/api/admin/blog/${post.id}`, async (route) => {
+    if (route.request().method() === "PUT") await saveGate;
+    await route.continue();
+  });
   const title = page.getByLabel("Título do artigo", { exact: true });
   await title.fill("Texto ainda não salvo");
   await page.getByRole("link", { name: "Visão geral", exact: true }).click();
@@ -443,29 +478,426 @@ test("the editor guards unsaved work and preserves local text when another sessi
   await expect(guard).toHaveCount(0);
   await expect(title).toHaveValue("Texto ainda não salvo");
   expect(page.url()).toContain(`#blog/${post.id}`);
-  await mutation(
-    page,
-    `/api/admin/blog/${post.id}`,
-    {
-      post: { ...post.draft, title: "Versão salva em outra sessão" },
-      version: post.version,
-    },
-    "PUT",
-  );
   const conflict = page.waitForResponse(
     (response) =>
       response.url().endsWith(`/api/admin/blog/${post.id}`) &&
       response.request().method() === "PUT",
   );
-  await page
-    .getByRole("button", { name: "Salvar rascunho", exact: true })
-    .click();
+  releaseSave();
+  await page.keyboard.press("Control+s");
   expect((await conflict).status()).toBe(409);
-  await expect(page.getByRole("alert")).toContainText("outra sessão");
+  await expect(
+    page.getByRole("dialog", {
+      name: "Este artigo foi atualizado",
+      exact: true,
+    }),
+  ).toBeVisible();
   await expect(title).toHaveValue("Texto ainda não salvo");
   expect((await readArticle(page, post.id)).draft.title).toBe(
     "Versão salva em outra sessão",
   );
+});
+
+test("a duplicate article address is an actionable field error, not an editing conflict", async ({
+  page,
+}) => {
+  const occupied = await createArticle(page, article());
+  const editable = await createArticle(page, article());
+  await openEditor(page, editable.id);
+  await page.getByText("Endereço e compartilhamento", { exact: true }).click();
+  const slug = page.getByLabel("Endereço do artigo", { exact: true });
+  const rejected = page.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/api/admin/blog/${editable.id}`) &&
+      response.request().method() === "PUT",
+  );
+  await slug.fill(occupied.draft.slug);
+  await page.getByLabel("Autoria", { exact: true }).focus();
+  await page.keyboard.press("Control+s");
+  const response = await rejected;
+  expect(response.status()).toBe(409);
+  expect(await response.json()).toMatchObject({
+    code: "SLUG_TAKEN",
+    field: "slug",
+  });
+  await expect(slug).toHaveAttribute("aria-invalid", "true");
+  await expect(slug).toHaveAccessibleDescription(
+    /Este endereço já está em uso/,
+  );
+  await expect(slug).toBeFocused();
+  await expect(
+    page.getByRole("dialog", {
+      name: "Este artigo foi atualizado",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  expect((await readArticle(page, editable.id)).draft.slug).toBe(
+    editable.draft.slug,
+  );
+
+  const corrected = article().slug;
+  await slug.fill(corrected);
+  await saveDraft(page);
+  expect((await readArticle(page, editable.id)).draft.slug).toBe(corrected);
+  await expect(slug).not.toHaveAttribute("aria-invalid", "true");
+});
+
+test("a pending cover upload blocks editorial actions and its new image requires fresh metadata", async ({
+  page,
+}) => {
+  const post = await createArticle(page, article());
+  await openEditor(page, post.id);
+  let releaseUpload;
+  const uploadGate = new Promise((resolve) => {
+    releaseUpload = resolve;
+  });
+  await page.route("**/api/admin/uploads", async (route) => {
+    await uploadGate;
+    await route.continue();
+  });
+  const uploaded = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/admin/uploads") &&
+      response.request().method() === "POST",
+  );
+  await page
+    .getByLabel("Enviar capa do artigo", { exact: true })
+    .setInputFiles(path.resolve("src/assets/more/events.webp"));
+  try {
+    await expect(
+      page.getByRole("button", { name: "Publicar artigo", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Prévia", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Salvar rascunho", exact: true }),
+    ).toBeDisabled();
+    expect((await readArticle(page, post.id)).published).toBeNull();
+  } finally {
+    releaseUpload();
+  }
+  const response = await uploaded;
+  expect(response.ok()).toBeTruthy();
+  const { asset } = await response.json();
+  await expect(
+    page.getByLabel("Descrição da imagem", { exact: true }),
+  ).toHaveValue("");
+  await expect(
+    page.getByLabel("Crédito da imagem", { exact: true }),
+  ).toHaveValue("");
+  await expect(page.locator(".blog-cover-upload img")).toHaveAttribute(
+    "src",
+    asset.url,
+  );
+  await page
+    .getByRole("button", { name: "Publicar artigo", exact: true })
+    .click();
+  const review = page.getByRole("dialog");
+  await expect(review).toContainText("Descrição da imagem");
+  await expect(
+    review.getByRole("button", { name: "Confirmar publicação", exact: true }),
+  ).toBeDisabled();
+  await review
+    .getByRole("button", { name: "Continuar editando", exact: true })
+    .click();
+  await page
+    .getByLabel("Descrição da imagem", { exact: true })
+    .fill("Auditório com cadeiras azuis e mesa de debate");
+  await page
+    .getByLabel("Crédito da imagem", { exact: true })
+    .fill("Acervo de teste do Nexo");
+  await saveDraft(page);
+  await publish(page);
+  const saved = await readArticle(page, post.id);
+  expect(saved.published).toMatchObject({
+    coverImage: asset.url,
+    coverAlt: "Auditório com cadeiras azuis e mesa de debate",
+    coverCredit: "Acervo de teste do Nexo",
+  });
+});
+
+test("replacing a cover URL or choosing a library image clears metadata belonging to the previous image", async ({
+  page,
+}) => {
+  const post = await createArticle(page, article());
+  await openEditor(page, post.id);
+  await page.getByText("Usar uma imagem por link", { exact: true }).click();
+  await page
+    .getByLabel("Link da imagem de capa", { exact: true })
+    .fill("/assets/more/school.webp");
+  const alt = page.getByLabel("Descrição da imagem", { exact: true });
+  const credit = page.getByLabel("Crédito da imagem", { exact: true });
+  await expect(alt).toHaveValue("");
+  await expect(credit).toHaveValue("");
+  await alt.fill("Descrição exclusiva da imagem por link");
+  await credit.fill("Crédito exclusivo da imagem por link");
+  await page
+    .getByRole("button", { name: "Usar biblioteca", exact: true })
+    .click();
+  const picker = page.getByRole("dialog", {
+    name: "Escolher capa",
+    exact: true,
+  });
+  await expect(picker.locator(".blog-asset-grid button").first()).toBeVisible();
+  const choice = picker
+    .locator(".blog-asset-grid button")
+    .filter({ has: page.locator('img:not([src="/assets/more/school.webp"])') })
+    .first();
+  const selectedUrl = await choice.locator("img").getAttribute("src");
+  await choice.click();
+  await expect(picker).toHaveCount(0);
+  await expect(alt).toHaveValue("");
+  await expect(credit).toHaveValue("");
+  await expect(
+    page.getByLabel("Link da imagem de capa", { exact: true }),
+  ).toHaveValue(selectedUrl);
+});
+
+test("an article can be withdrawn while an invalid local draft remains available for correction", async ({
+  page,
+  context,
+}) => {
+  const post = await createArticle(page, article(), true);
+  await openEditor(page, post.id);
+  await page.getByText("Usar uma imagem por link", { exact: true }).click();
+  const cover = page.getByLabel("Link da imagem de capa", { exact: true });
+  await cover.fill("javascript:invalid-draft");
+  const savedBefore = await readArticle(page, post.id);
+  const writes = [];
+  page.on("request", (request) => {
+    if (
+      request.url().endsWith(`/api/admin/blog/${post.id}`) &&
+      request.method() === "PUT"
+    )
+      writes.push(request);
+  });
+  await page
+    .getByRole("button", { name: "Retirar do ar", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Retirar do ar", exact: true })
+    .click();
+  await expect
+    .poll(async () => (await readArticle(page, post.id)).published)
+    .toBeNull();
+  expect(writes).toHaveLength(0);
+  await expect(cover).toHaveValue("javascript:invalid-draft");
+  expect((await readArticle(page, post.id)).draft).toEqual(savedBefore.draft);
+  const visitor = await context.newPage();
+  expect((await visitor.goto(`/blog/${post.draft.slug}`)).status()).toBe(404);
+  await visitor.close();
+});
+
+test("restoring a historical article revision updates only the draft and preserves the current publication", async ({
+  page,
+  context,
+}) => {
+  const original = article({ title: "Versão histórica preservada" });
+  let post = await createArticle(page, original, true);
+  const revisions = await (
+    await page.request.get(`/api/admin/blog/${post.id}/revisions`)
+  ).json();
+  const historical = revisions.revisions.find(
+    (revision) =>
+      revision.source === "published" && revision.title === original.title,
+  );
+  expect(historical).toBeTruthy();
+  ({ post } = await mutation(
+    page,
+    `/api/admin/blog/${post.id}`,
+    {
+      post: { ...post.draft, title: "Publicação atual preservada" },
+      version: post.version,
+    },
+    "PUT",
+  ));
+  ({ post } = await mutation(page, `/api/admin/blog/${post.id}/publish`, {
+    version: post.version,
+  }));
+  await openEditor(page, post.id);
+  await page
+    .getByRole("button", { name: "Versões anteriores", exact: true })
+    .click();
+  const history = page.getByRole("dialog", {
+    name: "Histórico do artigo",
+    exact: true,
+  });
+  await expect(history).toBeVisible();
+  const row = history.locator(`[data-revision-id="${historical.id}"]`);
+  await row.getByRole("button", { name: "Ver versão", exact: true }).click();
+  const revisionPreview = page.getByRole("dialog", {
+    name: "Conferir versão anterior",
+    exact: true,
+  });
+  await expect(revisionPreview).toContainText(original.title);
+  const restored = page.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/api/admin/blog/${post.id}/restore-revision`) &&
+      response.request().method() === "POST",
+  );
+  await revisionPreview
+    .getByRole("button", { name: "Restaurar este rascunho", exact: true })
+    .click();
+  expect((await restored).ok()).toBeTruthy();
+  await expect(
+    page.getByLabel("Título do artigo", { exact: true }),
+  ).toHaveValue(original.title);
+  const persisted = await readArticle(page, post.id);
+  expect(persisted.draft.title).toBe(original.title);
+  expect(persisted.published.title).toBe("Publicação atual preservada");
+  const visitor = await context.newPage();
+  await visitor.goto(`/blog/${original.slug}`);
+  await expect(visitor.getByRole("heading", { level: 1 })).toHaveText(
+    "Publicação atual preservada",
+  );
+  await visitor.close();
+});
+
+test("automatic saving preserves edits typed while an earlier request is still in flight", async ({
+  page,
+}) => {
+  const post = await createArticle(page, article());
+  await openEditor(page, post.id);
+  let releaseFirstSave;
+  const firstSaveGate = new Promise((resolve) => {
+    releaseFirstSave = resolve;
+  });
+  let first = true;
+  await page.route(`**/api/admin/blog/${post.id}`, async (route) => {
+    if (route.request().method() === "PUT" && first) {
+      first = false;
+      await firstSaveGate;
+    }
+    await route.continue();
+  });
+  const firstRequest = page.waitForRequest(
+    (request) =>
+      request.url().endsWith(`/api/admin/blog/${post.id}`) &&
+      request.method() === "PUT",
+  );
+  const title = page.getByLabel("Título do artigo", { exact: true });
+  await title.fill("Primeira frase em salvamento");
+  await firstRequest;
+  try {
+    await expect(title).toBeEditable();
+    await title.fill("Texto mais recente, escrito durante o salvamento");
+  } finally {
+    releaseFirstSave();
+  }
+  await expect
+    .poll(async () => (await readArticle(page, post.id)).draft.title)
+    .toBe("Texto mais recente, escrito durante o salvamento");
+  await expect(title).toHaveValue(
+    "Texto mais recente, escrito durante o salvamento",
+  );
+  await expect(page.locator(".blog-save-status")).toContainText(
+    "Rascunho salvo",
+  );
+});
+
+test("a failed autosave can be recovered after reload without overwriting the saved article until the editor chooses to save", async ({
+  page,
+}) => {
+  const post = await createArticle(page, article());
+  await openEditor(page, post.id);
+  const routeUrl = `**/api/admin/blog/${post.id}`;
+  await page.route(routeUrl, async (route) => {
+    if (route.request().method() === "PUT") await route.abort("failed");
+    else await route.continue();
+  });
+  const title = page.getByLabel("Título do artigo", { exact: true });
+  const recoveredTitle = "Edição preservada após falha de conexão";
+  await title.fill(recoveredTitle);
+  await expect(
+    page.getByRole("button", { name: "Tentar salvar", exact: true }),
+  ).toBeVisible();
+  expect((await readArticle(page, post.id)).draft.title).toBe(post.draft.title);
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Recuperar edição", exact: true }),
+  ).toBeVisible();
+  await expect(title).toHaveValue(post.draft.title);
+  await page
+    .getByRole("button", { name: "Recuperar edição", exact: true })
+    .click();
+  await expect(title).toHaveValue(recoveredTitle);
+  expect((await readArticle(page, post.id)).draft.title).toBe(post.draft.title);
+  await page.unroute(routeUrl);
+  await saveDraft(page);
+  expect((await readArticle(page, post.id)).draft.title).toBe(recoveredTitle);
+  await page.reload();
+  await expect(title).toHaveValue(recoveredTitle);
+  await expect(
+    page.getByRole("button", { name: "Recuperar edição", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("visual article formatting round trips to Markdown and unsupported source remains intact", async ({
+  page,
+}) => {
+  const post = await createArticle(page, article({ body: "" }));
+  await openEditor(page, post.id);
+  const editor = page.getByRole("textbox", {
+    name: "Texto do artigo",
+    exact: true,
+  });
+  await expect(editor).toHaveAttribute("contenteditable", "true");
+  await editor.fill("Ideias que aproximam pessoas.");
+  await editor.focus();
+  await page.keyboard.press("ControlOrMeta+a");
+  await page.getByRole("button", { name: "Negrito", exact: true }).click();
+  await expect(editor.locator("strong")).toHaveText(
+    "Ideias que aproximam pessoas.",
+  );
+  await page
+    .getByRole("button", { name: "Editar Markdown", exact: true })
+    .click();
+  const source = page.getByRole("textbox", {
+    name: "Conteúdo do artigo em Markdown",
+    exact: true,
+  });
+  await expect(source).toHaveValue(
+    /^\*\*Ideias que aproximam pessoas\.\*\*\s*$/,
+  );
+  const advancedBody =
+    "| Tema | Observação |\n| --- | --- |\n| Extensão | Preservar esta tabela |\n\n![Figura](/assets/introduction/usp.webp)";
+  await source.fill(advancedBody);
+  await saveDraft(page);
+  expect((await readArticle(page, post.id)).draft.body).toBe(advancedBody);
+  await page.reload();
+  await expect(source).toBeVisible();
+  await expect(source).toHaveValue(advancedBody);
+  await expect(
+    page.getByRole("textbox", { name: "Texto do artigo", exact: true }),
+  ).toBeHidden();
+});
+
+test("Undo returns to the loaded article and cannot erase it as an initial editor action", async ({
+  page,
+}) => {
+  const original = "Texto original que precisa permanecer preservado.";
+  const post = await createArticle(page, article({ body: original }));
+  await openEditor(page, post.id);
+  const editor = page.getByRole("textbox", {
+    name: "Texto do artigo",
+    exact: true,
+  });
+  const undo = page.getByRole("button", { name: "Desfazer", exact: true });
+  await expect(editor).toHaveText(original);
+  await expect(undo).toBeDisabled();
+  await editor.fill(`${original} Uma nova ideia.`);
+  await expect(editor).toHaveText(`${original} Uma nova ideia.`);
+  await expect(undo).toBeEnabled();
+  await undo.click();
+  await expect(editor).toHaveText(original);
+  await expect(undo).toBeDisabled();
+  await expect(page.locator(".blog-save-status")).toContainText(
+    "Rascunho salvo",
+  );
+  expect((await readArticle(page, post.id)).draft.body).toBe(original);
 });
 
 test("public search, category filtering and pagination work with server-rendered links", async ({
@@ -557,12 +989,24 @@ test("the blog workspace and article editor remain usable in both appearances on
     await page.setViewportSize({ width: 1440, height: 1080 });
     await noOverflow(page);
     await screenshot(page, `admin-${suffix}-editor-desktop`);
-    for (const width of [390, 320]) {
+    for (const width of [768, 390, 320]) {
       await page.setViewportSize({ width, height: 844 });
       await noOverflow(page);
       await expect(
         page.getByLabel("Título do artigo", { exact: true }),
       ).toBeVisible();
+      const writingColumn = await page
+        .locator(".blog-writing-column")
+        .boundingBox();
+      for (const selector of [".blog-writing-card", ".blog-cover-card"]) {
+        const card = await page.locator(selector).boundingBox();
+        expect(
+          Math.abs(card.width - writingColumn.width),
+          `${selector} fills the writing column at ${width}px`,
+        ).toBeLessThanOrEqual(2);
+        expect(card.x).toBeGreaterThanOrEqual(0);
+        expect(card.x + card.width).toBeLessThanOrEqual(width + 1);
+      }
       await screenshot(page, `admin-${suffix}-editor-${width}`);
     }
   }

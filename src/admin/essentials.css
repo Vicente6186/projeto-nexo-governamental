@@ -10,19 +10,10 @@
   gap: 28px;
   padding: 8px 0 10px;
 }
-.essentials-eyebrow {
-  display: block;
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.13em;
-  line-height: 1.6;
-  text-transform: uppercase;
-}
 .essentials-welcome h2 {
-  margin-top: 9px;
+  margin-top: 0;
   font-family: var(--serif);
-  font-size: clamp(34px, 3.3vw, 46px);
+  font-size: clamp(28px, 2.8vw, 36px);
   font-weight: 400;
   letter-spacing: -0.025em;
   line-height: 1.12;
@@ -37,16 +28,16 @@
 .essentials-welcome-mark {
   display: grid;
   place-items: center;
-  width: 96px;
-  height: 96px;
+  width: 72px;
+  height: 72px;
   flex-shrink: 0;
   border: 1px solid var(--line);
   border-radius: 50%;
   background: var(--surface);
 }
 .essentials-welcome-mark img {
-  width: 62px;
-  height: 62px;
+  width: 48px;
+  height: 48px;
   object-fit: contain;
   filter: var(--logo-filter);
 }
@@ -78,7 +69,7 @@
   place-items: center;
   width: 43px;
   height: 43px;
-  margin-bottom: 22px;
+  margin-bottom: 17px;
   border-radius: 11px;
   background: var(--accent-soft);
   color: var(--accent);
@@ -106,11 +97,11 @@
   justify-content: space-between;
   gap: 12px;
   width: 100%;
-  margin-top: 26px;
+  margin-top: 21px;
   padding-top: 15px;
   border-top: 1px solid var(--line);
   color: var(--accent);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
 }
 .essentials-summary-grid {
@@ -136,9 +127,34 @@
   gap: 16px;
 }
 .essentials-card-heading h2 {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   line-height: 1.6;
+}
+.essentials-summary-caption {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.essentials-draft-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 11px 13px;
+  margin: 17px 0 8px;
+  border: 1px solid color-mix(in srgb, var(--amber), transparent 70%);
+  border-radius: 8px;
+  background: var(--amber-soft);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.essentials-draft-note svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: var(--amber);
 }
 .essentials-edition {
   margin-top: 23px;
@@ -156,7 +172,7 @@
 }
 .essentials-dates dt {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.6;
 }
 .essentials-dates dd {
@@ -166,7 +182,7 @@
 }
 .essentials-summary-link {
   margin-top: 5px;
-  font-size: 11px;
+  font-size: 12px;
 }
 .essentials-publication-dot {
   width: 7px;
@@ -196,7 +212,7 @@
   display: block;
   margin-top: 15px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.7;
 }
 .essentials-publication-actions {
@@ -235,6 +251,24 @@
 }
 .essentials-form {
   padding: 27px 28px;
+}
+.essentials-form input,
+.essentials-form textarea,
+.essentials-stage-fields input,
+.essentials-stage-fields textarea {
+  min-height: 44px;
+  font-size: 14px;
+}
+.essentials-form .field:not(.field-invalid) input:not(:focus),
+.essentials-form .field:not(.field-invalid) textarea:not(:focus),
+.essentials-stage-fields .field:not(.field-invalid) input:not(:focus),
+.essentials-stage-fields .field:not(.field-invalid) textarea:not(:focus) {
+  border-color: var(--line-strong);
+}
+.essentials-form .field-hint,
+.essentials-schedule-body .field-hint {
+  font-size: 12px;
+  line-height: 1.7;
 }
 .essentials-form > .field:last-child,
 .essentials-stage-fields > .field:last-child {
@@ -327,7 +361,7 @@
 }
 .essentials-status-option > span:last-child {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.7;
 }
 .essentials-status-note {
@@ -335,7 +369,7 @@
   align-items: flex-start;
   gap: 9px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.8;
 }
 .essentials-status-note > svg {
@@ -346,6 +380,9 @@
   font-weight: 500;
   color: var(--text);
 }
+.essentials-status-note p + p {
+  margin-top: 8px;
+}
 .essentials-form-divider {
   height: 1px;
   margin: 25px 0;
@@ -355,15 +392,91 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  margin-top: -8px;
+  margin-top: 14px;
 }
 .essentials-upload-row > .button {
   flex-shrink: 0;
 }
 .essentials-upload-row p {
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.7;
+}
+.essentials-inline-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 7px;
+  min-height: 44px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  text-decoration: none;
+}
+.essentials-form > .essentials-inline-link {
+  margin: -14px 0 15px;
+}
+.essentials-inline-link:hover,
+.essentials-contact-preview a:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.essentials-inline-link:focus-visible,
+.essentials-contact-preview a:focus-visible,
+.essentials-stage-details summary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.essentials-inline-link svg {
+  flex-shrink: 0;
+}
+.essentials-document-card {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--surface-inset);
+}
+.essentials-document-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 44px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 7px;
+}
+.essentials-document-info {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+.essentials-document-info strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.essentials-document-info span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.essentials-document-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
 }
 .essentials-schedule-heading > div {
   flex: 1;
@@ -375,12 +488,15 @@
   color: var(--muted);
   background: var(--surface-muted);
   border-radius: 6px;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.6;
   white-space: nowrap;
 }
 .essentials-schedule-body {
   padding: 25px 28px 28px;
+}
+.essentials-schedule-body > .essentials-stage-hint {
+  margin: 0 0 18px;
 }
 .essentials-empty-schedule {
   display: flex;
@@ -399,7 +515,7 @@
 }
 .essentials-empty-schedule p {
   margin-top: 5px;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.7;
 }
 .essentials-stage-list {
@@ -430,7 +546,7 @@
 }
 .essentials-stage-heading h3 > span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 .essentials-stage-actions {
@@ -438,8 +554,8 @@
   gap: 2px;
 }
 .essentials-stage-actions .icon-button {
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
 }
 .essentials-stage-actions .essentials-remove-stage {
   margin-left: 5px;
@@ -457,6 +573,42 @@
 .essentials-stage-fields textarea {
   min-height: 84px;
 }
+.essentials-stage-details summary {
+  min-height: 44px;
+  padding: 11px 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+  cursor: pointer;
+}
+.essentials-stage-details[open] summary {
+  padding-top: 0;
+  min-height: 34px;
+}
+.essentials-stage-details > .field:last-child {
+  margin-bottom: 0;
+}
+.essentials-undo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface-inset);
+}
+.essentials-undo p {
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.essentials-undo .button {
+  flex-shrink: 0;
+}
 .essentials-add-stage {
   margin-top: 20px;
 }
@@ -473,12 +625,9 @@
   padding: 26px 2px;
 }
 .essentials-contact-aside h2 {
-  margin-top: 14px;
-  font-family: var(--serif);
-  font-size: 33px;
-  font-weight: 400;
-  letter-spacing: -0.015em;
-  line-height: 1.15;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
 }
 .essentials-contact-aside > p {
   max-width: 275px;
@@ -498,7 +647,7 @@
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.8;
 }
 .essentials-contact-preview svg {
@@ -510,9 +659,25 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+.essentials-contact-preview a {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  min-height: 44px;
+  color: var(--accent);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.essentials-contact-preview > div {
+  align-items: baseline;
+}
+.essentials-contact-preview a svg {
+  margin-top: 4px;
+}
 .essentials-contact-aside > .essentials-contact-footnote {
   margin-top: 29px;
-  font-size: 10px;
+  font-size: 12px;
 }
 @media (max-width: 1050px) {
   .essentials-action {
@@ -522,11 +687,17 @@
     grid-template-columns: minmax(0, 1.6fr) minmax(210px, 1fr);
     gap: 25px;
   }
-  .essentials-contact-aside h2 {
-    font-size: 29px;
-  }
 }
 @media (max-width: 900px) {
+  .essentials-form input,
+  .essentials-form textarea,
+  .essentials-stage-fields input,
+  .essentials-stage-fields textarea {
+    font-size: 16px;
+  }
+  .essentials-summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .essentials-contact-layout {
     grid-template-columns: minmax(0, 1fr);
     gap: 20px;
@@ -541,6 +712,40 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     margin-top: 22px;
     padding-top: 19px;
+  }
+}
+@media (min-width: 661px) and (max-width: 1050px) {
+  .essentials-actions {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .essentials-action {
+    display: grid;
+    grid-template-columns: 43px minmax(0, 1fr) 20px;
+    column-gap: 16px;
+    padding: 20px;
+  }
+  .essentials-action-icon {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    margin: 0;
+  }
+  .essentials-action h3,
+  .essentials-action p {
+    grid-column: 2;
+  }
+  .essentials-action p {
+    max-width: none;
+    margin-top: 4px;
+  }
+  .essentials-action-link {
+    grid-column: 3;
+    grid-row: 1 / 3;
+    align-self: center;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font-size: 0;
   }
 }
 @media (max-width: 660px) {
@@ -562,7 +767,7 @@
   }
   .essentials-welcome h2 {
     max-width: 280px;
-    font-size: 35px;
+    font-size: 29px;
   }
   .essentials-welcome p {
     font-size: 12px;
@@ -594,7 +799,12 @@
   .essentials-action p {
     max-width: none;
     margin-top: 5px;
-    font-size: 11px;
+    font-size: 12px;
+  }
+  .essentials-welcome p,
+  .essentials-action p,
+  .essentials-section-heading p {
+    font-size: 13px;
   }
   .essentials-action-link {
     margin-top: 14px;
@@ -614,7 +824,7 @@
     padding: 21px 20px;
   }
   .essentials-section-heading p {
-    font-size: 11px;
+    font-size: 12px;
   }
   .essentials-form,
   .essentials-schedule-body {
@@ -630,10 +840,10 @@
     padding: 12px 10px;
   }
   .essentials-status-option strong {
-    font-size: 11px;
+    font-size: 12px;
   }
   .essentials-status-option > span:last-child {
-    font-size: 9px;
+    font-size: 12px;
   }
   .essentials-schedule-heading {
     flex-wrap: wrap;
@@ -653,8 +863,8 @@
     gap: 0;
   }
   .essentials-stage-actions .icon-button {
-    width: 36px;
-    height: 38px;
+    width: 44px;
+    height: 44px;
   }
 }
 @media (max-width: 430px) {
@@ -683,7 +893,7 @@
     font-size: 12px;
   }
   .essentials-status-option > span:last-child {
-    font-size: 10px;
+    font-size: 12px;
   }
   .essentials-field-row {
     grid-template-columns: minmax(0, 1fr);
@@ -700,12 +910,27 @@
   }
   .essentials-stage-heading h3 {
     gap: 6px;
-    font-size: 11px;
+    font-size: 12px;
   }
   .essentials-stage-heading h3 > span {
     display: none;
   }
   .essentials-contact-preview {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .essentials-undo {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .essentials-document-card {
+    gap: 11px;
+    padding: 13px;
+  }
+  .essentials-document-info {
+    flex-basis: 100px;
+  }
+  .essentials-document-actions {
+    width: 100%;
   }
 }

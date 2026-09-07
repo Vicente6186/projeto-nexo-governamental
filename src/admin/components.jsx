@@ -1,10 +1,6 @@
 import React, { useEffect, useRef, useId } from "react";
-import {
-  X,
-  ArrowUpRight,
-  LoaderCircle,
-  Image as ImageIcon,
-} from "lucide-react";
+import { createPortal } from "react-dom";
+import { X, LoaderCircle, Image as ImageIcon } from "lucide-react";
 
 export function Button({
   children,
@@ -34,6 +30,7 @@ export function Badge({ children, tone = "neutral", dot = false }) {
 export function Field({
   label,
   hint,
+  error,
   value,
   onChange,
   multiline = false,
@@ -41,15 +38,17 @@ export function Field({
   maxLength,
   ...props
 }) {
-  const id = useId();
+  const generatedId = useId();
+  const id = props.id || generatedId;
   const Component = multiline ? "textarea" : "input";
   const hintId = `${id}-hint`;
+  const errorId = `${id}-error`;
   const describedBy =
-    [props["aria-describedby"], hint ? hintId : null]
+    [props["aria-describedby"], hint ? hintId : null, error ? errorId : null]
       .filter(Boolean)
       .join(" ") || undefined;
   return (
-    <div className="field">
+    <div className={`field${error ? " field-invalid" : ""}`}>
       <div className="field-label">
         <label htmlFor={id}>{label}</label>
         {maxLength && (
@@ -68,11 +67,17 @@ export function Field({
         onChange={(e) => onChange(e.target.value)}
         maxLength={maxLength}
         {...props}
+        aria-invalid={error ? true : props["aria-invalid"]}
         aria-describedby={describedBy}
       />
       {hint && (
         <p className="field-hint" id={hintId}>
           {hint}
+        </p>
+      )}
+      {error && (
+        <p className="field-error" id={errorId} role="alert">
+          {error}
         </p>
       )}
     </div>
@@ -132,55 +137,203 @@ export function Toggle({ checked, onChange, label }) {
     </button>
   );
 }
+const modalBackground = new Map();
+let modalCount = 0;
+let bodyOverflowBeforeModal = "";
+
+function concealBehindModal(element) {
+  const saved = modalBackground.get(element) || {
+    count: 0,
+    inert: element.getAttribute("inert"),
+    hidden: element.getAttribute("aria-hidden"),
+  };
+  saved.count += 1;
+  modalBackground.set(element, saved);
+  element.setAttribute("inert", "");
+  element.setAttribute("aria-hidden", "true");
+}
+
+function restoreBehindModal(element) {
+  const saved = modalBackground.get(element);
+  if (!saved || --saved.count > 0) return;
+  for (const [attribute, value] of [
+    ["inert", saved.inert],
+    ["aria-hidden", saved.hidden],
+  ]) {
+    if (value === null) element.removeAttribute(attribute);
+    else element.setAttribute(attribute, value);
+  }
+  modalBackground.delete(element);
+}
+
 export function Modal({ title, description, children, onClose, wide = false }) {
   const ref = useRef(null),
+    backdropRef = useRef(null),
     previous = useRef(document.activeElement),
-    titleId = useId();
+    closeRef = useRef(onClose),
+    titleId = useId(),
+    descriptionId = useId();
+  closeRef.current = onClose;
   useEffect(() => {
-    if (!ref.current?.contains(document.activeElement)) {
-      const input = ref.current?.querySelector(
-        "input:not([type=file]), textarea, select",
-      );
-      (input || ref.current)?.focus();
+    const dialog = ref.current;
+    const backdrop = backdropRef.current;
+    if (!dialog || !backdrop) return undefined;
+    let active = true;
+    const focusableSelector =
+      'button:not([disabled]),a[href],input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),iframe,[contenteditable="true"],[tabindex]';
+    function frameDocument(frame) {
+      try {
+        return frame.contentDocument;
+      } catch {
+        return null;
+      }
     }
-    const old = document.body.style.overflow;
+    function visible(element) {
+      return (
+        element.tabIndex >= 0 &&
+        !element.closest("[inert]") &&
+        element.getClientRects().length > 0 &&
+        element.ownerDocument.defaultView.getComputedStyle(element)
+          .visibility !== "hidden"
+      );
+    }
+    function focusableItems(container) {
+      return Array.from(container.querySelectorAll(focusableSelector))
+        .filter(visible)
+        .flatMap((element) => {
+          if (element.tagName !== "IFRAME") return [element];
+          const doc = frameDocument(element);
+          const children = doc ? focusableItems(doc) : [];
+          return children.length ? children : [element];
+        });
+    }
+    function activeElement(doc = document) {
+      const active = doc.activeElement;
+      const childDocument =
+        active?.tagName === "IFRAME" && frameDocument(active);
+      return childDocument ? activeElement(childDocument) : active;
+    }
+    function keyDown(event) {
+      if (event.defaultPrevented || dialog.closest("[inert]")) return;
+      connectFrames(dialog);
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        closeRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusableItems(dialog);
+      event.preventDefault();
+      if (!items.length) {
+        dialog.focus();
+        return;
+      }
+      const current = items.indexOf(activeElement());
+      const next = event.shiftKey
+        ? (current <= 0 ? items.length : current) - 1
+        : (current + 1) % items.length;
+      items[next].focus();
+    }
+
+    // Preview documents have their own event tree. Register each same-origin
+    // document so Tab and Escape follow one continuous dialog focus order.
+    const frames = new Map();
+    let frameCheck = null;
+    function connectFrames(container) {
+      container.querySelectorAll("iframe").forEach((frame) => {
+        const current = frames.get(frame);
+        if (current) {
+          if (current.document !== frameDocument(frame))
+            current.connectDocument();
+          return;
+        }
+        const entry = { document: null, observer: null };
+        function connectDocument() {
+          const nextDocument = frameDocument(frame);
+          if (entry.document === nextDocument && entry.observer) return;
+          entry.document?.removeEventListener("keydown", keyDown);
+          entry.observer?.disconnect();
+          entry.document = nextDocument;
+          if (!entry.document) return;
+          entry.document.addEventListener("keydown", keyDown);
+          connectFrames(entry.document);
+          entry.observer = new MutationObserver(() =>
+            connectFrames(entry.document),
+          );
+          entry.observer.observe(entry.document, {
+            childList: true,
+            subtree: true,
+          });
+        }
+        entry.connectDocument = connectDocument;
+        frames.set(frame, entry);
+        frame.addEventListener("load", connectDocument);
+        frame.addEventListener("focus", connectDocument);
+        connectDocument();
+      });
+      // The document becomes usable before iframe.load when images or embeds
+      // are still pending. Reconnect during that gap and after link navigation.
+      if (frames.size && frameCheck === null) {
+        frameCheck = window.setInterval(() => connectFrames(dialog), 100);
+      }
+    }
+    function refreshFocusedFrame() {
+      connectFrames(dialog);
+      queueMicrotask(() => {
+        if (active && dialog.isConnected) connectFrames(dialog);
+      });
+    }
+    dialog.addEventListener("keydown", keyDown);
+    document.addEventListener("focusin", refreshFocusedFrame);
+    window.addEventListener("blur", refreshFocusedFrame);
+    connectFrames(dialog);
+    const frameObserver = new MutationObserver(() => connectFrames(dialog));
+    frameObserver.observe(dialog, { childList: true, subtree: true });
+
+    if (!dialog.contains(document.activeElement)) {
+      const input = dialog.querySelector(
+        "input:not([disabled]):not([type=file]):not([type=hidden]), textarea:not([disabled]), select:not([disabled])",
+      );
+      (input || dialog).focus();
+    }
+
+    const background = Array.from(document.body.children).filter(
+      (element) => element !== backdrop,
+    );
+    background.forEach(concealBehindModal);
+    if (modalCount === 0)
+      bodyOverflowBeforeModal = document.body.style.overflow;
+    modalCount += 1;
     document.body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = old;
-      if (previous.current?.isConnected) previous.current.focus();
+      active = false;
+      dialog.removeEventListener("keydown", keyDown);
+      document.removeEventListener("focusin", refreshFocusedFrame);
+      window.removeEventListener("blur", refreshFocusedFrame);
+      window.clearInterval(frameCheck);
+      frameObserver.disconnect();
+      frames.forEach((entry, frame) => {
+        frame.removeEventListener("load", entry.connectDocument);
+        frame.removeEventListener("focus", entry.connectDocument);
+        entry.document?.removeEventListener("keydown", keyDown);
+        entry.observer?.disconnect();
+      });
+      background.forEach(restoreBehindModal);
+      modalCount -= 1;
+      if (modalCount === 0)
+        document.body.style.overflow = bodyOverflowBeforeModal;
+      if (
+        previous.current?.isConnected &&
+        !previous.current.closest("[inert]")
+      ) {
+        previous.current.focus({ preventScroll: true });
+      }
     };
   }, []);
-  function keyDown(e) {
-    if (e.key === "Escape") {
-      onClose();
-      return;
-    }
-    if (e.key !== "Tab") return;
-    const items = Array.from(
-      ref.current.querySelectorAll(
-        'button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex="0"]',
-      ),
-    ).filter((el) => el.offsetParent !== null);
-    if (!items.length) {
-      e.preventDefault();
-      return;
-    }
-    const first = items[0],
-      last = items.at(-1);
-    if (
-      e.shiftKey &&
-      (document.activeElement === first ||
-        document.activeElement === ref.current)
-    ) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  }
-  return (
+  return createPortal(
     <div
+      ref={backdropRef}
       className="modal-backdrop"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -192,15 +345,16 @@ export function Modal({ title, description, children, onClose, wide = false }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
-        onKeyDown={keyDown}
       >
         <div className="modal-heading">
           <div>
             <h2 id={titleId}>{title}</h2>
-            {description && <p>{description}</p>}
+            {description && <p id={descriptionId}>{description}</p>}
           </div>
           <button
+            type="button"
             className="icon-button"
             aria-label="Fechar janela"
             onClick={onClose}
@@ -210,7 +364,8 @@ export function Modal({ title, description, children, onClose, wide = false }) {
         </div>
         {children}
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
 export function Empty({
@@ -230,10 +385,13 @@ export function Empty({
     </div>
   );
 }
-export function Loading({ label = "Preparando seu espaço…" }) {
+export function Loading({ label = "Preparando seu espaço…", compact = false }) {
   return (
-    <div className="loading">
-      <LoaderCircle className="spin" size={24} />
+    <div
+      className={`loading${compact ? " loading-compact" : ""}`}
+      role="status"
+    >
+      <LoaderCircle className="spin" size={24} aria-hidden="true" />
       <span>{label}</span>
     </div>
   );
@@ -249,103 +407,31 @@ export function CardHeading({ eyebrow, title, children }) {
     </div>
   );
 }
-export function AssetField({
-  label,
-  value,
-  onChange,
-  assets,
-  accept = "image",
-  onBrowse,
-}) {
-  return (
-    <div className="asset-field">
-      <Field
-        label={label}
-        value={value}
-        onChange={onChange}
-        placeholder="/assets/imagem.webp ou https://…"
-      />
-      <div className="asset-field-bottom">
-        {value && accept === "image" && (
-          <img
-            src={value}
-            alt="Prévia do arquivo"
-            onError={(e) => {
-              e.currentTarget.style.visibility = "hidden";
-            }}
-            onLoad={(e) => {
-              e.currentTarget.style.visibility = "visible";
-            }}
-          />
-        )}
-        <button
-          type="button"
-          className="text-button"
-          onClick={() => onBrowse({ accept, onSelect: onChange })}
-        >
-          <ImageIcon size={15} /> Escolher na biblioteca{" "}
-          <ArrowUpRight size={14} />
-        </button>
-      </div>
-    </div>
-  );
-}
-export const LABELS = {
-  id: "Identificador",
-  title: "Título",
-  description: "Descrição",
-  detail: "Texto complementar",
-  image: "Imagem",
-  alt: "Descrição da imagem (acessibilidade)",
-  url: "Link",
-  listTitle: "Título da lista",
-  videoTitle: "Título do vídeo",
-  videoDescription: "Descrição do vídeo",
-  invitation: "Convite",
-  civilLabel: "Comunidade civil",
-  executiveLabel: "Poder Executivo",
-  legislativeLabel: "Poder Legislativo",
-  judiciaryLabel: "Poder Judiciário",
-  republicLabel: "República",
-  galleryTitle: "Título da galeria",
-  communityTitle: "Título dos números",
-  membersValue: "Número de membros",
-  membersLabel: "Rótulo de membros",
-  universitiesValue: "Número de universidades",
-  universitiesLabel: "Rótulo de universidades",
-  profileTitle: "Nome do perfil",
-  profileSubtitle: "Complemento do perfil",
-  institution: "Instituição",
-  profileCta: "Texto do link do perfil",
-  availability: "Disponibilidade da equipe",
-  emailLabel: "Rótulo do e-mail",
-  formTitle: "Título do formulário",
-  formDescription: "Orientação do formulário",
-  formHelp: "Ajuda do formulário",
-  submitLabel: "Texto do botão de contato",
-  schoolCategory: "Categoria: escolas",
-  eventsCategory: "Categoria: eventos",
-  travelCategory: "Categoria: viagens",
-};
 export function dateLabel(value, withTime = false) {
   if (!value) return "Ainda não publicado";
-  const date = new Date(value);
+  const date = new Date(
+    /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00-03:00` : value,
+  );
   return Number.isNaN(date.getTime())
     ? "Data não informada"
     : new Intl.DateTimeFormat("pt-BR", {
         day: "2-digit",
         month: "short",
-        ...(withTime
-          ? { hour: "2-digit", minute: "2-digit" }
-          : { year: "numeric" }),
+        year: "numeric",
+        timeZone: "America/Sao_Paulo",
+        ...(withTime ? { hour: "2-digit", minute: "2-digit" } : {}),
       }).format(date);
 }
 export function dayLabel(value) {
   if (!value) return "A definir";
-  return new Date(value + "T12:00:00").toLocaleDateString("pt-BR", {
+  const date = new Date(`${value}T12:00:00-03:00`);
+  if (Number.isNaN(date.getTime())) return "Data não informada";
+  return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
     month: "short",
-  });
+    year: "numeric",
+    timeZone: "America/Sao_Paulo",
+  }).format(date);
 }
 export function effectiveStatus(s) {
   const now = new Date();

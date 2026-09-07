@@ -1,0 +1,123 @@
+.recovery-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 22px;
+  margin: 0 0 24px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.recovery-banner strong {
+  font-size: 14px;
+}
+.recovery-banner p {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 7px 0 0;
+  line-height: 1.6;
+}
+.recovery-banner > div:last-child {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.user-access {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  border: 0;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  padding: 4px 0;
+  min-height: 44px;
+  border-radius: 8px;
+}
+.user-access > span:last-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.user-access strong {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.user-access small {
+  font-size: 12px;
+  color: var(--muted);
+}
+.publication-diff {
+  display: grid;
+  gap: 16px;
+  margin: 20px 0;
+}
+.diff-item {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.diff-item > strong {
+  display: block;
+  padding: 13px 16px;
+  background: var(--surface-muted);
+  font-size: 13px;
+}
+.diff-values {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.diff-values > div {
+  padding: 14px 16px;
+  min-width: 0;
+}
+.diff-values > div + div {
+  border-left: 1px solid var(--line);
+}
+.diff-values small {
+  font-size: 12px;
+  color: var(--muted);
+}
+.diff-values p {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.6;
+}
+@media (max-width: 900px) {
+  .recovery-banner {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .recovery-banner > div:last-child {
+    flex-shrink: 1;
+  }
+}
+@media (max-width: 480px) {
+  .recovery-banner {
+    padding: 17px;
+  }
+  .recovery-banner > div:last-child {
+    width: 100%;
+  }
+  .recovery-banner .btn {
+    flex: 1;
+  }
+  .diff-values {
+    grid-template-columns: 1fr;
+  }
+  .diff-values > div + div {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+}

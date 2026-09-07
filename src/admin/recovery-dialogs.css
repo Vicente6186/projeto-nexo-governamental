@@ -1,0 +1,201 @@
+.session-recovery {
+  margin-top: 24px;
+}
+.session-recovery fieldset > .button,
+.session-recovery-local > .button {
+  width: 100%;
+  min-height: 44px;
+}
+.session-recovery-password {
+  position: relative;
+}
+.session-recovery-password input {
+  padding-right: 56px;
+}
+.session-recovery-password-toggle {
+  position: absolute;
+  top: 29px;
+  right: 3px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+}
+.session-recovery-password-toggle:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+.session-recovery-local {
+  display: grid;
+  gap: 12px;
+  padding-top: 22px;
+  margin-top: 22px;
+  border-top: 1px solid var(--line);
+}
+.session-recovery-note {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin-top: 20px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.session-recovery-note svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.conflict-review {
+  min-width: 0;
+  margin-top: 22px;
+}
+.conflict-review-intro,
+.conflict-review-progress {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+}
+.conflict-review-fields {
+  display: grid;
+  gap: 26px;
+  margin-top: 22px;
+}
+.conflict-review-field legend {
+  padding: 0;
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.conflict-review-options {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+.conflict-review-option {
+  min-width: 0;
+  padding: 17px;
+  border: 1px solid var(--control-border);
+  border-radius: 11px;
+  background: var(--surface-inset);
+  cursor: pointer;
+}
+.conflict-review-option.is-selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.conflict-review-option:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+.conflict-review-option-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+.conflict-review-option-heading input {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.conflict-review-value {
+  display: block;
+  margin-top: 13px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.conflict-review-compatible {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-muted);
+}
+.conflict-review-compatible > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--accent);
+}
+.conflict-review-compatible strong {
+  font-size: 14px;
+}
+.conflict-review-compatible p {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+}
+.conflict-review-independent {
+  margin-block: 22px;
+  padding: 14px 17px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.conflict-review-independent summary {
+  cursor: pointer;
+  color: var(--text);
+}
+.conflict-review-independent ul {
+  margin: 12px 0 0;
+  padding-left: 21px;
+}
+.conflict-review-progress {
+  margin-top: 20px;
+}
+.conflict-review-actions {
+  justify-content: space-between;
+}
+.conflict-review-actions > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.conflict-review-download-status {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.8;
+  margin-top: 14px;
+}
+.conflict-review-error {
+  display: block;
+}
+.conflict-review-error .button {
+  margin-top: 12px;
+}
+@media (max-width: 560px) {
+  .conflict-review-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .conflict-review-option {
+    padding: 15px;
+  }
+  .conflict-review-actions > div,
+  .conflict-review-actions > div > .button,
+  .conflict-review-actions > .button {
+    width: 100%;
+  }
+  .conflict-review-actions > div {
+    flex-direction: column-reverse;
+  }
+  .conflict-review-independent summary {
+    min-height: 44px;
+    align-content: center;
+  }
+}

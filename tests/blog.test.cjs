@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { mkdtempSync, rmSync } = require("node:fs");
+const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const path = require("node:path");
 const { buildApp } = require("../server/app.cjs");
@@ -16,6 +16,12 @@ const {
 const origin = "http://localhost:8080";
 async function fixture(t, env = { NODE_ENV: "test", CMS_LOCAL_PREVIEW: "1" }) {
   const dataDir = mkdtempSync(path.join(tmpdir(), "nexo-blog-test-"));
+  const distDir = path.join(dataDir, "dist");
+  mkdirSync(path.join(distDir, "blog"), { recursive: true });
+  writeFileSync(
+    path.join(distDir, "blog/template.html"),
+    '<!doctype html><html lang="pt-BR"><head><!--BLOG_META--></head><body><!--BLOG_CONTENT--></body></html>',
+  );
   const apps = [];
   let instant = new Date("2026-09-07T12:00:00Z");
   const open = async (nextEnv = env) => {
@@ -23,6 +29,7 @@ async function fixture(t, env = { NODE_ENV: "test", CMS_LOCAL_PREVIEW: "1" }) {
       env: nextEnv,
       logger: false,
       dataDir,
+      distDir,
       now: () => instant,
     });
     apps.push(app);
@@ -459,4 +466,329 @@ test("Markdown output escapes raw HTML, rejects executable URLs and protects ext
     "politica-publica-sao-francisco",
   );
   assert.equal(readingMinutes("palavra ".repeat(441)), 3);
+});
+
+test("blog errors identify duplicate addresses, stale versions and invalid fields distinctly", async (t) => {
+  const { app, headers } = await fixture(t);
+  const post = await create(app, headers);
+  const duplicate = await app.inject({
+    method: "POST",
+    url: "/api/admin/blog",
+    headers,
+    payload: { post: article() },
+  });
+  assert.equal(duplicate.statusCode, 409);
+  assert.equal(duplicate.json().code, "SLUG_TAKEN");
+  assert.equal(duplicate.json().field, "slug");
+  await action(app, headers, post, "publish");
+  const conflict = await app.inject({
+    method: "PUT",
+    url: `/api/admin/blog/${post.id}`,
+    headers,
+    payload: { version: post.version, post: post.draft },
+  });
+  assert.equal(conflict.statusCode, 409);
+  assert.equal(conflict.json().code, "VERSION_CONFLICT");
+  assert.equal(conflict.json().currentVersion, 2);
+  const invalid = await app.inject({
+    method: "POST",
+    url: "/api/admin/blog",
+    headers,
+    payload: { post: article({ tags: ["Nexo", "nexo"] }) },
+  });
+  assert.equal(invalid.statusCode, 400);
+  assert.equal(invalid.json().code, "VALIDATION_ERROR");
+  assert.equal(invalid.json().field, "tags");
+});
+
+test("identical saves and republications preserve version and publication dates", async (t) => {
+  const { app, headers, tick } = await fixture(t);
+  let post = await create(app, headers);
+  post = await action(app, headers, post, "publish");
+  const published = (await app.inject(`/api/blog/${post.draft.slug}`)).json()
+    .post;
+  const revisions = (
+    await app.inject({ url: `/api/admin/blog/${post.id}/revisions`, headers })
+  ).json().revisions;
+  tick();
+  const unchanged = await action(app, headers, post, "publish");
+  assert.deepEqual(unchanged, post);
+  const save = await app.inject({
+    method: "PUT",
+    url: `/api/admin/blog/${post.id}`,
+    headers,
+    payload: { post: post.draft, version: post.version },
+  });
+  assert.equal(save.statusCode, 200, save.body);
+  assert.deepEqual(save.json().post, post);
+  assert.deepEqual(
+    (await app.inject(`/api/blog/${post.draft.slug}`)).json().post,
+    published,
+  );
+  assert.deepEqual(
+    (
+      await app.inject({ url: `/api/admin/blog/${post.id}/revisions`, headers })
+    ).json().revisions,
+    revisions,
+  );
+});
+
+test("archived article previews remain authenticated, private and readable", async (t) => {
+  const { app, headers } = await fixture(t);
+  let post = await create(app, headers);
+  post = await action(app, headers, post, "publish");
+  post = await action(app, headers, post, "archive");
+  const previewUrl = `/blog/preview/${post.id}`;
+  assert.equal((await app.inject(previewUrl)).statusCode, 401);
+  const preview = await app.inject({ url: previewUrl, headers });
+  assert.equal(preview.statusCode, 200, preview.body);
+  assert.match(preview.body, /Uma perspectiva aberta/);
+  assert.equal(preview.headers["cache-control"], "private, no-store");
+  assert.equal(preview.headers["x-robots-tag"], "noindex, nofollow");
+  assert.equal(
+    (await app.inject(`/api/blog/${post.draft.slug}`)).statusCode,
+    404,
+  );
+  assert.equal(
+    (await app.inject({ url: "/blog/?preview=1", headers })).body.includes(
+      `/blog/preview/${post.id}`,
+    ),
+    false,
+  );
+});
+
+test("article revisions persist after withdrawal and restart and restore only a draft", async (t) => {
+  const { app, open, headers, tick } = await fixture(t);
+  let post = await create(app, headers);
+  post = await action(app, headers, post, "publish");
+  tick();
+  let response = await app.inject({
+    method: "PUT",
+    url: `/api/admin/blog/${post.id}`,
+    headers,
+    payload: {
+      version: post.version,
+      post: {
+        ...post.draft,
+        title: "Outro rascunho privado",
+        body: "Um texto que nunca foi publicado.",
+      },
+    },
+  });
+  assert.equal(response.statusCode, 200, response.body);
+  post = response.json().post;
+  post = await action(app, headers, post, "unpublish");
+  assert.equal(post.published, null);
+  await app.close();
+  const reopened = await open();
+  const historyUrl = `/api/admin/blog/${post.id}/revisions`;
+  assert.equal((await reopened.inject(historyUrl)).statusCode, 401);
+  const revisions = (await reopened.inject({ url: historyUrl, headers })).json()
+    .revisions;
+  assert.ok(
+    revisions.some(
+      (revision) =>
+        revision.source === "draft" &&
+        revision.title === "Outro rascunho privado",
+    ),
+  );
+  const lastPublication = revisions.find(
+    (revision) => revision.source === "published",
+  );
+  assert.equal(lastPublication.title, article().title);
+  assert.ok(lastPublication.actor);
+  assert.equal("post" in lastPublication, false);
+  const revisionUrl = `${historyUrl}/${lastPublication.id}`;
+  assert.equal((await reopened.inject(revisionUrl)).statusCode, 401);
+  const revision = (await reopened.inject({ url: revisionUrl, headers })).json()
+    .revision;
+  assert.equal(revision.post.body, article().body);
+  const restoreRequest = {
+    method: "POST",
+    url: `/api/admin/blog/${post.id}/restore-revision`,
+    headers,
+    payload: { revisionId: lastPublication.id, version: post.version },
+  };
+  assert.equal(
+    (await reopened.inject({ ...restoreRequest, headers: {} })).statusCode,
+    401,
+  );
+  assert.equal(
+    (
+      await reopened.inject({
+        ...restoreRequest,
+        headers: { origin, cookie: headers.cookie },
+      })
+    ).statusCode,
+    403,
+  );
+  const foreign = await create(
+    reopened,
+    headers,
+    article({ slug: "outro-artigo" }),
+  );
+  const wrongArticle = await reopened.inject({
+    ...restoreRequest,
+    url: `/api/admin/blog/${foreign.id}/restore-revision`,
+    payload: { ...restoreRequest.payload, version: foreign.version },
+  });
+  assert.equal(wrongArticle.statusCode, 404);
+  response = await reopened.inject(restoreRequest);
+  assert.equal(response.statusCode, 200, response.body);
+  post = response.json().post;
+  assert.equal(post.draft.body, article().body);
+  assert.equal(post.published, null);
+  assert.equal(
+    (await reopened.inject(`/api/blog/${post.draft.slug}`)).statusCode,
+    404,
+  );
+  assert.equal((await reopened.inject(restoreRequest)).statusCode, 409);
+  assert.equal(
+    (await reopened.inject({ url: historyUrl, headers }))
+      .json()
+      .revisions.some((r) => r.title === "Outro rascunho privado"),
+    true,
+  );
+});
+
+test("revision restoration preserves the live address and live content", async (t) => {
+  const { app, headers } = await fixture(t);
+  let post = await create(
+    app,
+    headers,
+    article({ slug: "endereco-anterior", title: "Texto anterior" }),
+  );
+  const revisions = (
+    await app.inject({ url: `/api/admin/blog/${post.id}/revisions`, headers })
+  ).json().revisions;
+  const response = await app.inject({
+    method: "PUT",
+    url: `/api/admin/blog/${post.id}`,
+    headers,
+    payload: {
+      version: post.version,
+      post: {
+        ...post.draft,
+        slug: "endereco-publicado",
+        title: "Texto publicado",
+      },
+    },
+  });
+  post = await action(app, headers, response.json().post, "publish");
+  const restored = await app.inject({
+    method: "POST",
+    url: `/api/admin/blog/${post.id}/restore-revision`,
+    headers,
+    payload: { revisionId: revisions[0].id, version: post.version },
+  });
+  assert.equal(restored.statusCode, 200, restored.body);
+  assert.equal(restored.json().post.draft.slug, "endereco-publicado");
+  assert.equal(restored.json().post.draft.title, "Texto anterior");
+  assert.equal(restored.json().post.published.title, "Texto publicado");
+  assert.equal(
+    (await app.inject("/api/blog/endereco-publicado")).json().post.title,
+    "Texto publicado",
+  );
+});
+
+test("admin summaries paginate metadata and filter draft, pending and archived articles", async (t) => {
+  const { app, headers, tick } = await fixture(t);
+  let pending;
+  for (let index = 0; index < 15; index++) {
+    tick();
+    let post = await create(
+      app,
+      headers,
+      article({
+        title: `Reflexão pública ${index}`,
+        slug: `reflexao-${index}`,
+        body: "termo-secreto-do-corpo ".repeat(500),
+        category: index < 4 ? CATEGORIES[1] : CATEGORIES[0],
+      }),
+    );
+    if (index < 5) post = await action(app, headers, post, "publish");
+    if (index === 0) {
+      const response = await app.inject({
+        method: "PUT",
+        url: `/api/admin/blog/${post.id}`,
+        headers,
+        payload: {
+          version: post.version,
+          post: { ...post.draft, title: "Reflexão pública revisada" },
+        },
+      });
+      pending = response.json().post;
+    }
+    if (index === 1) await action(app, headers, post, "archive");
+  }
+  const query = "/api/admin/blog?summary=1&search=reflexao%20publica";
+  const response = await app.inject({ url: query, headers });
+  const first = response.json();
+  assert.equal(response.statusCode, 200, response.body);
+  assert.deepEqual(first.counts, {
+    all: 14,
+    draft: 10,
+    published: 4,
+    pending: 1,
+    archived: 1,
+  });
+  assert.equal(first.total, 14);
+  assert.equal(first.pages, 2);
+  assert.equal(first.posts.length, 12);
+  assert.doesNotMatch(response.body, /termo-secreto-do-corpo/);
+  for (const post of first.posts) {
+    assert.equal("body" in post.draft, false);
+    if (post.published) assert.equal("body" in post.published, false);
+    assert.ok(post.readingMinutes > 1);
+  }
+  const second = (
+    await app.inject({ url: `${query}&page=999`, headers })
+  ).json();
+  assert.equal(second.page, 2);
+  assert.equal(second.posts.length, 2);
+  assert.equal(
+    new Set([...first.posts, ...second.posts].map((post) => post.id)).size,
+    14,
+  );
+  const changes = (
+    await app.inject({ url: `${query}&status=pending`, headers })
+  ).json();
+  assert.equal(changes.posts.length, 1);
+  assert.equal(changes.posts[0].id, pending.id);
+  assert.equal(changes.posts[0].hasChanges, true);
+  assert.equal(
+    (await app.inject({ url: `${query}&status=archived`, headers })).json()
+      .posts[0].archived,
+    true,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        url: `${query}&category=${encodeURIComponent(CATEGORIES[1])}`,
+        headers,
+      })
+    ).json().total,
+    3,
+  );
+  assert.equal(
+    (
+      await app.inject({ url: `${query}&status=published&page=-3`, headers })
+    ).json().page,
+    1,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        url: "/api/admin/blog?summary=1&search=naoexiste",
+        headers,
+      })
+    ).json().total,
+    0,
+  );
+  assert.equal(
+    (await app.inject({ url: `/api/admin/blog/${pending.id}`, headers }))
+      .json()
+      .post.draft.body.includes("termo-secreto-do-corpo"),
+    true,
+  );
 });

@@ -5,15 +5,29 @@ const envFile = path.join(__dirname, "..", ".env");
 if (existsSync(envFile)) process.loadEnvFile(envFile);
 
 const { buildApp } = require("./app.cjs");
+const { startBackupSchedule } = require("./backup.cjs");
 
 async function start() {
   const app = await buildApp();
   const port = Number(process.env.PORT || 3001);
   if (!Number.isSafeInteger(port) || port < 1 || port > 65535)
     throw new Error("PORT inválida.");
+  const stopBackups = startBackupSchedule({
+    dataDir: path.resolve(
+      process.env.DATA_DIR || path.join(__dirname, "..", "data"),
+    ),
+    logger: app.log,
+  });
   await app.listen({ host: process.env.HOST || "127.0.0.1", port });
+  let shuttingDown = false;
   for (const signal of ["SIGINT", "SIGTERM"])
-    process.once(signal, () => app.close().then(() => process.exit(0)));
+    process.once(signal, async () => {
+      if (shuttingDown) return;
+      shuttingDown = true;
+      await stopBackups();
+      await app.close();
+      process.exit(0);
+    });
 }
 
 start().catch((error) => {
