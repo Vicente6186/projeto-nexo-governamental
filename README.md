@@ -34,6 +34,8 @@ O rascunho é separado do conteúdo publicado. O site consulta apenas a versão 
 
 O painel inclui biblioteca de arquivos e configurações institucionais. Os uploads aceitam imagens PNG, JPEG, WebP e AVIF, além de PDFs, com limite de 8 MB por arquivo. Os arquivos enviados recebem uma URL pública; use a biblioteca apenas para materiais destinados ao site. O blog fica reservado para uma próxima etapa; este projeto ainda não publica artigos.
 
+O menu de aparência, no topo do painel e na tela de acesso, oferece os temas Claro, Escuro e Sistema. A escolha fica salva neste navegador e acompanha as outras abas abertas. O modo Sistema segue a preferência do dispositivo. Essa escolha altera apenas o painel; o site público mantém a própria identidade visual. A busca do painel também pode ser aberta com `⌘ K` ou `Ctrl K`.
+
 ## Estrutura
 
 | Caminho                                 | Responsabilidade                                    |

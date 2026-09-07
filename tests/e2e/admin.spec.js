@@ -44,7 +44,11 @@ async function resetContent(page) {
   const session = await sessionResponse.json();
   if (!session.authenticated) return;
   const current = await stateOf(page);
-  if (JSON.stringify(current.draft) === JSON.stringify(DEFAULT_CONTENT) && JSON.stringify(current.published) === JSON.stringify(DEFAULT_CONTENT)) return;
+  if (
+    JSON.stringify(current.draft) === JSON.stringify(DEFAULT_CONTENT) &&
+    JSON.stringify(current.published) === JSON.stringify(DEFAULT_CONTENT)
+  )
+    return;
   const origin = new URL(page.url()).origin;
   const headers = { Origin: origin, "X-CSRF-Token": session.csrfToken };
   const save = await page.request.put("/api/admin/content", {
@@ -68,10 +72,10 @@ async function login(page) {
   await page
     .getByRole("button", { name: "Entrar na prévia local", exact: true })
     .click();
-  await expect(page.locator("#workspace-main h1")).toContainText("Seu espaço.");
+  await expect(page.locator("#workspace-main h1")).toHaveText("Visão geral");
   await resetContent(page);
   await page.reload();
-  await expect(page.locator("#workspace-main h1")).toContainText("Seu espaço.");
+  await expect(page.locator("#workspace-main h1")).toHaveText("Visão geral");
 }
 
 async function saveDraft(page) {
@@ -211,9 +215,7 @@ test("selection editor publishes status, dates, links and structured stages to t
     .getByRole("link", { name: "Processo seletivo", exact: true })
     .click();
   await screenshot(page, "desktop-selection-original");
-  await page
-    .getByRole("button", { name: /Inscrições abertas Receba novos talentos/ })
-    .click();
+  await page.getByRole("button", { name: /^Inscrições abertas / }).click();
   await page
     .getByLabel("Edição do processo", { exact: true })
     .fill("Edição de teste local");

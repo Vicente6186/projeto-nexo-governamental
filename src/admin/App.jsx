@@ -19,37 +19,30 @@ import {
   Save,
   Upload,
   FileText,
-  MoreHorizontal,
   Eye,
-  EyeOff,
   Menu,
   X,
   LogOut,
   ShieldCheck,
   ArrowLeft,
   RefreshCw,
-  GripVertical,
   Trash2,
-  ExternalLink,
   Info,
   AlertCircle,
   CheckCircle2,
   Link2,
   Mail,
-  Sparkles,
   Clock3,
-  Image as ImageIcon,
   LoaderCircle,
   Monitor,
   Smartphone,
   FolderOpen,
-  File,
   Copy,
-  Download,
   LockKeyhole,
 } from "lucide-react";
 import {
   Button,
+  Tabs,
   Badge,
   Field,
   Toggle,
@@ -65,6 +58,7 @@ import {
   bytesLabel,
 } from "./components";
 import { api, setCsrf } from "./api";
+import ThemeMenu from "./ThemeMenu";
 import { FIELD_LABELS } from "../../shared/content.cjs";
 
 const NAV = [
@@ -171,6 +165,7 @@ const ACTIONS = {
 function routeFromHash() {
   try {
     const route = decodeURIComponent(window.location.hash.slice(1));
+    if (route === "secao/selective-process") return "processo";
     return /^(inicio|conteudo|processo|midia|historico|configuracoes|blog|secao\/[a-z-]+)$/.test(
       route,
     )
@@ -188,7 +183,7 @@ function Brand() {
         <strong>
           nexo<span> studio</span>
         </strong>
-        <small>GOVERNAMENTAL · XI DE AGOSTO</small>
+        <small>NEXO GOVERNAMENTAL</small>
       </div>
     </div>
   );
@@ -267,6 +262,9 @@ function Login({ session, onLogin }) {
   }
   return (
     <div className="login-layout">
+      <div className="login-appearance">
+        <ThemeMenu />
+      </div>
       <div className="login-visual">
         <Brand />
         <div className="login-copy">
@@ -364,9 +362,58 @@ function Workspace({ session, initialState, onLogout }) {
     [previewKey, setPreviewKey] = useState(0),
     [processTab, setProcessTab] = useState("geral"),
     [sectionTab, setSectionTab] = useState("texto");
-  const fileRef = useRef(null);
+  const fileRef = useRef(null),
+    sidebarRef = useRef(null),
+    menuRef = useRef(null);
+  const [compact, setCompact] = useState(
+    () => window.matchMedia("(max-width: 760px)").matches,
+  );
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 760px)");
+    const update = () => {
+      setCompact(media.matches);
+      if (!media.matches) setMobileNav(false);
+    };
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  useEffect(() => {
+    if (!compact || !mobileNav) return;
+    const previous = document.activeElement;
+    const oldOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    sidebarRef.current?.querySelector("nav a")?.focus();
+    return () => {
+      document.body.style.overflow = oldOverflow;
+      if (menuRef.current?.isConnected) menuRef.current.focus();
+      else if (previous?.isConnected) previous.focus();
+    };
+  }, [compact, mobileNav]);
+  function drawerKeyDown(event) {
+    if (!compact || !mobileNav) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setMobileNav(false);
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const links = Array.from(
+      sidebarRef.current.querySelectorAll("a[href],button:not([disabled])"),
+    ).filter((el) => el.getClientRects().length);
+    const first = links[0],
+      last = links.at(-1);
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first?.focus();
+    }
+  }
   const dirty = JSON.stringify(content) !== JSON.stringify(state.draft);
   const pending = JSON.stringify(content) !== JSON.stringify(state.published);
+  const changedSectionCount = changedSections(content, state.published);
+  const visibleSectionCount = content.sections.filter((s) => s.visible).length;
   const sectionId = route.startsWith("secao/") ? route.split("/")[1] : null;
   const section = content.sections.find((s) => s.id === sectionId);
   const navId = sectionId ? "conteudo" : route;
@@ -410,6 +457,8 @@ function Workspace({ session, initialState, onLogout }) {
     const handle = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
+        setQuery("");
+        setMobileNav(false);
         setModal("search");
       }
     };
@@ -505,6 +554,7 @@ function Workspace({ session, initialState, onLogout }) {
     }
   }
   async function logout() {
+    setMobileNav(false);
     if (dirty) {
       setModal("logout");
       return;
@@ -539,7 +589,7 @@ function Workspace({ session, initialState, onLogout }) {
     navigate(s.id === "selective-process" ? "processo" : `secao/${s.id}`);
   }
   async function upload(files) {
-    if (!files?.length) return;
+    if (!files?.length || uploading) return;
     setUploading(true);
     try {
       for (const file of Array.from(files)) {
@@ -576,6 +626,41 @@ function Workspace({ session, initialState, onLogout }) {
       );
   }
   const pickerProps = { assets, onBrowse: setAssetPicker };
+  const searchEntries = [
+    ...new Map(
+      [
+        ...NAV.map((n) => ({
+          id: n.id,
+          label: n.label,
+          description: "Espaço de trabalho",
+        })),
+        {
+          id: "configuracoes",
+          label: "Configurações",
+          description: "Identidade, contato e aparência",
+        },
+        { id: "blog", label: "Blog", description: "Em breve" },
+        ...content.sections.map((s) => ({
+          id: s.id === "selective-process" ? "processo" : `secao/${s.id}`,
+          label: s.label,
+          description: s.title,
+        })),
+      ].map((entry) => [entry.id, entry]),
+    ).values(),
+  ].filter((entry) =>
+    (entry.label + " " + entry.description)
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .includes(
+        query
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .trim()
+          .toLowerCase(),
+      ),
+  );
+
   const pageTitle =
     section?.label ||
     NAV.find((n) => n.id === navId)?.label ||
@@ -600,7 +685,19 @@ function Workspace({ session, initialState, onLogout }) {
           onClick={() => setMobileNav(false)}
         />
       )}
-      <aside className={`sidebar ${mobileNav ? "sidebar-open" : ""}`}>
+      <aside
+        ref={sidebarRef}
+        id="sidebar-navigation"
+        className={`sidebar ${mobileNav ? "sidebar-open" : ""}`}
+        inert={compact && !mobileNav}
+        role={compact && mobileNav ? "dialog" : undefined}
+        aria-modal={compact && mobileNav ? true : undefined}
+        aria-label={compact ? "Navegação do painel" : undefined}
+        onKeyDown={drawerKeyDown}
+        onClick={(event) => {
+          if (event.target.closest("a[href]")) setMobileNav(false);
+        }}
+      >
         <a
           href="#inicio"
           className="brand-link"
@@ -608,15 +705,14 @@ function Workspace({ session, initialState, onLogout }) {
         >
           <Brand />
         </a>
-        <div className="workspace-switch">
+        <div className="workspace-identity">
           <span className="workspace-avatar">N</span>
           <div>
             <strong>Nexo Governamental</strong>
-            <small>Site institucional</small>
+            <small>Faculdade de Direito · USP</small>
           </div>
-          <Badge tone="neutral">USP</Badge>
         </div>
-        <div className="nav-label">ESPAÇO DE TRABALHO</div>
+        <div className="nav-label">GERENCIAR</div>
         <nav aria-label="Menu principal">
           {NAV.map(({ id, label, icon: Icon }) => (
             <a
@@ -631,7 +727,7 @@ function Workspace({ session, initialState, onLogout }) {
             </a>
           ))}
         </nav>
-        <div className="nav-label nav-label-second">EXPANDA O NEXO</div>
+        <div className="nav-label nav-label-second">PREFERÊNCIAS</div>
         <a
           href="#blog"
           className={`nav-item ${route === "blog" ? "active" : ""}`}
@@ -648,14 +744,6 @@ function Workspace({ session, initialState, onLogout }) {
           <span>Configurações</span>
         </a>
         <div className="sidebar-bottom">
-          <div className="sidebar-note">
-            <span className="tiny-star">✳</span>
-            <h4>Uma ideia. Muitas conexões.</h4>
-            <p>Mantenha o Nexo presente, relevante e sempre atualizado.</p>
-            <a href="/" target="_blank" rel="noreferrer">
-              Visitar o site <ArrowUpRight size={14} />
-            </a>
-          </div>
           <div className="user-block">
             <div className="avatar">NG</div>
             <div>
@@ -677,12 +765,15 @@ function Workspace({ session, initialState, onLogout }) {
           </div>
         </div>
       </aside>
-      <div className="workspace">
+      <div className="workspace" inert={compact && mobileNav}>
         <header className="topbar">
           <div className="breadcrumbs">
             <button
               className="icon-button mobile-menu"
               aria-label="Abrir navegação"
+              ref={menuRef}
+              aria-expanded={mobileNav}
+              aria-controls="sidebar-navigation"
               onClick={() => setMobileNav(true)}
             >
               <Menu size={20} />
@@ -708,46 +799,29 @@ function Workspace({ session, initialState, onLogout }) {
             <a className="view-site" href="/" target="_blank" rel="noreferrer">
               Ver site <ArrowUpRight size={15} />
             </a>
-            <span className="header-avatar">N</span>
+            <ThemeMenu />
           </div>
         </header>
         <main id="workspace-main" className="main-content" tabIndex={-1}>
           <div className="page-heading">
             <div>
-              <div className="eyebrow">
-                {navId === "inicio"
-                  ? "PAINEL DE CONTEÚDO"
-                  : section
-                    ? "CONTEÚDO DO SITE"
-                    : navId === "processo"
-                      ? "NOVAS CONEXÕES COMEÇAM AQUI"
-                      : "NEXO GOVERNAMENTAL"}
-              </div>
-              <h1>
-                {navId === "inicio" ? (
-                  <>
-                    Seu espaço. <span>Novas possibilidades.</span>
-                  </>
-                ) : (
-                  pageTitle
-                )}
-              </h1>
+              <h1>{pageTitle}</h1>
               <p>
                 {navId === "inicio"
-                  ? "Tudo o que você precisa para manter o Nexo em movimento."
+                  ? "Conteúdo, seleção e publicações em um só lugar."
                   : section
-                    ? "Dê forma à mensagem que os visitantes encontram no site."
+                    ? "Edite os textos e confira o resultado antes de publicar."
                     : navId === "processo"
-                      ? "Do primeiro convite ao resultado: mantenha cada etapa atualizada."
+                      ? "Atualize as inscrições, os documentos e cada etapa da seleção."
                       : navId === "conteudo"
-                        ? "A identidade do Nexo, seção por seção. Edite, revise e publique."
+                        ? "Escolha uma seção para editar ou ajustar sua visibilidade."
                         : navId === "midia"
-                          ? "Imagens e documentos que dão vida ao site."
+                          ? "Organize as imagens e os documentos usados no site."
                           : navId === "historico"
-                            ? "Cada mudança tem uma história. Acompanhe e recupere versões."
+                            ? "Consulte as alterações e recupere uma versão anterior."
                             : navId === "configuracoes"
-                              ? "Cuide das informações institucionais e dos canais de contato."
-                              : "Um novo lugar para compartilhar conhecimento."}
+                              ? "Informações do site e canais de contato."
+                              : "Um espaço para artigos, em uma próxima etapa."}
               </p>
             </div>
             <div className="heading-actions">
@@ -770,14 +844,6 @@ function Workspace({ session, initialState, onLogout }) {
                   <Button icon={Eye} disabled={busy} onClick={preview}>
                     Pré-visualizar
                   </Button>
-                  <Button
-                    icon={Save}
-                    variant="primary"
-                    disabled={!dirty || busy}
-                    onClick={save}
-                  >
-                    {busy ? "Salvando…" : "Salvar rascunho"}
-                  </Button>
                 </>
               )}
             </div>
@@ -785,160 +851,68 @@ function Workspace({ session, initialState, onLogout }) {
           <fieldset className="workspace-fields" disabled={busy}>
             {navId === "inicio" && (
               <>
-                <div className="dashboard-hero-grid">
-                  <section className="welcome-card">
-                    <img
-                      className="welcome-photo"
-                      src="/assets/introduction/usp-840.avif"
-                      alt="Fachada histórica da Faculdade de Direito da USP"
-                    />
-                    <div className="welcome-overlay" />
-                    <div className="welcome-content">
-                      <Badge tone="glass" dot>
-                        O SEU PRÓXIMO CAPÍTULO
-                      </Badge>
-                      <h2>
-                        Conecte ideias.
-                        <br />
-                        Inspire <em>o próximo passo.</em>
-                      </h2>
-                      <p>
-                        Seu site é o ponto de encontro entre
-                        <br className="desktop-only" /> o Nexo e quem quer fazer
-                        parte dele.
-                      </p>
-                      <Button
-                        variant="light"
-                        icon={PanelsTopLeft}
-                        onClick={() => navigate("conteudo")}
-                      >
-                        Gerenciar conteúdos <ArrowUpRight size={16} />
-                      </Button>
-                    </div>
-                    <span className="welcome-caption">
-                      LARGO DE SÃO FRANCISCO · USP
+                <section className="dashboard-intro">
+                  <img
+                    className="dashboard-intro-photo"
+                    src="/assets/introduction/usp-840.avif"
+                    alt="Fachada da Faculdade de Direito da USP"
+                  />
+                  <div className="dashboard-intro-content">
+                    <span className="eyebrow">
+                      NEXO GOVERNAMENTAL · XI DE AGOSTO
                     </span>
-                  </section>
-                  <section className="selection-overview card">
-                    <div className="flex items-center justify-between">
-                      <div className="icon-tile">
-                        <CalendarDays size={20} />
-                      </div>
-                      <Badge tone={status.tone} dot>
-                        {status.short}
-                      </Badge>
-                    </div>
-                    <span className="eyebrow">PROCESSO SELETIVO</span>
                     <h2>
-                      {content.selection.edition ||
-                        "Talentos que fazem\na diferença."}
+                      Seu site, sempre <em>atualizado.</em>
                     </h2>
                     <p>
-                      {content.selection.status === "closed"
-                        ? "O próximo encontro começa com um convite. Prepare a próxima seleção do Nexo."
-                        : "As informações da seleção estão em suas mãos. Mantenha os candidatos por dentro."}
+                      Um espaço para cuidar de cada detalhe da presença do Nexo.
                     </p>
-                    <div className="selection-dates">
-                      <div>
-                        <span>Abertura</span>
-                        <strong>{dayLabel(content.selection.opensAt)}</strong>
-                      </div>
-                      <ArrowRight size={17} />
-                      <div>
-                        <span>Encerramento</span>
-                        <strong>{dayLabel(content.selection.closesAt)}</strong>
-                      </div>
-                    </div>
-                    <button
-                      className="selection-manage"
-                      onClick={() => navigate("processo")}
+                    <Button
+                      variant="light"
+                      onClick={() => navigate("conteudo")}
                     >
-                      Gerenciar processo <ArrowRight size={17} />
-                    </button>
-                  </section>
-                </div>
-                <div className="stats-strip">
-                  <div>
-                    <span className="stat-symbol">
-                      <PanelsTopLeft size={19} />
-                    </span>
-                    <div>
-                      <span>Seções do site</span>
-                      <strong>
-                        {String(content.sections.length).padStart(2, "0")}{" "}
-                        <small>conteúdos para editar</small>
-                      </strong>
-                    </div>
+                      Editar conteúdo <ArrowRight size={16} />
+                    </Button>
                   </div>
-                  <div>
-                    <span className="stat-symbol">
-                      <Eye size={19} />
-                    </span>
-                    <div>
-                      <span>Seções visíveis</span>
-                      <strong>
-                        {String(
-                          content.sections.filter((s) => s.visible).length,
-                        ).padStart(2, "0")}{" "}
-                        <small>no rascunho atual</small>
-                      </strong>
-                    </div>
-                  </div>
-                  <div>
-                    <span className="stat-symbol">
-                      <Images size={19} />
-                    </span>
-                    <div>
-                      <span>Biblioteca de mídia</span>
-                      <strong>
-                        {String(assets.length).padStart(2, "0")}{" "}
-                        <small>arquivos disponíveis</small>
-                      </strong>
-                    </div>
-                  </div>
-                  <div>
-                    <span className="stat-symbol">
-                      <CheckCheck size={19} />
-                    </span>
-                    <div>
-                      <span>Estado editorial</span>
-                      <strong className="stat-state">
-                        {pending ? "Alterações em rascunho" : "Tudo atualizado"}
-                        <i className={pending ? "amber-dot" : "green-dot"} />
-                      </strong>
-                    </div>
-                  </div>
-                </div>
-                <div className="dashboard-bottom-grid">
+                </section>
+                <div className="dashboard-layout">
                   <section className="card section-overview">
-                    <CardHeading
-                      eyebrow="CADA DETALHE CONTA"
-                      title="O conteúdo, nas suas mãos"
-                    >
-                      <button
-                        className="text-button"
-                        onClick={() => navigate("conteudo")}
-                      >
-                        Ver todas <ArrowRight size={15} />
-                      </button>
+                    <CardHeading title="Conteúdo do site">
+                      <span className="card-count">
+                        {
+                          content.sections.filter(
+                            (item) => item.id !== "selective-process",
+                          ).length
+                        }{" "}
+                        seções
+                      </span>
                     </CardHeading>
                     <div className="section-list-head">
-                      <span>SEÇÃO</span>
-                      <span>VISIBILIDADE</span>
+                      <span>Seção</span>
+                      <span>Visibilidade</span>
                       <span />
                     </div>
                     {content.sections
                       .filter((s) => s.id !== "selective-process")
-                      .slice(0, 4)
                       .map((s, i) => (
                         <button
                           className="section-row"
                           key={s.id}
                           onClick={() => editSection(s)}
+                          aria-label={`Editar ${s.label}`}
                         >
                           <div className="section-row-info">
-                            <span className="section-number">0{i + 1}</span>
-                            <img src={PHOTOS[s.id]} alt="" />
+                            <span className="section-number">
+                              {String(i + 1).padStart(2, "0")}
+                            </span>
+                            <img
+                              src={
+                                s.id === "introduction"
+                                  ? s.extra.image || PHOTOS[s.id]
+                                  : PHOTOS[s.id]
+                              }
+                              alt=""
+                            />
                             <div>
                               <strong>{s.label}</strong>
                               <span>{s.title.replace(/\n/g, " ")}</span>
@@ -947,149 +921,167 @@ function Workspace({ session, initialState, onLogout }) {
                           <Badge tone={s.visible ? "green" : "neutral"} dot>
                             {s.visible ? "Visível" : "Oculta"}
                           </Badge>
-                          <ArrowUpRight size={17} />
+                          <ChevronRight size={16} />
                         </button>
                       ))}
                     <button
                       className="section-overview-footer"
                       onClick={() => navigate("conteudo")}
                     >
-                      <Plus size={16} /> Explorar todas as seções{" "}
-                      <span>{content.sections.length} seções</span>
+                      Gerenciar todas as seções <ArrowRight size={15} />
                     </button>
                   </section>
-                  <section className="card publication-card">
-                    <CardHeading
-                      eyebrow="DO RASCUNHO AO SITE"
-                      title="Pronto para ir ao ar?"
-                    />
-                    <div className="publication-illustration">
-                      <div className="paper-back" />
-                      <div className="paper-front">
-                        <span />
-                        <span />
-                        <span />
+                  <aside className="dashboard-aside">
+                    <section className="selection-overview card">
+                      <CardHeading title="Processo seletivo">
+                        <Badge tone={status.tone} dot>
+                          {status.short}
+                        </Badge>
+                      </CardHeading>
+                      <div className="selection-summary">
+                        <h3>
+                          {content.selection.edition ||
+                            "Organize a próxima seleção"}
+                        </h3>
+                        <p>
+                          {content.selection.status === "closed"
+                            ? "Atualize o convite e o cronograma para a próxima edição."
+                            : "Confira as datas e os links disponíveis para os candidatos."}
+                        </p>
+                      </div>
+                      <div className="selection-dates">
                         <div>
-                          <Check size={19} />
+                          <span>Abertura</span>
+                          <strong>{dayLabel(content.selection.opensAt)}</strong>
+                        </div>
+                        <ArrowRight size={16} />
+                        <div>
+                          <span>Encerramento</span>
+                          <strong>
+                            {dayLabel(content.selection.closesAt)}
+                          </strong>
                         </div>
                       </div>
-                      <i className="illustration-star">✳</i>
-                    </div>
-                    <h3>
-                      {pending
-                        ? "Suas ideias merecem ser vistas."
-                        : "Seu conteúdo está em dia."}
-                    </h3>
-                    <p>
-                      {pending
-                        ? "Revise os últimos ajustes e publique a nova versão do site quando estiver tudo pronto."
-                        : "Continue cuidando de cada detalhe. Quando algo mudar, salve uma nova versão por aqui."}
-                    </p>
-                    <Button
-                      icon={pending ? Upload : Eye}
-                      variant={pending ? "primary" : "secondary"}
-                      disabled={busy}
-                      onClick={() =>
-                        pending ? setModal("publish") : preview()
-                      }
-                    >
-                      {pending ? "Revisar e publicar" : "Pré-visualizar o site"}
-                    </Button>
-                    <div className="last-published">
-                      <i className="green-dot" />
-                      {state.history?.some((h) => h.action === "published")
-                        ? `Última publicação · ${dateLabel(state.publishedAt, true)}`
-                        : "Conteúdo original do site"}
-                    </div>
-                  </section>
-                </div>
-                <div className="dashboard-lower">
-                  <div className="editorial-tip">
-                    <div className="tip-icon">
-                      <BookOpen size={21} />
-                    </div>
-                    <div>
-                      <strong>
-                        O conhecimento também vai ganhar um espaço.
-                      </strong>
-                      <p>
-                        O blog será o próximo capítulo da presença digital do
-                        Nexo.
-                      </p>
-                    </div>
-                    <Badge>EM BREVE</Badge>
-                  </div>
-                  <button
-                    className="history-shortcut"
-                    onClick={() => navigate("historico")}
-                  >
-                    <History size={17} />
-                    <span>Consultar histórico de versões</span>
-                    <ArrowUpRight size={16} />
-                  </button>
+                      <button
+                        className="selection-manage"
+                        onClick={() => navigate("processo")}
+                      >
+                        Editar processo seletivo <ArrowRight size={16} />
+                      </button>
+                    </section>
+                    <section className="card publication-card">
+                      <CardHeading title="Publicação" />
+                      <div
+                        className={`publication-state ${pending ? "has-pending" : ""}`}
+                      >
+                        <span>
+                          {pending ? (
+                            <Clock3 size={20} />
+                          ) : (
+                            <CheckCircle2 size={20} />
+                          )}
+                        </span>
+                        <div>
+                          <h3>
+                            {pending
+                              ? "Alterações em rascunho"
+                              : "Tudo atualizado"}
+                          </h3>
+                          <p>
+                            {pending
+                              ? "Revise o conteúdo antes de publicar."
+                              : "O site está usando a versão publicada."}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        icon={pending ? Upload : Eye}
+                        variant={pending ? "primary" : "secondary"}
+                        disabled={busy}
+                        onClick={() =>
+                          pending ? setModal("publish") : preview()
+                        }
+                      >
+                        {pending
+                          ? "Revisar e publicar"
+                          : "Pré-visualizar o site"}
+                      </Button>
+                      <div className="last-published">
+                        {state.publishedVersion > 1
+                          ? `Publicado em ${dateLabel(state.publishedAt, true)}`
+                          : "Conteúdo original do site"}
+                        <button
+                          className="text-button"
+                          onClick={() => navigate("historico")}
+                        >
+                          Ver histórico <ArrowUpRight size={13} />
+                        </button>
+                      </div>
+                    </section>
+                  </aside>
                 </div>
               </>
             )}
             {navId === "conteudo" && !sectionId && (
               <>
                 <div className="content-toolbar">
-                  <div className="content-toolbar-label">
-                    <span className="green-dot" />
-                    {content.sections.length} seções · página institucional
-                  </div>
-                  <span>Escolha uma seção para começar</span>
+                  <span>
+                    {content.sections.length} seções da página institucional
+                  </span>
+                  <span>Alterações ficam no rascunho até a publicação.</span>
                 </div>
-                <div className="content-grid">
+                <div className="content-table card">
+                  <div className="content-table-head">
+                    <span>Seção</span>
+                    <span>Visibilidade</span>
+                    <span />
+                  </div>
                   {content.sections.map((s, i) => (
-                    <article className="content-card card" key={s.id}>
+                    <article className="content-row" key={s.id}>
                       <button
-                        className="content-card-image"
+                        className="content-row-open"
                         onClick={() => editSection(s)}
-                        aria-label={`Editar ${s.label}`}
+                        aria-label={`Abrir ${s.label}`}
                       >
-                        <img src={PHOTOS[s.id]} alt="" />
-                        <span>SEÇÃO {String(i + 1).padStart(2, "0")}</span>
-                        <div className="content-image-edit">
-                          <ArrowUpRight size={22} />
+                        <span className="section-number">
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
+                        <img
+                          src={
+                            s.id === "introduction"
+                              ? s.extra.image || PHOTOS[s.id]
+                              : PHOTOS[s.id]
+                          }
+                          alt=""
+                        />
+                        <div>
+                          <strong>{s.label}</strong>
+                          <span>
+                            {s.id === "selective-process"
+                              ? content.selection.title
+                              : s.title.replace(/\n/g, " ")}
+                          </span>
                         </div>
                       </button>
-                      <div className="content-card-copy">
-                        <div className="flex items-center justify-between gap-2">
-                          <h2>{s.label}</h2>
-                          <Toggle
-                            checked={s.visible}
-                            label={`Exibir seção ${s.label}`}
-                            onChange={(visible) =>
-                              updateSection(s.id, { visible })
-                            }
-                          />
-                        </div>
-                        <p>
-                          {s.id === "selective-process"
-                            ? content.selection.title
-                            : s.title.replace(/\n/g, " ")}
-                        </p>
-                        <div className="content-card-bottom">
-                          <Badge tone={s.visible ? "green" : "neutral"} dot>
-                            {s.visible ? "Visível no rascunho" : "Seção oculta"}
-                          </Badge>
-                          <button
-                            className="text-button"
-                            onClick={() => editSection(s)}
-                          >
-                            Editar <ArrowRight size={15} />
-                          </button>
-                        </div>
+                      <div className="content-row-visibility">
+                        <Toggle
+                          checked={s.visible}
+                          label={`Exibir seção ${s.label}`}
+                          onChange={(visible) =>
+                            updateSection(s.id, { visible })
+                          }
+                        />
+                        <span>{s.visible ? "Visível" : "Oculta"}</span>
                       </div>
+                      <button
+                        className="text-button content-row-action"
+                        aria-label={`Editar ${s.label}`}
+                        onClick={() => editSection(s)}
+                      >
+                        Editar <ArrowUpRight size={15} />
+                      </button>
                     </article>
                   ))}
-                </div>
-                <div className="notice">
-                  <Info size={17} />
-                  <p>
-                    As alterações de visibilidade também ficam no rascunho.
-                    Publique quando quiser atualizar o site.
-                  </p>
                 </div>
               </>
             )}
@@ -1107,41 +1099,47 @@ function Workspace({ session, initialState, onLogout }) {
                       {section.visible ? "Visível" : "Oculta"}
                     </Badge>
                   </div>
-                  <div
-                    className="tabs"
-                    role="tablist"
-                    aria-label="Editor da seção"
-                  >
-                    {[
-                      "texto",
-                      "detalhes",
-                      ...(["about", "recognize", "more"].includes(section.id)
-                        ? ["itens"]
+                  <Tabs
+                    label="Editor da seção"
+                    value={sectionTab}
+                    onChange={setSectionTab}
+                    panelId="section-editor-panel"
+                    tabs={[
+                      { id: "texto", label: "Texto" },
+                      ...(section.id === "introduction" ||
+                      Object.keys(section.extra).length
+                        ? [
+                            {
+                              id: "detalhes",
+                              label:
+                                section.id === "introduction"
+                                  ? "Imagem"
+                                  : "Detalhes",
+                            },
+                          ]
                         : []),
-                    ].map((tab) => (
-                      <button
-                        key={tab}
-                        role="tab"
-                        aria-selected={sectionTab === tab}
-                        onClick={() => setSectionTab(tab)}
-                        className={sectionTab === tab ? "active" : ""}
-                      >
-                        {
-                          {
-                            texto: "Conteúdo principal",
-                            detalhes: "Textos complementares",
-                            itens:
-                              section.id === "recognize"
-                                ? "Galeria"
-                                : section.id === "more"
-                                  ? "Projetos"
-                                  : "Lista de destaques",
-                          }[tab]
-                        }
-                      </button>
-                    ))}
-                  </div>
-                  <div className="editor-body">
+                      ...(["about", "recognize", "more"].includes(section.id)
+                        ? [
+                            {
+                              id: "itens",
+                              label:
+                                section.id === "recognize"
+                                  ? "Galeria"
+                                  : section.id === "more"
+                                    ? "Projetos"
+                                    : "Destaques",
+                            },
+                          ]
+                        : []),
+                    ]}
+                  />
+                  <div
+                    className="editor-body"
+                    id="section-editor-panel"
+                    role="tabpanel"
+                    aria-labelledby={`section-editor-panel-tab-${sectionTab}`}
+                    tabIndex={0}
+                  >
                     {sectionTab === "texto" && (
                       <>
                         <Field
@@ -1272,29 +1270,17 @@ function Workspace({ session, initialState, onLogout }) {
                 <aside className="editor-aside">
                   <div className="card section-live-card">
                     <div className="preview-card-label">
-                      <Eye size={15} /> ESBOÇO DO CONTEÚDO
+                      <Eye size={15} /> PRÉVIA DO CONTEÚDO
                     </div>
                     <img src={PHOTOS[section.id]} alt="" />
                     <div className="mini-section-content">
                       {section.eyebrow && <span>{section.eyebrow}</span>}
                       <h2>{section.title}</h2>
-                      <p>
-                        {section.description ||
-                          "A descrição da seção aparecerá aqui."}
-                      </p>
+                      <p>{section.description || ""}</p>
                     </div>
                     <button className="preview-card-footer" onClick={preview}>
                       Ver no layout do site <ArrowUpRight size={15} />
                     </button>
-                  </div>
-                  <div className="editor-note">
-                    <span className="tiny-star">✳</span>
-                    <h3>O jeito Nexo de comunicar.</h3>
-                    <p>
-                      Prefira textos claros, convites diretos e informações
-                      atualizadas. Cada palavra aproxima alguém do próximo
-                      passo.
-                    </p>
                   </div>
                 </aside>
               </div>
@@ -1302,28 +1288,24 @@ function Workspace({ session, initialState, onLogout }) {
             {navId === "processo" && (
               <div className="editor-layout process-layout">
                 <section className="card editor-card">
+                  <Tabs
+                    label="Editor do processo seletivo"
+                    value={processTab}
+                    onChange={setProcessTab}
+                    panelId="process-editor-panel"
+                    tabs={[
+                      { id: "geral", label: "Informações gerais" },
+                      { id: "cronograma", label: "Cronograma" },
+                      { id: "links", label: "Links e documentos" },
+                    ]}
+                  />
                   <div
-                    className="tabs"
-                    role="tablist"
-                    aria-label="Editor do processo seletivo"
+                    className="editor-body"
+                    id="process-editor-panel"
+                    role="tabpanel"
+                    aria-labelledby={`process-editor-panel-tab-${processTab}`}
+                    tabIndex={0}
                   >
-                    {[
-                      ["geral", "Informações gerais"],
-                      ["cronograma", "Cronograma"],
-                      ["links", "Links e documentos"],
-                    ].map(([id, title]) => (
-                      <button
-                        key={id}
-                        role="tab"
-                        aria-selected={processTab === id}
-                        onClick={() => setProcessTab(id)}
-                        className={processTab === id ? "active" : ""}
-                      >
-                        {title}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="editor-body">
                     {processTab === "geral" && (
                       <>
                         <div className="form-section-title">
@@ -1331,7 +1313,7 @@ function Workspace({ session, initialState, onLogout }) {
                             <CalendarDays size={19} />
                           </span>
                           <div>
-                            <h2>Prepare a próxima seleção</h2>
+                            <h2>Informações da seleção</h2>
                             <p>
                               As informações essenciais para quem quer fazer
                               parte.
@@ -1353,19 +1335,19 @@ function Workspace({ session, initialState, onLogout }) {
                             [
                               "upcoming",
                               "Em breve",
-                              "Prepare o convite",
+                              "Divulgue a próxima edição",
                               Clock3,
                             ],
                             [
                               "open",
                               "Inscrições abertas",
-                              "Receba novos talentos",
+                              "Permita inscrições no período",
                               CheckCircle2,
                             ],
                             [
                               "closed",
                               "Encerrado",
-                              "Finalize esta edição",
+                              "Não receber inscrições",
                               LockKeyhole,
                             ],
                           ].map(([value, label, desc, Icon]) => (
@@ -1461,7 +1443,7 @@ function Workspace({ session, initialState, onLogout }) {
                       <>
                         <div className="form-section-title">
                           <div>
-                            <h2>Cada etapa, bem explicada.</h2>
+                            <h2>Etapas do processo</h2>
                             <p>
                               Monte um cronograma que a equipe possa atualizar
                               sem editar imagens.
@@ -1478,7 +1460,7 @@ function Workspace({ session, initialState, onLogout }) {
                         {!content.selection.stages.length ? (
                           <Empty
                             icon={CalendarDays}
-                            title="Vamos organizar as etapas?"
+                            title="Nenhuma etapa cadastrada"
                             description="Adicione inscrição, entrevistas, resultado ou qualquer outra etapa da seleção."
                           />
                         ) : (
@@ -1612,7 +1594,7 @@ function Workspace({ session, initialState, onLogout }) {
                             <Link2 size={20} />
                           </span>
                           <div>
-                            <h2>Todos os caminhos, em um lugar.</h2>
+                            <h2>Edital e inscrições</h2>
                             <p>
                               Direcione os candidatos para os documentos e
                               inscrições.
@@ -1662,9 +1644,9 @@ function Workspace({ session, initialState, onLogout }) {
                   </div>
                 </section>
                 <aside className="editor-aside">
-                  <div className="process-preview">
+                  <div className="card process-preview">
                     <div className="preview-card-label">
-                      <Eye size={15} /> ESBOÇO DO CONVITE
+                      <Eye size={15} /> PRÉVIA DO CONVITE
                     </div>
                     <div className="process-preview-body">
                       <div className="process-preview-mark">
@@ -1685,10 +1667,7 @@ function Workspace({ session, initialState, onLogout }) {
                         {content.selection.title ||
                           "Seu próximo capítulo começa no Nexo."}
                       </h2>
-                      <p>
-                        {content.selection.description ||
-                          "Uma nova oportunidade de aproximar ideias, pessoas e a vida pública."}
-                      </p>
+                      <p>{content.selection.description || ""}</p>
                       {(content.selection.opensAt ||
                         content.selection.closesAt) && (
                         <div className="process-preview-dates">
@@ -1773,7 +1752,7 @@ function Workspace({ session, initialState, onLogout }) {
                   <h2>
                     {uploading
                       ? "Adicionando seus arquivos…"
-                      : "Arraste novas ideias para cá."}
+                      : "Adicionar arquivos"}
                   </h2>
                   <p>
                     Solte imagens ou documentos aqui, ou{" "}
@@ -1866,7 +1845,7 @@ function Workspace({ session, initialState, onLogout }) {
                     <History size={22} />
                   </div>
                   <div>
-                    <h2>Um registro de cada novo capítulo.</h2>
+                    <h2>Versões do conteúdo</h2>
                     <p>
                       Restaurar uma versão cria um rascunho. O site só muda
                       depois de publicar.
@@ -2053,7 +2032,7 @@ function Workspace({ session, initialState, onLogout }) {
           </fieldset>
           <footer className="workspace-footer">
             <span>
-              Nexo Studio <i /> Feito para conectar.
+              Nexo Studio <i /> Painel editorial
             </span>
             <span>Faculdade de Direito · USP</span>
           </footer>
@@ -2111,7 +2090,7 @@ function Workspace({ session, initialState, onLogout }) {
       )}
       {modal === "publish" && (
         <Modal
-          title="Um novo capítulo no ar."
+          title="Publicar alterações?"
           description="Revise o que vai mudar no site antes de publicar."
           onClose={() => !busy && setModal(null)}
         >
@@ -2123,16 +2102,16 @@ function Workspace({ session, initialState, onLogout }) {
               </span>
             )}
             <span>
-              <PanelsTopLeft size={18} />{" "}
-              {changedSections(content, state.published)} seções com alterações
+              <PanelsTopLeft size={18} /> {changedSectionCount}{" "}
+              {changedSectionCount === 1 ? "seção" : "seções"} com alterações
             </span>
             <span>
               <CalendarDays size={18} /> Processo seletivo:{" "}
               {status.label.toLowerCase()}
             </span>
             <span>
-              <Eye size={18} />{" "}
-              {content.sections.filter((s) => s.visible).length} seções visíveis
+              <Eye size={18} /> {visibleSectionCount}{" "}
+              {visibleSectionCount === 1 ? "seção visível" : "seções visíveis"}
             </span>
           </div>
           <p className="modal-text">
@@ -2167,7 +2146,7 @@ function Workspace({ session, initialState, onLogout }) {
       )}
       {modal === "preview" && (
         <Modal
-          title="Seu site, antes de publicar."
+          title="Prévia do site"
           description="Prévia do rascunho salvo. Navegue pela página para revisar os detalhes."
           onClose={() => setModal(null)}
           wide
@@ -2211,7 +2190,7 @@ function Workspace({ session, initialState, onLogout }) {
       )}
       {modal === "search" && (
         <Modal
-          title="O que vamos atualizar?"
+          title="Buscar no painel"
           description="Encontre uma seção ou um espaço do painel."
           onClose={() => setModal(null)}
         >
@@ -2226,38 +2205,28 @@ function Workspace({ session, initialState, onLogout }) {
             />
           </div>
           <div className="search-results">
-            {[
-              ...NAV.map((n) => ({
-                id: n.id,
-                label: n.label,
-                description: "Espaço de trabalho",
-              })),
-              ...content.sections.map((s) => ({
-                id: s.id === "selective-process" ? "processo" : `secao/${s.id}`,
-                label: s.label,
-                description: s.title,
-              })),
-            ]
-              .filter((n) =>
-                (n.label + " " + n.description)
-                  .toLowerCase()
-                  .includes(query.toLowerCase()),
-              )
-              .map((r, i) => (
-                <button
-                  key={i}
-                  onClick={() => {
-                    navigate(r.id);
-                    setModal(null);
-                  }}
-                >
-                  <span>
-                    <strong>{r.label}</strong>
-                    <small>{r.description}</small>
-                  </span>
-                  <ArrowUpRight size={17} />
-                </button>
-              ))}
+            {!searchEntries.length && (
+              <Empty
+                icon={Search}
+                title="Nenhum resultado"
+                description="Tente buscar por uma seção, como Processo seletivo ou Contato."
+              />
+            )}
+            {searchEntries.map((r, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  navigate(r.id);
+                  setModal(null);
+                }}
+              >
+                <span>
+                  <strong>{r.label}</strong>
+                  <small>{r.description}</small>
+                </span>
+                <ArrowUpRight size={17} />
+              </button>
+            ))}
           </div>
         </Modal>
       )}
@@ -2361,7 +2330,7 @@ function Workspace({ session, initialState, onLogout }) {
       )}
       {assetPicker && (
         <Modal
-          title="Escolha o arquivo certo."
+          title="Escolher arquivo"
           description="Selecione um arquivo da biblioteca para usar neste conteúdo."
           onClose={() => setAssetPicker(null)}
         >
@@ -2434,10 +2403,10 @@ function ItemsEditor({ section, onChange, pickerProps }) {
       <div className="item-intro">
         <h2>
           {section.id === "recognize"
-            ? "Encontros que fazem história."
+            ? "Imagens da galeria"
             : section.id === "more"
-              ? "O Nexo em movimento."
-              : "O que faz parte do Nexo."}
+              ? "Projetos do Nexo"
+              : "Destaques da seção"}
         </h2>
         <p>Edite cada item e organize a ordem em que ele aparece.</p>
       </div>

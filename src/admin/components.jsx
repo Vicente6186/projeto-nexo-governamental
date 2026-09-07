@@ -3,9 +3,7 @@ import {
   X,
   ArrowUpRight,
   LoaderCircle,
-  Check,
   Image as ImageIcon,
-  Link2,
 } from "lucide-react";
 
 export function Button({
@@ -16,7 +14,11 @@ export function Button({
   ...props
 }) {
   return (
-    <button className={`button button-${variant} ${className}`} {...props}>
+    <button
+      type="button"
+      className={`button button-${variant} ${className}`}
+      {...props}
+    >
       {Icon && <Icon size={16} />} {children}
     </button>
   );
@@ -41,12 +43,19 @@ export function Field({
 }) {
   const id = useId();
   const Component = multiline ? "textarea" : "input";
+  const hintId = `${id}-hint`;
+  const describedBy =
+    [props["aria-describedby"], hint ? hintId : null]
+      .filter(Boolean)
+      .join(" ") || undefined;
   return (
     <div className="field">
       <div className="field-label">
         <label htmlFor={id}>{label}</label>
         {maxLength && (
-          <span>
+          <span
+            className={`field-count ${String(value || "").length >= maxLength * 0.9 ? "is-near-limit" : ""}`}
+          >
             {String(value || "").length}/{maxLength}
           </span>
         )}
@@ -59,11 +68,56 @@ export function Field({
         onChange={(e) => onChange(e.target.value)}
         maxLength={maxLength}
         {...props}
+        aria-describedby={describedBy}
       />
-      {hint && <p className="field-hint">{hint}</p>}
+      {hint && (
+        <p className="field-hint" id={hintId}>
+          {hint}
+        </p>
+      )}
     </div>
   );
 }
+export function Tabs({ label, value, onChange, tabs, panelId }) {
+  const ref = useRef(null);
+  function keyDown(event, index) {
+    const next =
+      event.key === "ArrowRight"
+        ? (index + 1) % tabs.length
+        : event.key === "ArrowLeft"
+          ? (index - 1 + tabs.length) % tabs.length
+          : event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? tabs.length - 1
+              : null;
+    if (next === null) return;
+    event.preventDefault();
+    onChange(tabs[next].id);
+    ref.current?.querySelectorAll('[role="tab"]')[next]?.focus();
+  }
+  return (
+    <div ref={ref} className="tabs" role="tablist" aria-label={label}>
+      {tabs.map((tab, index) => (
+        <button
+          key={tab.id}
+          type="button"
+          id={`${panelId}-tab-${tab.id}`}
+          role="tab"
+          aria-controls={panelId}
+          aria-selected={value === tab.id}
+          tabIndex={value === tab.id ? 0 : -1}
+          className={value === tab.id ? "active" : ""}
+          onClick={() => onChange(tab.id)}
+          onKeyDown={(event) => keyDown(event, index)}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function Toggle({ checked, onChange, label }) {
   return (
     <button
@@ -80,16 +134,20 @@ export function Toggle({ checked, onChange, label }) {
 }
 export function Modal({ title, description, children, onClose, wide = false }) {
   const ref = useRef(null),
-    previous = useRef(null),
+    previous = useRef(document.activeElement),
     titleId = useId();
   useEffect(() => {
-    previous.current = document.activeElement;
-    ref.current?.focus();
+    if (!ref.current?.contains(document.activeElement)) {
+      const input = ref.current?.querySelector(
+        "input:not([type=file]), textarea, select",
+      );
+      (input || ref.current)?.focus();
+    }
     const old = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = old;
-      previous.current?.focus();
+      if (previous.current?.isConnected) previous.current.focus();
     };
   }, []);
   function keyDown(e) {
