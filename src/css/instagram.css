@@ -1,10 +1,19 @@
+.community-background {
+    --community-accent: #99e4e5;
+    --community-muted: #cbd6e7;
+    background: var(--primary);
+    border-radius: 0 0 5.6rem 5.6rem;
+}
+
 #instagram {
-    --instagram-ink: #191f51;
+    --instagram-ink: var(--primary);
     --instagram-muted: #565f77;
     position: relative;
-    padding: clamp(7.2rem, 9vw, 13.6rem) 3.2rem;
+    padding: clamp(7.2rem, 8vw, 10.4rem) 3.2rem clamp(5.6rem, 6vw, 8rem);
     color: #fff;
     background:
+        linear-gradient(180deg, transparent, #191f5159 35%, #191f51c7 72%, var(--primary))
+            bottom / 100% clamp(20rem, 26vw, 34rem) no-repeat,
         linear-gradient(rgb(0 0 0 / 30%), rgb(0 0 0 / 30%)),
         linear-gradient(125deg, #8134af 0%, #dd2a7b 50%, #f58529 100%);
     scroll-margin-top: 2.4rem;
@@ -71,9 +80,9 @@
     overflow: hidden;
     color: var(--instagram-ink);
     background: #fff;
-    border: 1px solid #e6e3ef;
+    border: 1px solid #c4dfe9;
     border-radius: 3.2rem;
-    box-shadow: 0 2.4rem 5.6rem -1.6rem #3928662b, 0 .4rem 1.2rem #191f5108;
+    box-shadow: 0 2.4rem 5.6rem -1.6rem #07152766;
     transition: transform .25s, box-shadow .25s;
 }
 
@@ -82,9 +91,8 @@
     text-align: center;
     color: #fff;
     background:
-        radial-gradient(ellipse at 110% -15%, #b8356e 0, transparent 58%),
-        radial-gradient(ellipse at -15% 110%, #673db6 0, transparent 65%),
-        #24235d;
+        radial-gradient(ellipse at 100% 0, #304c6a 0, transparent 75%),
+        #202955;
 }
 
 #instagram .instagram-profile-platform {
@@ -119,7 +127,7 @@
     display: grid;
     place-items: center;
     padding: 1rem;
-    border: .4rem solid #29275d;
+    border: .4rem solid #202955;
     border-radius: 50%;
     background: #fff;
 }
@@ -143,7 +151,7 @@
 
 #instagram .instagram-profile-subtitle {
     margin-top: .8rem;
-    color: #ffe4f1;
+    color: var(--community-accent);
     font-size: 1.4rem;
     font-weight: 800;
     line-height: 1.5;
@@ -153,7 +161,7 @@
 
 #instagram .instagram-profile-institution {
     margin-top: 2rem;
-    color: #ece5fa;
+    color: #dce4f1;
     font-size: 1.4rem;
     font-weight: 500;
     line-height: 1.5;
@@ -205,7 +213,7 @@
 
 #instagram .instagram-profile:hover {
     transform: translateY(-.4rem);
-    box-shadow: 0 3.2rem 6.4rem -1.6rem #39286638, 0 .4rem 1.2rem #191f5108;
+    box-shadow: 0 3.2rem 6.4rem -1.6rem #07152780;
 }
 
 #instagram .instagram-profile:hover .instagram-profile-arrow {
@@ -214,7 +222,7 @@
 }
 
 #instagram .instagram-profile:focus-visible {
-    outline: 3px solid #fff;
+    outline: 3px solid var(--community-accent);
     outline-offset: 6px;
 }
 
@@ -239,8 +247,12 @@
 }
 
 @media screen and (max-width: 760px) {
+    .community-background {
+        border-radius: 0 0 3.2rem 3.2rem;
+    }
+
     #instagram {
-        padding: 6.4rem 2.4rem;
+        padding: 6.4rem 2.4rem 4.8rem;
     }
 
     #instagram .instagram-layout {

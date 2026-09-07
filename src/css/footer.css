@@ -27,6 +27,11 @@ footer {
 
 }
 
+footer a:focus-visible {
+    outline: 3px solid #99e4e5;
+    outline-offset: 4px;
+}
+
 @media screen and (max-width: 992px) {
     footer {
         width: 100%;

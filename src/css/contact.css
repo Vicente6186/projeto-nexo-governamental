@@ -1,25 +1,14 @@
 #contact {
-    --contact-accent: #99e4e5;
-    --contact-muted: #c3ccde;
-    --contact-ink: #191f51;
+    --contact-accent: var(--community-accent);
+    --contact-muted: var(--community-muted);
+    --contact-ink: var(--primary);
     position: relative;
     isolation: isolate;
-    padding: clamp(7.2rem, 8vw, 12rem) 3.2rem 12rem;
-    background:
-        radial-gradient(ellipse at 0 0, #225d72 0, transparent 55%),
-        linear-gradient(125deg, #152d4a, var(--contact-ink) 74%);
-    border-radius: 0 0 5.6rem 5.6rem;
+    padding: clamp(6.4rem, 6vw, 8.8rem) 3.2rem 12rem;
+    background: radial-gradient(ellipse 75% 75% at 0 100%, #234f68 0, transparent 100%);
+    border-radius: inherit;
     color: #fff;
     scroll-margin-top: 2.4rem;
-}
-
-#contact::before {
-    content: "";
-    position: absolute;
-    inset: 0 0 auto;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, #99e4e580, transparent);
-    pointer-events: none;
 }
 
 #contact .contact-layout {
@@ -290,7 +279,7 @@
 }
 
 #contact .contact-address a:focus-visible {
-    outline: 3px solid #4eacae;
+    outline: 3px solid var(--contact-accent);
     outline-offset: 4px;
 }
 
@@ -314,7 +303,6 @@
 @media screen and (max-width: 760px) {
     #contact {
         padding: 6.4rem 2.4rem 8rem;
-        border-radius: 0 0 3.2rem 3.2rem;
     }
 
     #contact .contact-layout {
