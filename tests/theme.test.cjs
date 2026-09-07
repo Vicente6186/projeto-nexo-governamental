@@ -58,7 +58,7 @@ test("saved appearance is applied to page and native controls before subscriptio
   assert.equal(env.browser.document.documentElement.style.colorScheme, "dark");
   assert.equal(
     env.browser.document.querySelector('meta[name="theme-color"]').content,
-    "#111618",
+    "#0e1124",
   );
 
   env.store.setPreference("light");

@@ -2,38 +2,41 @@
 @source "./**/*.{js,jsx}";
 @theme {
   --font-sans: "DM Sans", sans-serif;
-  --color-nexo: #192b40;
+  --color-nexo: #191f51;
 }
 
 /* Every interface surface shares these tokens; the public-site preview keeps its own theme. */
 :root {
   color-scheme: light;
-  --background: #f5f6f5;
+  /* Brand colors from the institutional site's global.css and objective.css. */
+  --brand-primary: #191f51;
+  --brand-highlight: #83ead8;
+  --background: #f5f6fa;
   --surface: #ffffff;
-  --surface-muted: #f4f6f4;
-  --surface-hover: #eef2ef;
-  --surface-inset: #fafbf9;
-  --text: #25332f;
-  --muted: #68756f;
-  --subtle: #6b7871;
-  --line: #e2e7e3;
-  --line-strong: #ccd6ce;
-  --accent: #3d6e56;
-  --accent-hover: #305b46;
-  --accent-soft: #eaf1eb;
+  --surface-muted: #f1f3f9;
+  --surface-hover: #e9edf7;
+  --surface-inset: #fafbfe;
+  --text: #202642;
+  --muted: #626b83;
+  --subtle: #626b83;
+  --line: #e0e4ef;
+  --line-strong: #c8cfe1;
+  --accent: var(--brand-primary);
+  --accent-hover: #2b3671;
+  --accent-soft: #eceef8;
   --accent-on: #ffffff;
   --amber: #8b621e;
   --amber-soft: #f8f0df;
   --danger: #ab4645;
   --danger-soft: #fcf0ee;
-  --focus: #6f977e;
-  --hero: #21332f;
-  --hero-text: #f4f7f2;
-  --hero-muted: #c3cec7;
-  --hero-accent: #d9e5d6;
-  --shadow: 0 2px 3px #172d1e03, 0 8px 22px #172d1e03;
-  --shadow-menu: 0 12px 40px #1a2c2426, 0 2px 8px #1a2c240a;
-  --overlay: #111b236b;
+  --focus: #5369b2;
+  --hero: var(--brand-primary);
+  --hero-text: #ffffff;
+  --hero-muted: #d0d9ea;
+  --hero-accent: var(--brand-highlight);
+  --shadow: 0 2px 3px #191f5103, 0 8px 22px #191f5103;
+  --shadow-menu: 0 12px 40px #191f5126, 0 2px 8px #191f510a;
+  --overlay: #0e11246b;
   --logo-filter: brightness(0.32);
   --serif: "Instrument Serif", Georgia, serif;
   --navy: var(--text);
@@ -49,32 +52,28 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --background: #111618;
-  --surface: #1a2023;
-  --surface-muted: #20282b;
-  --surface-hover: #273135;
-  --surface-inset: #161d20;
-  --text: #edf1ef;
-  --muted: #a3aeac;
-  --subtle: #95a29d;
-  --line: #303a3d;
-  --line-strong: #45524e;
-  --accent: #92b5a1;
-  --accent-hover: #a5c5b3;
-  --accent-soft: #273b32;
-  --accent-on: #15271e;
+  --background: #0e1124;
+  --surface: #171c36;
+  --surface-muted: #1c2340;
+  --surface-hover: #242d4e;
+  --surface-inset: #13182f;
+  --text: #eef1fa;
+  --muted: #a8b2cc;
+  --subtle: #99a5c1;
+  --line: #2c3553;
+  --line-strong: #435174;
+  --accent: #a9b6f5;
+  --accent-hover: #c0cafb;
+  --accent-soft: #252e56;
+  --accent-on: #141b40;
   --amber: #dfbe7f;
   --amber-soft: #383126;
   --danger: #eea5a0;
   --danger-soft: #3a2929;
-  --focus: #92b5a1;
-  --hero: #243a34;
-  --hero-text: #f4f7f2;
-  --hero-muted: #c1cec5;
-  --hero-accent: #d9e5d6;
+  --focus: var(--brand-highlight);
   --shadow: 0 2px 4px #00000012;
   --shadow-menu: 0 14px 42px #00000055, 0 2px 8px #00000024;
-  --overlay: #030707a3;
+  --overlay: #050818a3;
   --logo-filter: brightness(0) invert(0.93);
 }
 * {
@@ -584,13 +583,13 @@ fieldset {
   border-color: var(--muted);
 }
 .button-light {
-  color: #253b2f;
-  background: #f2f5ec;
-  border-color: #f2f5ec;
+  color: var(--brand-primary);
+  background: #ffffff;
+  border-color: #ffffff;
 }
 .button-light:hover:not(:disabled) {
-  background: #e0eadb;
-  border-color: #e0eadb;
+  background: #e8f5f7;
+  border-color: #e8f5f7;
 }
 .text-button {
   display: inline-flex;
@@ -2564,7 +2563,7 @@ fieldset {
   min-height: 700px;
   padding: 43px 48px 30px;
   background:
-    linear-gradient(90deg, #1c322eee, #1c322e9c),
+    linear-gradient(90deg, #191f51ee, #191f519c),
     url("/assets/introduction/usp-840.avif") center 45% / cover;
   color: var(--hero-text);
 }
