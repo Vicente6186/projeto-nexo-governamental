@@ -302,7 +302,9 @@ function registerBlog(
       })
       .sort(
         (a, b) =>
-          Number(b.featured) - Number(a.featured) ||
+          (query.sort === "latest"
+            ? 0
+            : Number(b.featured) - Number(a.featured)) ||
           String(b.publishedAt || b.updatedAt).localeCompare(
             String(a.publishedAt || a.updatedAt),
           ) ||

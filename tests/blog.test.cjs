@@ -379,6 +379,39 @@ test("public listing supports accent-insensitive search, category filters and bo
   assert.equal((await app.inject("/api/blog?page=-4")).json().page, 1);
 });
 
+test("latest sorting precedes pagination without changing the featured default", async (t) => {
+  const { app, headers, tick } = await fixture(t);
+  for (let index = 0; index < 15; index++) {
+    tick();
+    const post = await create(
+      app,
+      headers,
+      article({
+        title: `Publicação ${index}`,
+        slug: `publicacao-${index}`,
+        featured: index < 13,
+      }),
+    );
+    await action(app, headers, post, "publish");
+  }
+  const normal = (await app.inject("/api/blog")).json();
+  assert(normal.posts.every((post) => post.featured));
+  const latest = (await app.inject("/api/blog?sort=latest")).json();
+  assert.deepEqual(
+    latest.posts.slice(0, 2).map((post) => post.slug),
+    ["publicacao-14", "publicacao-13"],
+  );
+  assert.equal(latest.total, 15);
+  assert.equal(latest.pages, 2);
+  const last = (await app.inject("/api/blog?sort=latest&page=2")).json();
+  assert.equal(last.posts.length, 3);
+  assert.equal(
+    new Set([...latest.posts, ...last.posts].map((post) => post.id)).size,
+    15,
+  );
+  assert.deepEqual((await app.inject("/api/blog?sort=unknown")).json(), normal);
+});
+
 test("incomplete drafts can be saved but publication validates metadata, content and image accessibility", async (t) => {
   const { app, headers } = await fixture(t);
   const post = await create(app, headers, emptyPost());
