@@ -30,10 +30,14 @@ function fixture(t) {
     CREATE TABLE history (id TEXT, action TEXT, created_at TEXT, summary TEXT, content TEXT);
     CREATE TABLE assets (url TEXT, original_path TEXT);
     CREATE TABLE sessions (hash TEXT);
+    CREATE TABLE password_reset_tokens (token_hash TEXT PRIMARY KEY, user_id TEXT, credential_fingerprint TEXT, created_at INTEGER, expires_at INTEGER);
+    CREATE TABLE password_reset_limits (key TEXT PRIMARY KEY, count INTEGER, expires_at INTEGER);
     CREATE TABLE users (email TEXT, password_hash TEXT);
     CREATE TABLE blog_posts (body TEXT);
     INSERT INTO assets VALUES ('/uploads/cover.webp', 'originals/cover.jpg');
     INSERT INTO sessions VALUES ('obsolete-session');
+    INSERT INTO password_reset_tokens VALUES ('obsolete-reset-token', 'user-id', 'credential-hash', 1, 9999999999999);
+    INSERT INTO password_reset_limits VALUES ('daily-budget', 20, 9999999999999);
     INSERT INTO users VALUES ('editor@example.org', 'salted-hash');
     INSERT INTO blog_posts VALUES ('artigo e histórico editorial');`);
   const content = JSON.stringify(DEFAULT_CONTENT);
@@ -88,6 +92,20 @@ test("consistent online backup and restoration preserve committed content, users
     assert.equal(
       restored.prepare("SELECT COUNT(*) AS count FROM sessions").get().count,
       0,
+    );
+    assert.equal(
+      restored
+        .prepare("SELECT COUNT(*) AS count FROM password_reset_tokens")
+        .get().count,
+      0,
+    );
+    assert.equal(
+      restored
+        .prepare(
+          "SELECT count FROM password_reset_limits WHERE key = 'daily-budget'",
+        )
+        .get().count,
+      20,
     );
     assert.equal(
       restored.prepare("SELECT password_hash FROM users").get().password_hash,
@@ -301,10 +319,17 @@ test("production readiness requires the configured origin, valid proxy networks 
     CMS_ORIGIN: "https://nexo.example.org",
     ADMIN_EMAIL: "admin@example.org",
     ADMIN_PASSWORD: "test-only-private-password",
+    RESEND_API_KEY: "re_fixture_only_private_key",
+    RESEND_FROM: "Nexo Governamental <acesso@nexo.example.org>",
     DATA_DIR: f.dataDir,
     CMS_TRUST_PROXY: "127.0.0.1,10.42.0.0/24,::1,fd00::/64",
   };
-  let session = { authenticated: false, user: null, localPreview: false };
+  let session = {
+    authenticated: false,
+    user: null,
+    localPreview: false,
+    passwordResetAvailable: true,
+  };
   let requests = 0;
   const fetchFn = async (url) => {
     requests++;
@@ -366,6 +391,42 @@ test("production readiness requires the configured origin, valid proxy networks 
       ),
     );
   }
+  session = {
+    authenticated: false,
+    user: null,
+    localPreview: false,
+    passwordResetAvailable: false,
+  };
+  const resetUnavailable = await inspect();
+  assert(
+    resetUnavailable.checks.some(
+      (check) =>
+        check.name === "Recuperação disponível" && check.state === "fail",
+    ),
+  );
+  session.passwordResetAvailable = true;
+  const missingResend = await inspect({ env: { ...env, RESEND_API_KEY: "" } });
+  assert(
+    missingResend.checks.some(
+      (check) =>
+        check.name === "E-mail de recuperação" && check.state === "fail",
+    ),
+  );
+  assert.equal(
+    JSON.stringify(missingResend).includes(env.RESEND_API_KEY),
+    false,
+  );
+  for (const limit of ["0", "91", "1.5", "abc"]) {
+    const invalidLimit = await inspect({
+      env: { ...env, RESET_EMAIL_DAILY_LIMIT: limit },
+    });
+    assert(
+      invalidLimit.checks.some(
+        (check) =>
+          check.name === "Limite de recuperação" && check.state === "fail",
+      ),
+    );
+  }
   requests = 0;
   const badUrl = await inspect({
     baseUrl: "https://user:private@nexo.example.org",
@@ -373,4 +434,20 @@ test("production readiness requires the configured origin, valid proxy networks 
   assert.equal(badUrl.ok, false);
   assert.equal(requests, 0, "URLs inválidas não devem gerar requisições");
   assert.equal(JSON.stringify(badUrl).includes("private@nexo"), false);
+});
+
+test("restoration accepts historical backups created before password recovery existed", async (t) => {
+  const f = fixture(t);
+  f.db.exec(
+    "DROP TABLE password_reset_tokens; DROP TABLE password_reset_limits;",
+  );
+  const saved = await createBackup(f);
+  const result = restoreBackup({
+    backupDir: saved.directory,
+    destination: path.join(f.root, "historical-restored"),
+    apply: true,
+  });
+  assert.equal(result.sessionsRevoked, true);
+  assert.equal(result.resetTokensRevoked, true);
+  assert.equal(f.db.prepare("SELECT version FROM content").get().version, 1);
 });

@@ -2,6 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { isIP } = require("node:net");
 const { args, loadEnv } = require("./cli.cjs");
+const { resetEmailConfigured } = require("../server/reset-email.cjs");
 
 async function readiness({
   env = process.env,
@@ -64,6 +65,23 @@ async function readiness({
       validOrigin,
       "Origem HTTPS exata configurada.",
       "CMS_ORIGIN deve ser uma origem HTTPS, sem caminho ou barra final.",
+    );
+    check(
+      "E-mail de recuperação",
+      resetEmailConfigured({ ...env, NODE_ENV: "production" }),
+      "Configuração de envio presente e válida; domínio e entrega real ainda precisam ser verificados no Resend.",
+      "Configure RESEND_API_KEY, RESEND_FROM e CMS_ORIGIN HTTPS para disponibilizar a recuperação de senha.",
+    );
+    const resetLimit =
+      env.RESET_EMAIL_DAILY_LIMIT === undefined ||
+      env.RESET_EMAIL_DAILY_LIMIT === ""
+        ? 20
+        : Number(env.RESET_EMAIL_DAILY_LIMIT);
+    check(
+      "Limite de recuperação",
+      Number.isSafeInteger(resetLimit) && resetLimit >= 1 && resetLimit <= 90,
+      "Limite diário de recuperação configurado entre 1 e 90 mensagens, com padrão 20.",
+      "RESET_EMAIL_DAILY_LIMIT deve ser um inteiro entre 1 e 90.",
     );
     check(
       "Armazenamento",
@@ -170,6 +188,13 @@ async function readiness({
         let valid = response.ok;
         if (valid && ["health", "content", "session"].includes(kind)) {
           const body = await response.json();
+          if (kind === "session")
+            check(
+              "Recuperação disponível",
+              body.passwordResetAvailable === true,
+              "A API confirma que a recuperação por e-mail está configurada.",
+              "A API ainda não disponibiliza a recuperação de senha. Confira as configurações de envio no ambiente em execução.",
+            );
           valid =
             kind === "health"
               ? body.ok === true
@@ -213,6 +238,7 @@ async function readiness({
     "Volume persistente e comportamento após reinício ou substituição do contêiner.",
     "Backup copiado para outro armazenamento e restauração exercitada no destino.",
     "Contas individuais da equipe, troca da senha inicial e revogação de acessos antigos.",
+    "Domínio de envio verificado no Resend, rastreamento de links e abertura desativado e mensagem de recuperação efetivamente recebida.",
     "Monitoramento de disponibilidade, logs de falha e responsável pela manutenção.",
     "Conteúdo institucional revisado e rascunhos demonstrativos removidos ou mantidos sem publicação.",
   ];

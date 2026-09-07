@@ -30,6 +30,8 @@ const { registerBlog } = require("./blog.cjs");
 const { registerBlogPages } = require("./blog-routes.cjs");
 
 const { initializeUsers } = require("./users.cjs");
+const { registerPasswordReset } = require("./password-reset.cjs");
+const { createResetEmailSender } = require("./reset-email.cjs");
 const {
   createAssetValidator,
   prepareImage,
@@ -109,6 +111,7 @@ function configuration(env, options) {
       );
   }
   return {
+    origin,
     trustedProxies: trustedProxies.length ? trustedProxies : false,
     production,
     localPreview,
@@ -255,6 +258,9 @@ async function buildApp(options = {}) {
     Buffer.concat([Buffer.from(`${config.email}\0`), expectedPassword]),
   );
   const users = initializeUsers(db, config, now, fingerprint);
+  const resetEmailSender =
+    options.resetEmailSender || createResetEmailSender({ env });
+  let passwordReset = { available: false, close: async () => {} };
   // Disabling the demonstration access is a revocation, not a temporary pause.
   // Old local cookies must never become valid again if preview is enabled later.
   if (!config.localPreview)
@@ -303,6 +309,7 @@ async function buildApp(options = {}) {
         }
       : null,
     localPreview: config.localPreview,
+    passwordResetAvailable: passwordReset.available,
     ...(session ? { csrfToken: session.csrf } : {}),
   });
   const requireOrigin = (request) => {
@@ -499,6 +506,11 @@ async function buildApp(options = {}) {
   app.addHook("onSend", async (request, reply, payload) => {
     reply.header("X-Content-Type-Options", "nosniff");
     reply.header("Referrer-Policy", "strict-origin-when-cross-origin");
+    if (
+      request.url.startsWith("/admin") ||
+      request.url.startsWith("/api/password-reset/")
+    )
+      reply.header("Referrer-Policy", "no-referrer");
     reply.header("X-Frame-Options", "SAMEORIGIN");
     if (request.url.startsWith("/api/"))
       reply.header("Cache-Control", "no-store");
@@ -531,7 +543,9 @@ async function buildApp(options = {}) {
       error: message,
       code:
         statusCode >= 500
-          ? "INTERNAL_ERROR"
+          ? error.code === "PASSWORD_RESET_UNAVAILABLE"
+            ? error.code
+            : "INTERNAL_ERROR"
           : error.code ||
             {
               400: "VALIDATION_ERROR",
@@ -597,6 +611,15 @@ async function buildApp(options = {}) {
     },
   );
   users.register(app, { requireAuth, requireMutation, issueSession });
+  passwordReset = registerPasswordReset(app, {
+    db,
+    now,
+    config,
+    env,
+    users,
+    requireOrigin,
+    sender: resetEmailSender,
+  });
   app.get("/api/content", async () => {
     const row = record();
     return {
@@ -751,7 +774,10 @@ async function buildApp(options = {}) {
       .code(404)
       .send({ error: "Página ou recurso não encontrado.", code: "NOT_FOUND" }),
   );
-  app.addHook("onClose", async () => db.close());
+  app.addHook("onClose", async () => {
+    await passwordReset.close();
+    db.close();
+  });
   await app.ready();
   return app;
 }

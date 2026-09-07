@@ -40,7 +40,11 @@ function initializeUsers(db, config, now, bootstrapFingerprint) {
     id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE COLLATE NOCASE,
     password_hash TEXT NOT NULL, password_salt TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('admin', 'editor')),
     active INTEGER NOT NULL DEFAULT 1, bootstrap INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL
-  ); CREATE TABLE IF NOT EXISTS login_attempts (key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires_at INTEGER NOT NULL);`);
+  ); CREATE TABLE IF NOT EXISTS login_attempts (key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires_at INTEGER NOT NULL);
+  CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, credential_fingerprint TEXT NOT NULL,
+    created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL
+  );`);
   if (
     !db
       .prepare("PRAGMA table_info(sessions)")
@@ -70,6 +74,9 @@ function initializeUsers(db, config, now, bootstrapFingerprint) {
           db.prepare(
             "DELETE FROM sessions WHERE user_id = ? OR user_id IS NULL",
           ).run(current.id);
+          db.prepare("DELETE FROM password_reset_tokens WHERE user_id = ?").run(
+            current.id,
+          );
         } else {
           db.prepare(
             "INSERT INTO users VALUES (?, ?, ?, ?, ?, 'admin', 1, 1, ?)",
@@ -100,6 +107,14 @@ function initializeUsers(db, config, now, bootstrapFingerprint) {
   const get = (id) => db.prepare("SELECT * FROM users WHERE id = ?").get(id);
   const fingerprint = (user) =>
     hash(`${user.id}\0${user.email}\0${user.password_hash}\0${user.role}`);
+  const hashPassword = async (password) => {
+    validatePassword(password);
+    const salt = randomBytes(32).toString("hex");
+    const passwordHash = (
+      await deriveAsync(password, salt, 64, options)
+    ).toString("hex");
+    return { salt, passwordHash };
+  };
   const check = async (password, user) =>
     timingSafeEqual(
       await deriveAsync(
@@ -275,11 +290,21 @@ function initializeUsers(db, config, now, bootstrapFingerprint) {
             .get().count <= 1
         )
           deny("Mantenha pelo menos um administrador ativo.", "LAST_ADMIN");
-        db.prepare("UPDATE users SET active = ? WHERE id = ?").run(
-          Number(body.active),
-          user.id,
-        );
-        db.prepare("DELETE FROM sessions WHERE user_id = ?").run(user.id);
+        db.exec("BEGIN IMMEDIATE");
+        try {
+          db.prepare("UPDATE users SET active = ? WHERE id = ?").run(
+            Number(body.active),
+            user.id,
+          );
+          db.prepare("DELETE FROM sessions WHERE user_id = ?").run(user.id);
+          db.prepare("DELETE FROM password_reset_tokens WHERE user_id = ?").run(
+            user.id,
+          );
+          db.exec("COMMIT");
+        } catch (error) {
+          db.exec("ROLLBACK");
+          throw error;
+        }
         return { user: publicUser(get(user.id)) };
       },
     );
@@ -341,14 +366,24 @@ function initializeUsers(db, config, now, bootstrapFingerprint) {
             "SESSION_EXPIRED",
             401,
           );
-        db.prepare(
-          "UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?",
-        ).run(passwordHash, salt, user.id);
-        db.prepare("DELETE FROM sessions WHERE user_id = ?").run(user.id);
+        db.exec("BEGIN IMMEDIATE");
+        try {
+          db.prepare(
+            "UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?",
+          ).run(passwordHash, salt, user.id);
+          db.prepare("DELETE FROM sessions WHERE user_id = ?").run(user.id);
+          db.prepare("DELETE FROM password_reset_tokens WHERE user_id = ?").run(
+            user.id,
+          );
+          db.exec("COMMIT");
+        } catch (error) {
+          db.exec("ROLLBACK");
+          throw error;
+        }
         return issueSession(reply, false, get(user.id));
       },
     );
   }
-  return { get, fingerprint, login, register };
+  return { get, fingerprint, login, register, hashPassword };
 }
-module.exports = { initializeUsers };
+module.exports = { initializeUsers, validatePassword };

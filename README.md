@@ -62,6 +62,25 @@ O blog público tem busca, filtro por categoria e paginação. O servidor entreg
 
 Os bancos usados anteriormente para avaliação podem conter **rascunhos demonstrativos**, identificados no próprio texto. Eles permanecem sem publicação e devem ser revisados pela equipe antes de qualquer uso institucional. O acesso de demonstração fica desabilitado com `CMS_LOCAL_PREVIEW=0`; isso preserva os rascunhos existentes e a prévia editorial autenticada. Em produção não são criados artigos de exemplo. Publicar no ambiente local altera apenas esse ambiente; não envia conteúdo para uma hospedagem externa.
 
+## Recuperação de senha
+
+A recuperação fica na tela de acesso e envia um link por e-mail para uma conta ativa. O link vale por 30 minutos e funciona uma única vez. Após salvar a nova senha, a pessoa entra novamente; as sessões anteriores e os outros links de recuperação da conta deixam de funcionar. A aplicação também tenta enviar um aviso de senha alterada, dentro da mesma cota de envio. A indisponibilidade desse aviso não impede a troca de senha já concluída.
+
+O envio usa a API do Resend, com `RESEND_API_KEY`, `RESEND_FROM` e a origem do painel em `CMS_ORIGIN`. As variáveis de envio ficam vazias nos exemplos: enquanto a configuração estiver ausente ou incompleta, a API indica indisponibilidade e a solicitação retorna HTTP 503, sem afirmar que enviou uma mensagem. A prévia editorial e o login com senha continuam funcionando.
+
+Uma solicitação aceita retorna uma mensagem genérica para proteger a existência das contas. Ela não comprova que o destinatário existe nem que o e-mail chegou. O envio acontece em segundo plano; falhas do provedor são registradas de forma segura e precisam ser acompanhadas pelo responsável.
+
+Para habilitar o envio:
+
+1. Use o plano gratuito do Resend e acompanhe os limites da conta. A integração não compra serviços, ativa upgrades ou altera cobrança. Consulte os [planos atuais do Resend](https://resend.com/pricing).
+2. Verifique um domínio ou subdomínio sobre o qual a equipe tenha controle de DNS e escolha um remetente desse domínio. Um endereço pessoal de Gmail não serve como domínio de envio próprio. Siga a [configuração de domínios do Resend](https://resend.com/docs/dashboard/domains/introduction).
+3. Crie uma chave dedicada de envio, de preferência restrita ao domínio escolhido, e salve-a somente no ambiente do servidor. Veja as [permissões das chaves do Resend](https://resend.com/docs/dashboard/api-keys/introduction).
+4. Mantenha o rastreamento de cliques e de abertura desativado no domínio de envio. Isso evita reescrever o link de recuperação e adicionar rastreamento a uma mensagem sensível; a documentação recomenda essa configuração para fluxos de autenticação. Consulte as [orientações de entrega](https://resend.com/docs/dashboard/emails/deliverability-insights).
+5. Preencha `RESEND_FROM` no formato `Nexo Governamental <endereco@dominio-verificado>` e confira `CMS_ORIGIN`: em produção, ela deve apontar para o domínio HTTPS público do painel. Reinicie a aplicação para aplicar as variáveis.
+6. Solicite a recuperação de uma conta de teste autorizada, confirme o recebimento e conclua a troca. Confira que o link não pode ser reutilizado e que a sessão antiga foi encerrada. O teste de entrega real exige remetente verificado e a conta Resend configurada.
+
+Há limites de solicitação e de envio. `RESET_EMAIL_DAILY_LIMIT` restringe esta instalação a 20 mensagens por dia UTC por padrão, somando os links de recuperação e os avisos de senha alterada, com valores permitidos de 1 a 90. Esse limite não aumenta o plano do Resend nem cobre envios de outros projetos na mesma conta. Os testes automatizados usam transporte simulado e não enviam e-mails reais.
+
 ## Estrutura
 
 | Caminho                                 | Responsabilidade                                    |
@@ -101,6 +120,9 @@ Prepare o `.env` do ambiente de destino:
 | `ADMIN_NAME`                | Nome exibido no painel; padrão `Equipe Nexo`                               |
 | `ADMIN_EMAIL`               | E-mail do administrador inicial                                            |
 | `ADMIN_PASSWORD`            | Senha exclusiva e forte, com no mínimo 12 caracteres                       |
+| `RESEND_API_KEY`            | Chave privada de envio do Resend, restrita ao domínio da equipe            |
+| `RESEND_FROM`               | Nome e endereço de remetente no domínio verificado                         |
+| `RESET_EMAIL_DAILY_LIMIT`   | Limite de recuperação por dia UTC: padrão `20`, entre `1` e `90`           |
 | `CMS_LOCAL_PREVIEW`         | `0`                                                                        |
 | `CMS_TRUST_PROXY`           | Lista de IPs/CIDRs específicos do proxy reverso; vazio para acesso direto  |
 | `CMS_BACKUP_DIR`            | Destino privado dos backups; padrão `DATA_DIR/backups`                     |
@@ -154,7 +176,7 @@ cp deploy/production.env.example .env.production
 chmod 600 .env.production
 ```
 
-Preencha `CMS_ORIGIN` com a origem HTTPS exata, `ADMIN_PASSWORD` com uma senha exclusiva e `CMS_TRUST_PROXY` com o IP/CIDR real do proxy. O modelo já identifica o administrador inicial; confira os demais valores. `.env.production` é ignorado pelo Git e pelo contexto de build. Não inclua segredos no arquivo de exemplo. Não há domínio, senha ou provedor contratado pelo Compose.
+Preencha `CMS_ORIGIN` com a origem HTTPS exata, `ADMIN_PASSWORD` com uma senha exclusiva, `CMS_TRUST_PROXY` com o IP/CIDR real do proxy e as configurações de envio do Resend descritas em **Recuperação de senha**. O modelo já identifica o administrador inicial; confira os demais valores. `.env.production` é ignorado pelo Git e pelo contexto de build. Não inclua segredos no arquivo de exemplo. Não há domínio, senha ou provedor contratado pelo Compose.
 
 Valide a configuração sem imprimir os segredos:
 
@@ -208,7 +230,7 @@ Para um ensaio de recuperação ou uma recuperação real, escolha um diretório
 npm run restore:backup -- --backup ./data/backups/NOME-DO-BACKUP --destination ./data-restored --apply
 ```
 
-O comando recusa substituir um diretório com dados, verifica as cópias e revoga as sessões restauradas. Usuários, artigos, histórico, rascunhos e arquivos são preservados; cada pessoa entra novamente com sua senha. Para colocar a recuperação em uso, pare a aplicação e aponte `DATA_DIR` para o diretório restaurado. Guarde o diretório anterior até conferir conteúdo, imagens, edital e acesso. O teste automatizado de recuperação usa apenas pastas temporárias e nunca o banco de desenvolvimento.
+O comando recusa substituir um diretório com dados, verifica as cópias e revoga as sessões e os links de recuperação restaurados. Os contadores de envio são preservados, para que restaurar um backup não reative links antigos nem zere o limite registrado nessa cópia. Usuários, artigos, histórico, rascunhos e arquivos são preservados; cada pessoa entra novamente com sua senha. Para colocar a recuperação em uso, pare a aplicação e aponte `DATA_DIR` para o diretório restaurado. Guarde o diretório anterior até conferir conteúdo, imagens, edital e acesso. O teste automatizado de recuperação usa apenas pastas temporárias e nunca o banco de desenvolvimento.
 
 ### Conteúdo institucional fixo
 
@@ -234,4 +256,4 @@ npm run check:readiness -- --url http://127.0.0.1:3001
 npm run check:readiness -- --production --url https://SEU-DOMINIO
 ```
 
-A verificação consulta saúde da API, conteúdo público, blog e painel; confere o build e, em produção, exige que o endereço verificado corresponda à origem HTTPS configurada. Também valida os IPs/CIDRs do proxy, as credenciais iniciais, o backup e a resposta real de `/api/session`: ela deve indicar visitante sem sessão e acesso demonstrativo desabilitado. Não exibe senhas. Um retorno positivo comprova essas verificações, mas ainda exige validar persistência, recuperação, contas e monitoramento na hospedagem real. Consulte `GO_LIVE_STATUS.md` para os critérios de liberação.
+A verificação consulta saúde da API, conteúdo público, blog e painel; confere o build e, em produção, exige que o endereço verificado corresponda à origem HTTPS configurada. Também valida os IPs/CIDRs do proxy, as credenciais iniciais, o backup, a configuração de envio e o limite diário de recuperação. A resposta real de `/api/session` deve indicar visitante sem sessão, acesso demonstrativo desabilitado e recuperação por e-mail disponível. Isso confirma a configuração em execução; não verifica o domínio no Resend nem comprova entrega de e-mail. Não exibe senhas. Um retorno positivo comprova essas verificações, mas ainda exige validar persistência, recuperação, contas e monitoramento na hospedagem real. Consulte `GO_LIVE_STATUS.md` para os critérios de liberação.

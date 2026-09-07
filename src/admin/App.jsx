@@ -1,6 +1,7 @@
 import React, {
   useState,
   useEffect,
+  useLayoutEffect,
   useRef,
   useCallback,
   lazy,
@@ -48,6 +49,7 @@ import useDraftRecovery from "./useDraftRecovery";
 import { changes, editableCopy, validateSite } from "./site-editing.cjs";
 import "./workflow.css";
 import { Overview, SelectionEditor, ContactEditor } from "./EssentialPages";
+import PasswordReset, { passwordResetRoute } from "./PasswordReset";
 
 const BlogWorkspace = lazy(() => import("./BlogWorkspace"));
 
@@ -177,12 +179,48 @@ function App() {
   const [session, setSession] = useState(null),
     [state, setState] = useState(null),
     [error, setError] = useState("");
+  const [resetRoute, setResetRoute] = useState(() =>
+    passwordResetRoute(window.location.hash),
+  );
+  const [forceLogin, setForceLogin] = useState(
+    window.location.hash === "#entrar",
+  );
+  useLayoutEffect(() => {
+    if (resetRoute)
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}#${resetRoute.mode === "request" ? "esqueci-senha" : "redefinir-senha"}`,
+      );
+  }, [resetRoute]);
+  useEffect(() => {
+    const changed = () => {
+      const next = passwordResetRoute(window.location.hash);
+      setResetRoute(next);
+      if (next) setForceLogin(false);
+      else if (window.location.hash === "#entrar") setForceLogin(true);
+    };
+    window.addEventListener("hashchange", changed);
+    return () => window.removeEventListener("hashchange", changed);
+  }, []);
+  function returnToLogin() {
+    setResetRoute(null);
+    setForceLogin(true);
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${window.location.search}#entrar`,
+    );
+  }
+  function forgotPassword(email = "") {
+    setResetRoute({ mode: "request", email, id: crypto.randomUUID() });
+  }
   async function boot() {
     setError("");
     try {
       const s = await api("/api/session");
       setSession(s);
-      if (s.authenticated) {
+      if (s.authenticated && !passwordResetRoute(window.location.hash)) {
         setState(await api("/api/admin/content"));
       }
     } catch (e) {
@@ -210,7 +248,35 @@ function App() {
       </div>
     );
   if (!session) return <Loading />;
-  if (!session.authenticated) return <Login session={session} onLogin={boot} />;
+  if (resetRoute)
+    return (
+      <AuthLayout recovery>
+        <PasswordReset
+          key={resetRoute.id}
+          intent={resetRoute}
+          available={session.passwordResetAvailable === true}
+          onBack={returnToLogin}
+          onRequest={forgotPassword}
+          onTokenConsumed={() =>
+            setResetRoute((current) =>
+              current ? { ...current, token: "" } : current,
+            )
+          }
+        />
+      </AuthLayout>
+    );
+  if (!session.authenticated || forceLogin)
+    return (
+      <Login
+        session={session}
+        onForgot={forgotPassword}
+        onLogin={async () => {
+          setForceLogin(false);
+          window.history.replaceState(null, "", "#inicio");
+          await boot();
+        }}
+      />
+    );
   if (!state) return <Loading label="Carregando seus conteúdos…" />;
   return (
     <Workspace
@@ -225,29 +291,9 @@ function App() {
     />
   );
 }
-function Login({ session, onLogin }) {
-  const [email, setEmail] = useState(""),
-    [password, setPassword] = useState(""),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
-  async function login(e, local = false) {
-    e?.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      await api(local ? "/api/local-session" : "/api/login", {
-        method: "POST",
-        body: local ? {} : { email, password },
-      });
-      await onLogin();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setBusy(false);
-    }
-  }
+function AuthLayout({ children, recovery = false }) {
   return (
-    <div className="login-layout">
+    <div className={`login-layout${recovery ? " login-layout-recovery" : ""}`}>
       <div className="login-appearance">
         <ThemeMenu />
       </div>
@@ -269,65 +315,101 @@ function Login({ session, onLogin }) {
           Faculdade de Direito · Universidade de São Paulo
         </span>
       </div>
-      <main className="login-main">
-        <form onSubmit={login}>
-          <span className="eyebrow">SEU ESPAÇO EDITORIAL</span>
-          <h2>Bem-vindo ao Nexo Studio.</h2>
-          <p>Entre para gerenciar os conteúdos do site.</p>
-          {error && (
-            <div className="notice notice-error" role="alert">
-              {error}
-            </div>
-          )}
-          <fieldset disabled={busy}>
-            <Field
-              label="E-mail"
-              type="email"
-              value={email}
-              onChange={setEmail}
-              placeholder="Seu e-mail de acesso"
-              autoComplete="username"
-              required
-            />
-            <Field
-              label="Senha"
-              type="password"
-              value={password}
-              onChange={setPassword}
-              placeholder="Sua senha"
-              autoComplete="current-password"
-              required
-            />
-            <Button
-              variant="primary"
-              type="submit"
-              className="w-full"
-              icon={busy ? LoaderCircle : ArrowRight}
-            >
-              {busy ? "Entrando…" : "Entrar no painel"}
-            </Button>
-          </fieldset>
-          {session.localPreview && (
-            <div className="local-entry">
-              <span>AMBIENTE DE APRESENTAÇÃO</span>
-              <Button
-                type="button"
-                disabled={busy}
-                icon={Eye}
-                onClick={(e) => login(e, true)}
-              >
-                Entrar na prévia local
-              </Button>
-              <p>Explore o painel e teste a edição neste computador.</p>
-            </div>
-          )}
-          <div className="login-foot">
-            <ShieldCheck size={15} /> Acesso exclusivo à equipe responsável pelo
-            site.
-          </div>
-        </form>
-      </main>
+      <main className="login-main">{children}</main>
     </div>
+  );
+}
+function Login({ session, onLogin, onForgot }) {
+  const [email, setEmail] = useState(""),
+    [password, setPassword] = useState(""),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  async function login(e, local = false) {
+    e?.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      await api(local ? "/api/local-session" : "/api/login", {
+        method: "POST",
+        body: local ? {} : { email, password },
+      });
+      await onLogin();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <AuthLayout>
+      <form onSubmit={login}>
+        <span className="eyebrow">SEU ESPAÇO EDITORIAL</span>
+        <h2>Bem-vindo ao Nexo Studio.</h2>
+        <p>Entre para gerenciar os conteúdos do site.</p>
+        {error && (
+          <div className="notice notice-error" role="alert">
+            {error}
+          </div>
+        )}
+        <fieldset disabled={busy}>
+          <Field
+            label="E-mail"
+            type="email"
+            value={email}
+            onChange={setEmail}
+            placeholder="Seu e-mail de acesso"
+            autoComplete="username"
+            required
+          />
+          <Field
+            label="Senha"
+            type="password"
+            value={password}
+            onChange={setPassword}
+            placeholder="Sua senha"
+            autoComplete="current-password"
+            required
+          />
+          <a
+            href="#esqueci-senha"
+            className="login-forgot-password"
+            aria-disabled={busy || undefined}
+            onClick={(event) => {
+              event.preventDefault();
+              if (!busy) onForgot(email);
+            }}
+          >
+            Esqueci minha senha
+          </a>
+          <Button
+            variant="primary"
+            type="submit"
+            className="w-full"
+            icon={busy ? LoaderCircle : ArrowRight}
+          >
+            {busy ? "Entrando…" : "Entrar no painel"}
+          </Button>
+        </fieldset>
+        {session.localPreview && (
+          <div className="local-entry">
+            <span>AMBIENTE DE APRESENTAÇÃO</span>
+            <Button
+              type="button"
+              disabled={busy}
+              icon={Eye}
+              onClick={(e) => login(e, true)}
+            >
+              Entrar na prévia local
+            </Button>
+            <p>Explore o painel e teste a edição neste computador.</p>
+          </div>
+        )}
+        <div className="login-foot">
+          <ShieldCheck size={15} /> Acesso exclusivo à equipe responsável pelo
+          site.
+        </div>
+      </form>
+    </AuthLayout>
   );
 }
 function Workspace({ session, initialState, onLogout, onSession }) {
@@ -478,6 +560,7 @@ function Workspace({ session, initialState, onLogout, onSession }) {
     };
     canonicalize(routeRef.current);
     const listener = () => {
+      if (passwordResetRoute(window.location.hash)) return;
       const nextRoute = routeFromHash();
       if (blogDirtyRef.current && nextRoute !== routeRef.current) {
         window.history.replaceState(null, "", `#${routeRef.current}`);

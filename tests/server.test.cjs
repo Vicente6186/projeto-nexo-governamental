@@ -73,6 +73,7 @@ test("published content is public, drafts and private resources require a sessio
     authenticated: false,
     user: null,
     localPreview: true,
+    passwordResetAvailable: false,
   });
   assert.equal((await app.inject("/api/not-found")).statusCode, 404);
 });

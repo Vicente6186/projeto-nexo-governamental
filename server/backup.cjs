@@ -314,14 +314,16 @@ function restoreBackup({ backupDir, destination, apply = false }) {
     }
     const db = new DatabaseSync(path.join(staging, "nexo.sqlite"));
     try {
-      if (
-        db
-          .prepare(
-            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'sessions'",
-          )
-          .get()
-      )
-        db.exec("DELETE FROM sessions");
+      for (const table of ["sessions", "password_reset_tokens"]) {
+        if (
+          db
+            .prepare(
+              "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+            )
+            .get(table)
+        )
+          db.exec(`DELETE FROM ${table}`);
+      }
       db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
     } finally {
       db.close();
@@ -340,6 +342,7 @@ function restoreBackup({ backupDir, destination, apply = false }) {
       files: manifest.files.length,
       createdAt: manifest.createdAt,
       sessionsRevoked: true,
+      resetTokensRevoked: true,
     };
   } finally {
     if (fs.existsSync(staging)) fs.rmSync(staging, { recursive: true });

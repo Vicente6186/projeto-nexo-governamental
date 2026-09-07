@@ -36,6 +36,8 @@ function responseError(response, data) {
   error.code = data.code;
   error.field = data.field;
   error.currentVersion = data.currentVersion;
+  error.retryAfter =
+    Number(response.headers.get("retry-after")) || Number(data.retryAfter) || 0;
   return error;
 }
 export async function api(
