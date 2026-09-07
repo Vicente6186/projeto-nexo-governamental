@@ -1,4 +1,11 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  lazy,
+  Suspense,
+} from "react";
 import {
   LayoutDashboard,
   PanelsTopLeft,
@@ -61,9 +68,12 @@ import { api, setCsrf } from "./api";
 import ThemeMenu from "./ThemeMenu";
 import { FIELD_LABELS } from "../../shared/content.cjs";
 
+const BlogWorkspace = lazy(() => import("./BlogWorkspace"));
+
 const NAV = [
   { id: "inicio", label: "Visão geral", icon: LayoutDashboard },
   { id: "conteudo", label: "Conteúdo do site", icon: PanelsTopLeft },
+  { id: "blog", label: "Blog do Nexo", icon: BookOpen },
   { id: "processo", label: "Processo seletivo", icon: CalendarDays },
   { id: "midia", label: "Biblioteca de mídia", icon: Images },
   { id: "historico", label: "Histórico de versões", icon: History },
@@ -166,7 +176,7 @@ function routeFromHash() {
   try {
     const route = decodeURIComponent(window.location.hash.slice(1));
     if (route === "secao/selective-process") return "processo";
-    return /^(inicio|conteudo|processo|midia|historico|configuracoes|blog|secao\/[a-z-]+)$/.test(
+    return /^(inicio|conteudo|processo|midia|historico|configuracoes|blog(?:\/[a-f0-9-]+)?|secao\/[a-z-]+)$/.test(
       route,
     )
       ? route
@@ -361,7 +371,16 @@ function Workspace({ session, initialState, onLogout }) {
     [previewMobile, setPreviewMobile] = useState(false),
     [previewKey, setPreviewKey] = useState(0),
     [processTab, setProcessTab] = useState("geral"),
-    [sectionTab, setSectionTab] = useState("texto");
+    [sectionTab, setSectionTab] = useState("texto"),
+    [blogDirty, setBlogDirty] = useState(false);
+  const blogDirtyRef = useRef(false);
+  const routeRef = useRef(route);
+  routeRef.current = route;
+  const updateBlogDirty = useCallback((value) => {
+    blogDirtyRef.current = value;
+    setBlogDirty(value);
+  }, []);
+  const blogSessionExpired = useCallback(() => setModal("expired"), []);
   const fileRef = useRef(null),
     sidebarRef = useRef(null),
     menuRef = useRef(null);
@@ -416,7 +435,11 @@ function Workspace({ session, initialState, onLogout }) {
   const visibleSectionCount = content.sections.filter((s) => s.visible).length;
   const sectionId = route.startsWith("secao/") ? route.split("/")[1] : null;
   const section = content.sections.find((s) => s.id === sectionId);
-  const navId = sectionId ? "conteudo" : route;
+  const navId = sectionId
+    ? "conteudo"
+    : route.startsWith("blog/")
+      ? "blog"
+      : route;
   const assets = [
     ...INITIAL_ASSETS,
     ...(state.assets || []).filter(
@@ -431,7 +454,14 @@ function Workspace({ session, initialState, onLogout }) {
   }).format(new Date());
   useEffect(() => {
     const listener = () => {
-      setRoute(routeFromHash());
+      const nextRoute = routeFromHash();
+      if (blogDirtyRef.current && nextRoute !== routeRef.current) {
+        window.history.replaceState(null, "", `#${routeRef.current}`);
+        setMobileNav(false);
+        setModal({ type: "leave-blog", route: nextRoute });
+        return;
+      }
+      setRoute(nextRoute);
       setMobileNav(false);
       setSectionTab("texto");
     };
@@ -445,14 +475,14 @@ function Workspace({ session, initialState, onLogout }) {
   }, [toast]);
   useEffect(() => {
     const handler = (e) => {
-      if (dirty) {
+      if (dirty || blogDirty) {
         e.preventDefault();
         e.returnValue = "";
       }
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [dirty]);
+  }, [dirty, blogDirty]);
   useEffect(() => {
     const handle = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -555,7 +585,7 @@ function Workspace({ session, initialState, onLogout }) {
   }
   async function logout() {
     setMobileNav(false);
-    if (dirty) {
+    if (dirty || blogDirtyRef.current) {
       setModal("logout");
       return;
     }
@@ -639,7 +669,11 @@ function Workspace({ session, initialState, onLogout }) {
           label: "Configurações",
           description: "Identidade, contato e aparência",
         },
-        { id: "blog", label: "Blog", description: "Em breve" },
+        {
+          id: "blog",
+          label: "Blog do Nexo",
+          description: "Artigos, rascunhos e publicações",
+        },
         ...content.sections.map((s) => ({
           id: s.id === "selective-process" ? "processo" : `secao/${s.id}`,
           label: s.label,
@@ -729,14 +763,6 @@ function Workspace({ session, initialState, onLogout }) {
         </nav>
         <div className="nav-label nav-label-second">PREFERÊNCIAS</div>
         <a
-          href="#blog"
-          className={`nav-item ${route === "blog" ? "active" : ""}`}
-        >
-          <BookOpen size={18} />
-          <span>Blog</span>
-          <span className="soon-label">EM BREVE</span>
-        </a>
-        <a
           href="#configuracoes"
           className={`nav-item ${route === "configuracoes" ? "active" : ""}`}
         >
@@ -803,51 +829,53 @@ function Workspace({ session, initialState, onLogout }) {
           </div>
         </header>
         <main id="workspace-main" className="main-content" tabIndex={-1}>
-          <div className="page-heading">
-            <div>
-              <h1>{pageTitle}</h1>
-              <p>
-                {navId === "inicio"
-                  ? "Conteúdo, seleção e publicações em um só lugar."
-                  : section
-                    ? "Edite os textos e confira o resultado antes de publicar."
-                    : navId === "processo"
-                      ? "Atualize as inscrições, os documentos e cada etapa da seleção."
-                      : navId === "conteudo"
-                        ? "Escolha uma seção para editar ou ajustar sua visibilidade."
-                        : navId === "midia"
-                          ? "Organize as imagens e os documentos usados no site."
-                          : navId === "historico"
-                            ? "Consulte as alterações e recupere uma versão anterior."
-                            : navId === "configuracoes"
-                              ? "Informações do site e canais de contato."
-                              : "Um espaço para artigos, em uma próxima etapa."}
-              </p>
-            </div>
-            <div className="heading-actions">
-              {navId === "inicio" ? (
-                <span className="today">
-                  <CalendarDays size={15} />
-                  {today}
-                </span>
-              ) : navId === "midia" ? (
-                <Button
-                  icon={Plus}
-                  variant="primary"
-                  disabled={uploading}
-                  onClick={() => fileRef.current?.click()}
-                >
-                  Adicionar arquivos
-                </Button>
-              ) : navId === "historico" || navId === "blog" ? null : (
-                <>
-                  <Button icon={Eye} disabled={busy} onClick={preview}>
-                    Pré-visualizar
+          {!route.startsWith("blog/") && (
+            <div className="page-heading">
+              <div>
+                <h1>{pageTitle}</h1>
+                <p>
+                  {navId === "inicio"
+                    ? "Conteúdo, seleção e publicações em um só lugar."
+                    : section
+                      ? "Edite os textos e confira o resultado antes de publicar."
+                      : navId === "processo"
+                        ? "Atualize as inscrições, os documentos e cada etapa da seleção."
+                        : navId === "conteudo"
+                          ? "Escolha uma seção para editar ou ajustar sua visibilidade."
+                          : navId === "midia"
+                            ? "Organize as imagens e os documentos usados no site."
+                            : navId === "historico"
+                              ? "Consulte as alterações e recupere uma versão anterior."
+                              : navId === "configuracoes"
+                                ? "Informações do site e canais de contato."
+                                : "Ideias, projetos e perspectivas para o debate público."}
+                </p>
+              </div>
+              <div className="heading-actions">
+                {navId === "inicio" ? (
+                  <span className="today">
+                    <CalendarDays size={15} />
+                    {today}
+                  </span>
+                ) : navId === "midia" ? (
+                  <Button
+                    icon={Plus}
+                    variant="primary"
+                    disabled={uploading}
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    Adicionar arquivos
                   </Button>
-                </>
-              )}
+                ) : navId === "historico" || navId === "blog" ? null : (
+                  <>
+                    <Button icon={Eye} disabled={busy} onClick={preview}>
+                      Pré-visualizar
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
+          )}
           <fieldset className="workspace-fields" disabled={busy}>
             {navId === "inicio" && (
               <>
@@ -1992,32 +2020,18 @@ function Workspace({ session, initialState, onLogout }) {
               </div>
             )}
             {navId === "blog" && (
-              <section className="blog-future card">
-                <span className="blog-orbit">
-                  <BookOpen size={38} />
-                </span>
-                <Badge tone="amber">UM PRÓXIMO CAPÍTULO</Badge>
-                <h2>
-                  Ideias que merecem
-                  <br />
-                  <em>ir mais longe.</em>
-                </h2>
-                <p>
-                  O blog do Nexo será um espaço para artigos, projetos e
-                  conversas sobre a vida pública. A estrutura editorial do
-                  painel está pronta para receber essa evolução.
-                </p>
-                <span className="blog-future-note">
-                  A criação e a publicação de artigos serão desenvolvidas em uma
-                  próxima etapa.
-                </span>
-                <Button
-                  icon={PanelsTopLeft}
-                  onClick={() => navigate("conteudo")}
-                >
-                  Cuidar do conteúdo do site
-                </Button>
-              </section>
+              <Suspense
+                fallback={<Loading label="Abrindo o espaço editorial…" />}
+              >
+                <BlogWorkspace
+                  route={route}
+                  session={session}
+                  mediaAssets={INITIAL_ASSETS}
+                  notify={notify}
+                  onSessionExpired={blogSessionExpired}
+                  onDirtyChange={updateBlogDirty}
+                />
+              </Suspense>
             )}
             {!section && sectionId && (
               <Empty
@@ -2037,7 +2051,7 @@ function Workspace({ session, initialState, onLogout }) {
             <span>Faculdade de Direito · USP</span>
           </footer>
         </main>
-        {(dirty || pending) && (
+        {navId !== "blog" && (dirty || pending) && (
           <div className="save-bar">
             <div>
               <span className={dirty ? "amber-dot" : "green-dot"} />
@@ -2252,6 +2266,32 @@ function Workspace({ session, initialState, onLogout }) {
               onClick={() => restore(modal.entry.id)}
             >
               {busy ? "Restaurando…" : "Restaurar como rascunho"}
+            </Button>
+          </div>
+        </Modal>
+      )}
+      {modal?.type === "leave-blog" && (
+        <Modal
+          title="Sair sem salvar o artigo?"
+          description="Há alterações que ainda não foram salvas."
+          onClose={() => setModal(null)}
+        >
+          <p className="modal-text">
+            Volte à edição para salvar o rascunho ou descarte apenas as
+            alterações desta sessão.
+          </p>
+          <div className="modal-actions">
+            <Button onClick={() => setModal(null)}>Continuar editando</Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                const target = modal.route;
+                updateBlogDirty(false);
+                setModal(null);
+                navigate(target);
+              }}
+            >
+              Sair sem salvar
             </Button>
           </div>
         </Modal>

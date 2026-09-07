@@ -1,6 +1,6 @@
 # Nexo Governamental · site e painel editorial
 
-Site institucional do Nexo Governamental XI de Agosto com painel em **React + Tailwind CSS**, API em **Node.js 24 + Fastify** e persistência em **SQLite**. O site público conserva o desenho existente; a equipe edita seu conteúdo em `/admin`.
+Site institucional e blog do Nexo Governamental XI de Agosto, organização estudantil da Faculdade de Direito da USP, com painel em **React + Tailwind CSS**, API em **Node.js 24 + Fastify** e persistência em **SQLite**. A equipe edita o site e os artigos em `/admin`.
 
 ## Rodar no computador
 
@@ -18,10 +18,11 @@ npm run dev
 ```
 
 - Site: <http://127.0.0.1:8080/>
+- Blog: <http://127.0.0.1:8080/blog/>
 - Painel: <http://127.0.0.1:8080/admin/>
 - API: <http://127.0.0.1:3001/>
 
-O Webpack atende a interface na porta 8080 e encaminha `/api` e `/uploads` para o Fastify na porta 3001. Os dois processos iniciam juntos. A prévia local permite avaliar o editor sem configurar credenciais; mantenha-a restrita ao computador de desenvolvimento.
+O Webpack atende a interface na porta 8080 e encaminha `/api`, `/uploads` e `/blog` para o Fastify na porta 3001. Os dois processos iniciam juntos. A prévia local permite avaliar o editor sem configurar credenciais; mantenha-a restrita ao computador de desenvolvimento.
 
 ## Fluxo editorial
 
@@ -32,9 +33,23 @@ O Webpack atende a interface na porta 8080 e encaminha `/api` e `/uploads` para 
 
 O rascunho é separado do conteúdo publicado. O site consulta apenas a versão publicada. O modelo inicial preserva os conteúdos existentes e mantém as inscrições encerradas até a equipe revisar e publicar uma nova edição. Publicar com a situação “Inscrições abertas” exige um link de inscrição válido. Quando houver datas, o site mostra “Em breve” antes da abertura, libera o botão dentro do período e encerra as inscrições depois do prazo, seguindo o horário de Brasília. A situação “Em breve” escolhida manualmente permanece assim até uma nova publicação.
 
-O painel inclui biblioteca de arquivos e configurações institucionais. Os uploads aceitam imagens PNG, JPEG, WebP e AVIF, além de PDFs, com limite de 8 MB por arquivo. Os arquivos enviados recebem uma URL pública; use a biblioteca apenas para materiais destinados ao site. O blog fica reservado para uma próxima etapa; este projeto ainda não publica artigos.
+O painel inclui biblioteca de arquivos e configurações institucionais. Os uploads aceitam imagens PNG, JPEG, WebP e AVIF, além de PDFs, com limite de 8 MB por arquivo. Os arquivos enviados recebem uma URL pública; use a biblioteca apenas para materiais destinados ao site.
 
 O menu de aparência, no topo do painel e na tela de acesso, oferece os temas Claro, Escuro e Sistema. A escolha fica salva neste navegador e acompanha as outras abas abertas. O modo Sistema segue a preferência do dispositivo. Essa escolha altera apenas o painel; o site público mantém a própria identidade visual. A busca do painel também pode ser aberta com `⌘ K` ou `Ctrl K`.
+
+## Blog
+
+Abra **Blog do Nexo** no painel para criar artigos, acompanhar rascunhos e gerenciar publicações. Cada artigo tem título, endereço, resumo, categoria, autoria, descrição da autoria, imagem de capa com descrição e crédito, palavras-chave e opção de destaque.
+
+1. Crie um artigo e escreva o texto em Markdown. O editor permite conferir títulos, listas, citações, links e imagens antes da publicação.
+2. Salve o rascunho. O botão **Prévia** também salva as alterações antes de abrir a visualização privada, com opções de computador e celular. Visitantes continuam vendo somente o que foi publicado.
+3. Revise texto, fontes, autoria, créditos e endereço, e confirme a publicação. Artigos publicados aparecem em `/blog/` e têm uma página própria em `/blog/endereco-do-artigo`.
+4. Para atualizar um artigo publicado, edite e salve o rascunho, confira a prévia e publique novamente. A versão pública anterior permanece disponível até essa confirmação.
+5. Retire uma publicação do ar quando necessário. Arquivar organiza os artigos fora da lista ativa; restaurar devolve o artigo como rascunho, sem republicá-lo automaticamente.
+
+O blog público tem busca, filtro por categoria e paginação. O servidor entrega o conteúdo completo das páginas, incluindo título, descrição e endereço canônico, sem depender de JavaScript para a leitura. O Markdown não executa HTML e restringe os protocolos de links; a prévia exige uma sessão administrativa. No editor, `⌘ S` ou `Ctrl S` salva o rascunho. O painel avisa antes de sair com alterações não salvas e preserva o texto local se outra sessão salvar uma versão mais recente.
+
+No modo `CMS_LOCAL_PREVIEW=1`, o banco recebe três **rascunhos demonstrativos**, identificados no próprio texto. Eles ajudam a avaliar o layout e o fluxo editorial; não são publicações institucionais aprovadas e não aparecem para visitantes. Em produção não são criados artigos de exemplo. Publicar no ambiente local altera apenas esse ambiente; não envia conteúdo para uma hospedagem externa.
 
 ## Estrutura
 
@@ -42,7 +57,9 @@ O menu de aparência, no topo do painel e na tela de acesso, oferece os temas Cl
 | --------------------------------------- | --------------------------------------------------- |
 | `src/index.html`, `src/css/`, `src/js/` | Site público e integração com o conteúdo publicado  |
 | `src/admin/`                            | Painel em React e Tailwind                          |
+| `src/blog/`, `server/blog-pages.cjs`    | Estilos, leitura e páginas públicas do blog         |
 | `shared/content.cjs`                    | Conteúdo inicial e campos editoriais compartilhados |
+| `shared/blog.cjs`                       | Modelo, categorias, validação e Markdown do blog    |
 | `server/`                               | API Fastify, autenticação, validação e persistência |
 | `data/`                                 | Banco SQLite e imagens enviadas; não versionar      |
 | `dist/`                                 | Saída do build, servida pelo Fastify em produção    |

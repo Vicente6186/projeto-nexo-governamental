@@ -1,0 +1,126 @@
+#blog-journal {
+  background: #f5f7fb;
+  color: #191f51;
+  padding: 9.6rem 3.2rem;
+}
+.journal-inner {
+  width: min(118rem, 100%);
+  margin: auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(3.2rem, 7vw, 10rem);
+  align-items: center;
+}
+.journal-eyebrow,
+.journal-category {
+  display: block;
+  font-size: 1.2rem;
+  letter-spacing: 0.16em;
+  font-weight: 700;
+}
+.journal-heading h2 {
+  font-size: clamp(3.2rem, 3.3vw, 4.6rem);
+  line-height: 1.2;
+  margin: 2.4rem 0;
+  letter-spacing: -0.035em;
+}
+.journal-heading > p {
+  max-width: 45rem;
+  color: #59647c;
+  font-size: 1.7rem;
+  line-height: 1.8;
+}
+.journal-link {
+  margin-top: 3.2rem;
+  padding: 1.4rem 2.2rem;
+  background: #191f51;
+  color: #fff;
+  font-size: 1.5rem;
+  border-radius: 0.8rem;
+  display: inline-flex;
+  gap: 3.2rem;
+  align-items: center;
+}
+.journal-link:hover {
+  background: #2b3671;
+}
+.journal-link:focus-visible,
+.journal-story:focus-visible,
+.journal-invitation a:focus-visible {
+  outline: 3px solid #5369b2;
+  outline-offset: 5px;
+}
+.journal-latest {
+  min-width: 0;
+}
+.journal-invitation {
+  padding: 4rem;
+  border: 1px solid #d8deeb;
+  border-radius: 1.2rem;
+  background: #fff;
+}
+.journal-invitation > span {
+  display: block;
+  font:
+    7.2rem Georgia,
+    serif;
+}
+.journal-invitation > p {
+  margin: 1.6rem 0 3.2rem;
+  font-size: 2.2rem;
+  line-height: 1.5;
+}
+.journal-invitation a {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 1.4rem;
+  border-top: 1px solid #e0e4ef;
+  padding-top: 2rem;
+}
+.journal-story {
+  display: block;
+  width: 100%;
+  padding: 2.8rem 0;
+  border-bottom: 1px solid #d8deeb;
+}
+.journal-story:first-child {
+  padding-top: 0;
+}
+.journal-category {
+  color: #59647c;
+  font-size: 1.1rem;
+  letter-spacing: 0.07em;
+}
+.journal-story h3 {
+  font-size: 2.4rem;
+  line-height: 1.35;
+  margin: 1.2rem 0;
+}
+.journal-story > p {
+  font-size: 1.5rem;
+  font-weight: 400;
+  line-height: 1.7;
+  color: #59647c;
+}
+.journal-reading {
+  display: block;
+  font-size: 1.2rem;
+  margin-top: 1.6rem;
+}
+.journal-story:hover h3 {
+  text-decoration: underline;
+  text-underline-offset: 0.4rem;
+}
+@media (max-width: 700px) {
+  #blog-journal {
+    padding: 6.4rem 2.4rem;
+  }
+  .journal-inner {
+    grid-template-columns: 1fr;
+    gap: 4rem;
+  }
+  .journal-invitation {
+    padding: 2.8rem;
+  }
+}

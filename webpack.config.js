@@ -7,8 +7,13 @@ const CssMinimizerPlugin = require("css-minimizer-webpack-plugin");
 module.exports = {
   mode: "development",
   entry: {
-    main: ["./src/js/index.js", "./src/js/cms-entry.js"],
+    main: [
+      "./src/js/index.js",
+      "./src/js/cms-entry.js",
+      "./src/js/blog-teaser.js",
+    ],
     admin: "./src/admin/index.jsx",
+    blog: "./src/blog/index.js",
   },
   output: {
     filename: "[name].[contenthash:8].js",
@@ -77,6 +82,12 @@ module.exports = {
       filename: "admin/index.html",
       chunks: ["admin"],
     }),
+    new HtmlWebpackPlugin({
+      template: "./src/blog/index.html",
+      filename: "blog/template.html",
+      chunks: ["blog"],
+      minify: false,
+    }),
     new MiniCssExtractPlugin({ filename: "[name].[contenthash:8].css" }),
   ],
   devServer: {
@@ -84,7 +95,12 @@ module.exports = {
     host: "127.0.0.1",
     port: 8080,
     open: false,
-    proxy: [{ context: ["/api", "/uploads"], target: "http://127.0.0.1:3001" }],
+    proxy: [
+      {
+        context: ["/api", "/uploads", "/blog"],
+        target: "http://127.0.0.1:3001",
+      },
+    ],
     historyApiFallback: {
       rewrites: [{ from: /^\/admin/, to: "/admin/index.html" }],
     },

@@ -21,6 +21,8 @@ const {
 } = require("node:crypto");
 const { DEFAULT_CONTENT } = require("../shared/content.cjs");
 const { validateContent, ValidationError } = require("./validation.cjs");
+const { registerBlog } = require("./blog.cjs");
+const { registerBlogPages } = require("./blog-routes.cjs");
 
 const COOKIE_NAME = "nexo_session";
 const SESSION_MS = 12 * 60 * 60 * 1000;
@@ -449,14 +451,10 @@ async function buildApp(options = {}) {
         : statusCode === 413
           ? "O arquivo excede o limite de 8 MB ou o conteúdo é muito grande."
           : error.message;
-    reply
-      .code(statusCode)
-      .send({
-        error: message,
-        ...(error.currentVersion
-          ? { currentVersion: error.currentVersion }
-          : {}),
-      });
+    reply.code(statusCode).send({
+      error: message,
+      ...(error.currentVersion ? { currentVersion: error.currentVersion } : {}),
+    });
   });
   app.get("/api/health", async () => ({ ok: true }));
   app.get("/api/session", async (request) =>
@@ -587,6 +585,14 @@ async function buildApp(options = {}) {
       return reply.code(201).send({ asset });
     },
   );
+  const blog = registerBlog(app, {
+    db,
+    now,
+    config,
+    requireAuth,
+    requireMutation,
+  });
+  registerBlogPages(app, { blog, config, requireAuth, record });
   await app.register(staticFiles, {
     root: uploadsDir,
     prefix: "/uploads/",
