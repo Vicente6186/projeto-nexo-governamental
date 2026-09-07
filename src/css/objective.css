@@ -1,12 +1,15 @@
+.institutional-background {
+    background:
+        radial-gradient(ellipse 85% 65% at 100% 85%, #23496a 0, transparent 100%),
+        var(--primary);
+}
+
 #objective {
-    --objective-ink: #191f51;
+    --objective-ink: var(--primary);
     --objective-accent: #83ead8;
     --objective-muted: #d0d9ea;
     padding: clamp(7.2rem, 9vw, 12.8rem) 3.2rem;
     color: #fff;
-    background:
-        radial-gradient(ellipse at 95% 20%, #23496a 0, transparent 52%),
-        #151c48;
     scroll-margin-top: 2.4rem;
 }
 
