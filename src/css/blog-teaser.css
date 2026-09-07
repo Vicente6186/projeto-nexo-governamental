@@ -1,126 +1,306 @@
 #blog-journal {
-  background: #f5f7fb;
-  color: #191f51;
-  padding: 9.6rem 3.2rem;
+  --journal-ink: #191f51;
+  --journal-muted: #626779;
+  --journal-line: #dcdedc;
+  --journal-accent: #24665e;
+  --journal-serif: "Instrument Serif", Georgia, serif;
+  --journal-sans: "DM Sans", sans-serif;
+  padding: clamp(6.4rem, 7vw, 10.4rem) 3.2rem;
+  background: #fafaf7;
+  color: var(--journal-ink);
+  font: 400 1.6rem / 1.6 var(--journal-sans);
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  scroll-margin-top: 3.2rem;
 }
-.journal-inner {
+
+#blog-journal .journal-masthead,
+#blog-journal .journal-inner {
   width: min(118rem, 100%);
-  margin: auto;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: clamp(3.2rem, 7vw, 10rem);
+  margin-inline: auto;
+}
+
+#blog-journal .journal-masthead {
+  display: flex;
   align-items: center;
+  gap: 2.4rem;
+  margin-bottom: clamp(3.2rem, 4vw, 5.6rem);
 }
-.journal-eyebrow,
-.journal-category {
-  display: block;
-  font-size: 1.2rem;
+
+#blog-journal .journal-eyebrow {
+  flex: none;
+  font-size: 1.3rem;
+  font-weight: 600;
   letter-spacing: 0.16em;
-  font-weight: 700;
 }
-.journal-heading h2 {
-  font-size: clamp(3.2rem, 3.3vw, 4.6rem);
-  line-height: 1.2;
-  margin: 2.4rem 0;
-  letter-spacing: -0.035em;
+
+#blog-journal .journal-masthead-rule {
+  height: 1px;
+  flex: 1;
+  background: var(--journal-line);
 }
-.journal-heading > p {
-  max-width: 45rem;
-  color: #59647c;
+
+#blog-journal .journal-edition {
+  color: var(--journal-muted);
+  font-size: 1.3rem;
+  letter-spacing: 0.015em;
+}
+
+#blog-journal .journal-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(4rem, 6vw, 8rem);
+}
+
+#blog-journal .journal-heading h2 {
+  max-width: 54rem;
+  margin: 0;
+  font: 400 clamp(4.8rem, 5.2vw, 7.2rem) / 1.04 var(--journal-serif);
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+#blog-journal .journal-heading h2 em {
+  display: block;
+  color: var(--journal-accent);
+  font-weight: 400;
+}
+
+#blog-journal .journal-heading > p {
+  max-width: 43rem;
+  margin-top: 2.8rem;
+  color: var(--journal-muted);
   font-size: 1.7rem;
   line-height: 1.8;
+  text-wrap: pretty;
 }
-.journal-link {
-  margin-top: 3.2rem;
-  padding: 1.4rem 2.2rem;
-  background: #191f51;
-  color: #fff;
-  font-size: 1.5rem;
-  border-radius: 0.8rem;
+
+#blog-journal .journal-link {
   display: inline-flex;
-  gap: 3.2rem;
   align-items: center;
+  gap: 2.4rem;
+  min-height: 4.8rem;
+  margin-top: 3.2rem;
+  font-size: 1.5rem;
+  font-weight: 500;
 }
-.journal-link:hover {
-  background: #2b3671;
+
+#blog-journal .journal-link-arrow {
+  display: grid;
+  place-items: center;
+  width: 4.4rem;
+  height: 4.4rem;
+  border: 1px solid #c8ccce;
+  border-radius: 50%;
+  transition:
+    color 180ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease;
 }
-.journal-link:focus-visible,
-.journal-story:focus-visible,
-.journal-invitation a:focus-visible {
-  outline: 3px solid #5369b2;
-  outline-offset: 5px;
+
+#blog-journal .journal-link-arrow svg {
+  width: 2rem;
+  height: 2rem;
 }
-.journal-latest {
+
+#blog-journal .journal-link:hover .journal-link-arrow {
+  color: #fff;
+  background: var(--journal-ink);
+  border-color: var(--journal-ink);
+}
+
+#blog-journal a:focus-visible {
+  outline: 2px solid var(--journal-accent);
+  outline-offset: 6px;
+}
+
+#blog-journal .journal-latest {
   min-width: 0;
 }
-.journal-invitation {
-  padding: 4rem;
-  border: 1px solid #d8deeb;
-  border-radius: 1.2rem;
-  background: #fff;
+
+#blog-journal .journal-invitation {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 2.8rem;
+  padding-block: 2.4rem;
+  border-block: 1px solid var(--journal-line);
 }
-.journal-invitation > span {
+
+#blog-journal .journal-photo {
+  min-width: 0;
+  margin: 0;
+}
+
+#blog-journal .journal-photo img {
   display: block;
-  font:
-    7.2rem Georgia,
-    serif;
+  width: 100%;
+  height: auto;
 }
-.journal-invitation > p {
-  margin: 1.6rem 0 3.2rem;
-  font-size: 2.2rem;
+
+#blog-journal .journal-photo figcaption {
+  margin-top: 1.2rem;
+  color: var(--journal-muted);
+  font-size: 1.2rem;
   line-height: 1.5;
 }
-.journal-invitation a {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
+
+#blog-journal .journal-monogram {
+  display: block;
+  margin-bottom: 2.4rem;
+  font: 400 4.8rem / 1 var(--journal-serif);
+}
+
+#blog-journal .journal-invitation h3 {
+  font: 400 clamp(2.8rem, 2.6vw, 3.6rem) / 1.15 var(--journal-serif);
+  letter-spacing: -0.01em;
+  text-wrap: pretty;
+}
+
+#blog-journal .journal-invitation-note {
+  display: block;
+  margin-top: 2.4rem;
+  color: var(--journal-muted);
   font-size: 1.4rem;
-  border-top: 1px solid #e0e4ef;
-  padding-top: 2rem;
+  line-height: 1.7;
 }
-.journal-story {
+
+#blog-journal .journal-latest-label {
+  display: block;
+  padding-bottom: 1.6rem;
+  border-bottom: 1px solid var(--journal-line);
+  color: var(--journal-muted);
+  font-size: 1.3rem;
+  font-weight: 500;
+}
+
+#blog-journal .journal-story {
   display: block;
   width: 100%;
-  padding: 2.8rem 0;
-  border-bottom: 1px solid #d8deeb;
+  padding-block: 2.4rem;
+  border-bottom: 1px solid var(--journal-line);
 }
-.journal-story:first-child {
-  padding-top: 0;
-}
-.journal-category {
-  color: #59647c;
-  font-size: 1.1rem;
-  letter-spacing: 0.07em;
-}
-.journal-story h3 {
-  font-size: 2.4rem;
-  line-height: 1.35;
-  margin: 1.2rem 0;
-}
-.journal-story > p {
-  font-size: 1.5rem;
-  font-weight: 400;
-  line-height: 1.7;
-  color: #59647c;
-}
-.journal-reading {
+
+#blog-journal .journal-category {
   display: block;
-  font-size: 1.2rem;
-  margin-top: 1.6rem;
+  color: var(--journal-accent);
+  font-size: 1.3rem;
+  font-weight: 500;
 }
-.journal-story:hover h3 {
+
+#blog-journal .journal-story h3 {
+  margin-block: 0.8rem 1.2rem;
+  font: 400 clamp(2.8rem, 2.8vw, 3.6rem) / 1.15 var(--journal-serif);
+  text-wrap: pretty;
+}
+
+#blog-journal .journal-story > p {
+  color: var(--journal-muted);
+  font-size: 1.6rem;
+  line-height: 1.7;
+}
+
+#blog-journal .journal-reading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.6rem;
+  margin-top: 1.6rem;
+  color: var(--journal-muted);
+  font-size: 1.3rem;
+}
+
+#blog-journal .journal-story-arrow {
+  color: var(--journal-ink);
+  font-size: 2rem;
+  line-height: 1;
+}
+
+#blog-journal .journal-story:hover h3 {
   text-decoration: underline;
+  text-decoration-thickness: 1px;
   text-underline-offset: 0.4rem;
 }
-@media (max-width: 700px) {
-  #blog-journal {
-    padding: 6.4rem 2.4rem;
-  }
-  .journal-inner {
-    grid-template-columns: 1fr;
+
+@media (max-width: 820px) {
+  #blog-journal .journal-inner {
+    grid-template-columns: minmax(0, 1fr);
     gap: 4rem;
   }
-  .journal-invitation {
-    padding: 2.8rem;
+
+  #blog-journal .journal-heading h2 {
+    font-size: clamp(4.8rem, 8vw, 6.8rem);
+  }
+
+  #blog-journal .journal-invitation {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr);
+    gap: clamp(2.4rem, 5vw, 4rem);
+  }
+
+  #blog-journal .journal-invitation h3 {
+    max-width: 27rem;
+    font-size: clamp(2.8rem, 5vw, 4rem);
+  }
+}
+
+@media (max-width: 480px) {
+  #blog-journal {
+    padding: 5.6rem 2.4rem;
+  }
+
+  #blog-journal .journal-masthead {
+    gap: 1.6rem;
+  }
+
+  #blog-journal .journal-edition {
+    max-width: 9rem;
+    text-align: right;
+  }
+
+  #blog-journal .journal-heading h2 {
+    font-size: clamp(4.4rem, 12vw, 5.6rem);
+  }
+
+  #blog-journal .journal-heading > p {
+    margin-top: 2rem;
+    font-size: 1.6rem;
+  }
+
+  #blog-journal .journal-link {
+    margin-top: 2.4rem;
+  }
+
+  #blog-journal .journal-invitation {
+    gap: 2rem;
+  }
+
+  #blog-journal .journal-monogram {
+    margin-bottom: 1.6rem;
+    font-size: 3.6rem;
+  }
+
+  #blog-journal .journal-invitation h3 {
+    font-size: 2.8rem;
+  }
+
+  #blog-journal .journal-invitation-note {
+    margin-top: 1.6rem;
+  }
+}
+
+@media (max-width: 360px) {
+  #blog-journal .journal-invitation {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #blog-journal .journal-photo {
+    max-width: 24rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #blog-journal .journal-link-arrow {
+    transition: none;
   }
 }
