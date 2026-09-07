@@ -145,45 +145,27 @@ test("dark appearance covers every workspace and dialog while public content and
   await setTheme(page, "Escuro");
   const routes = [
     ["Visão geral", "overview"],
-    ["Conteúdo do site", "content"],
     ["Processo seletivo", "selection"],
-    ["Biblioteca de mídia", "media"],
-    ["Histórico de versões", "history"],
-    ["Configurações", "settings"],
+    ["Blog do Nexo", "blog"],
+    ["Contato", "contact"],
   ];
   for (const [label, name] of routes) {
-    await page
-      .getByRole("link", { name: label, exact: label !== "Conteúdo do site" })
-      .click();
+    await page.getByRole("link", { name: label, exact: true }).click();
     await expect(page.locator("#workspace-main h1")).toHaveText(label);
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     await noOverflow(page);
     await screenshot(page, `dark-desktop-${name}`);
-    if (name === "selection") {
-      for (const [tab, screenshotName] of [
-        ["Cronograma", "schedule"],
-        ["Links e documentos", "links"],
-      ]) {
-        await page.getByRole("tab", { name: tab, exact: true }).click();
-        await screenshot(page, `dark-desktop-selection-${screenshotName}`);
-      }
-    }
   }
 
-  await page
-    .getByRole("link", { name: "Conteúdo do site", exact: false })
-    .click();
-  await page
-    .getByRole("button", { name: "Editar Quem Somos", exact: true })
-    .click();
-  const title = page.getByLabel("Título da seção", { exact: true });
-  const oldTitle = await title.inputValue();
-  await title.fill("Edição preservada ao alternar a aparência");
+  await page.getByRole("link", { name: "Contato", exact: true }).click();
+  const email = page.getByLabel("E-mail de contato", { exact: true });
+  const oldEmail = await email.inputValue();
+  await email.fill("edicao-preservada@example.org");
   await setTheme(page, "Claro");
-  await expect(title).toHaveValue("Edição preservada ao alternar a aparência");
+  await expect(email).toHaveValue("edicao-preservada@example.org");
   await setTheme(page, "Escuro");
-  await expect(title).toHaveValue("Edição preservada ao alternar a aparência");
-  await screenshot(page, "dark-desktop-unsaved-content");
+  await expect(email).toHaveValue("edicao-preservada@example.org");
+  await screenshot(page, "dark-desktop-unsaved-contact");
   await page
     .getByRole("button", { name: "Publicar alterações", exact: true })
     .click();
@@ -192,8 +174,8 @@ test("dark appearance covers every workspace and dialog while public content and
   );
   await screenshot(page, "dark-desktop-publication-review");
   await page.keyboard.press("Escape");
-  await title.fill(oldTitle);
-  await screenshot(page, "dark-desktop-section-editor");
+  await email.fill(oldEmail);
+  await screenshot(page, "dark-desktop-contact-editor");
 
   await page
     .getByRole("button", { name: "Pré-visualizar", exact: true })
@@ -218,13 +200,6 @@ test("dark appearance covers every workspace and dialog while public content and
     .getByRole("button", { name: "Fechar janela", exact: true })
     .click();
 
-  await page
-    .getByRole("link", { name: "Biblioteca de mídia", exact: true })
-    .click();
-  await page.locator(".media-card").first().click();
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await screenshot(page, "dark-desktop-asset-dialog");
-  await page.keyboard.press("Escape");
   await visitor.reload();
   await expect(visitor.locator("html")).not.toHaveAttribute(
     "data-theme",
@@ -245,7 +220,7 @@ test("dark appearance covers every workspace and dialog while public content and
   await visitor.close();
 });
 
-test("search, editor tabs, and field guidance are usable with the keyboard", async ({
+test("search, essential field guidance and selection status work with the keyboard", async ({
   page,
 }) => {
   await login(page);
@@ -254,9 +229,11 @@ test("search, editor tabs, and field guidance are usable with the keyboard", asy
     exact: true,
   });
   await searchButton.click();
-  const searchInput = page
-    .getByRole("dialog")
-    .getByRole("textbox", { name: "Buscar no painel", exact: true });
+  const dialog = page.getByRole("dialog");
+  const searchInput = dialog.getByRole("textbox", {
+    name: "Buscar no painel",
+    exact: true,
+  });
   await expect(searchInput).toBeFocused();
   await searchInput.fill("nenhum-conteudo-com-este-nome-123");
   await expect(page.locator(".search-results")).toContainText(/Nenhum/);
@@ -266,51 +243,48 @@ test("search, editor tabs, and field guidance are usable with the keyboard", asy
   await page.keyboard.press("Control+k");
   await expect(searchInput).toBeFocused();
   await expect(searchInput).toHaveValue("");
-  await searchInput.fill("Configurações");
+  for (let index = 0; index < 12; index += 1) {
+    await page.keyboard.press(index < 6 ? "Tab" : "Shift+Tab");
+    expect(
+      await dialog.evaluate((element) =>
+        element.contains(document.activeElement),
+      ),
+    ).toBe(true);
+  }
+  await searchInput.fill("Contato");
   await page
     .locator(".search-results")
-    .getByRole("button", { name: /Configurações/ })
+    .getByRole("button", { name: /Contato/ })
     .click();
-  await expect(page.locator("#workspace-main h1")).toHaveText("Configurações");
+  await expect(page.locator("#workspace-main h1")).toHaveText("Contato");
+  const email = page.getByLabel("E-mail de contato", { exact: true });
+  await expect(email).toHaveAttribute("aria-describedby", /.+/);
+  await expect(email).toHaveAccessibleDescription(/.+/);
 
   await page
     .getByRole("link", { name: "Processo seletivo", exact: true })
     .click();
-  const general = page.getByRole("tab", {
-    name: "Informações gerais",
+  const upcoming = page.getByRole("radio", { name: "Em breve", exact: true });
+  const open = page.getByRole("radio", {
+    name: "Inscrições abertas",
     exact: true,
   });
-  const schedule = page.getByRole("tab", { name: "Cronograma", exact: true });
-  const links = page.getByRole("tab", {
-    name: "Links e documentos",
-    exact: true,
-  });
-  await general.focus();
+  const closed = page.getByRole("radio", { name: "Encerrado", exact: true });
+  await upcoming.check();
+  await upcoming.focus();
   await page.keyboard.press("ArrowRight");
-  await expect(schedule).toBeFocused();
-  await expect(schedule).toHaveAttribute("aria-selected", "true");
-  const panelId = await schedule.getAttribute("aria-controls");
-  expect(panelId).toBeTruthy();
-  await expect(page.getByRole("tabpanel")).toHaveAttribute("id", panelId);
-  await page.keyboard.press("End");
-  await expect(links).toBeFocused();
-  await expect(
-    page.getByLabel("Link do formulário de inscrição", { exact: true }),
-  ).toBeVisible();
-  await page.keyboard.press("Home");
-  await expect(general).toBeFocused();
+  await expect(open).toBeFocused();
+  await expect(open).toBeChecked();
+  await page.keyboard.press("ArrowRight");
+  await expect(closed).toBeFocused();
+  await expect(closed).toBeChecked();
+  await page.keyboard.press("ArrowRight");
+  await expect(upcoming).toBeFocused();
+  await expect(upcoming).toBeChecked();
   await page.keyboard.press("ArrowLeft");
-  await expect(links).toBeFocused();
-
-  await page
-    .getByRole("link", { name: "Conteúdo do site", exact: false })
-    .click();
-  await page
-    .getByRole("button", { name: "Editar Quem Somos", exact: true })
-    .click();
-  const title = page.getByLabel("Título da seção", { exact: true });
-  await expect(title).toHaveAttribute("aria-describedby", /.+/);
-  await expect(title).toHaveAccessibleDescription(/quebra de linha/);
+  await expect(closed).toBeFocused();
+  await expect(closed).toBeChecked();
+  await expect(page.getByRole("tablist")).toHaveCount(0);
 });
 
 test("mobile drawer contains focus, closes with Escape, and dark pages fit narrow screens", async ({
@@ -348,16 +322,12 @@ test("mobile drawer contains focus, closes with Escape, and dark pages fit narro
 
   for (const [label, name] of [
     ["Visão geral", "overview"],
-    ["Conteúdo do site", "content"],
     ["Processo seletivo", "selection"],
-    ["Biblioteca de mídia", "media"],
-    ["Histórico de versões", "history"],
-    ["Configurações", "settings"],
+    ["Blog do Nexo", "blog"],
+    ["Contato", "contact"],
   ]) {
     await openMenu.click();
-    await sidebar
-      .getByRole("link", { name: label, exact: label !== "Conteúdo do site" })
-      .click();
+    await sidebar.getByRole("link", { name: label, exact: true }).click();
     await expect(sidebar).not.toHaveClass(/sidebar-open/);
     await expect(page.locator("#workspace-main h1")).toHaveText(label);
     await noOverflow(page);
@@ -366,9 +336,7 @@ test("mobile drawer contains focus, closes with Escape, and dark pages fit narro
 
   // Selecting an already active hash must still dismiss the drawer.
   await openMenu.click();
-  await sidebar
-    .getByRole("link", { name: "Configurações", exact: true })
-    .click();
+  await sidebar.getByRole("link", { name: "Contato", exact: true }).click();
   await expect(sidebar).not.toHaveClass(/sidebar-open/);
 
   await themeTrigger(page).click();

@@ -26,8 +26,6 @@ const originalAboutTitle = DEFAULT_CONTENT.sections.find(
 ).title;
 const previewFrame = (page) =>
   page.frameLocator('iframe[title="Prévia do site Nexo Governamental"]');
-const sectionTitle = (content, id) =>
-  content.sections.find((section) => section.id === id).title;
 const dateFromToday = (offset) =>
   new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" }).format(
     new Date(Date.now() + offset * 86400000),
@@ -44,16 +42,33 @@ async function resetContent(page) {
   const session = await sessionResponse.json();
   if (!session.authenticated) return;
   const current = await stateOf(page);
+  // Fixed presentation values come from the current publication. In particular,
+  // replacing the old schedule image with text stages is intentionally permanent.
+  const restored = structuredClone(current.published);
+  const contactKeys = ["email", "instagramUrl", "instagramHandle"];
+  const selectionKeys = [
+    "edition",
+    "status",
+    "opensAt",
+    "closesAt",
+    "noticeUrl",
+    "applicationUrl",
+    "stages",
+  ];
+  for (const key of contactKeys)
+    restored.site[key] = structuredClone(DEFAULT_CONTENT.site[key]);
+  for (const key of selectionKeys)
+    restored.selection[key] = structuredClone(DEFAULT_CONTENT.selection[key]);
   if (
-    JSON.stringify(current.draft) === JSON.stringify(DEFAULT_CONTENT) &&
-    JSON.stringify(current.published) === JSON.stringify(DEFAULT_CONTENT)
+    JSON.stringify(current.draft) === JSON.stringify(restored) &&
+    JSON.stringify(current.published) === JSON.stringify(restored)
   )
     return;
   const origin = new URL(page.url()).origin;
   const headers = { Origin: origin, "X-CSRF-Token": session.csrfToken };
   const save = await page.request.put("/api/admin/content", {
     headers,
-    data: { content: DEFAULT_CONTENT, version: current.version },
+    data: { content: restored, version: current.version },
   });
   expect(save.ok(), "Reset the isolated test draft").toBeTruthy();
   const saved = await save.json();
@@ -89,7 +104,7 @@ async function saveDraft(page) {
     .first()
     .click();
   expect((await response).ok()).toBeTruthy();
-  await expect(page.getByRole("status")).toContainText("Rascunho salvo.");
+  await expect(page.locator(".toast")).toContainText("Rascunho salvo.");
 }
 
 async function publish(page) {
@@ -152,61 +167,69 @@ test.afterEach(async ({ page }) => {
     await resetContent(page);
 });
 
-test("draft editing persists, authenticated preview changes first, and publication updates visitors", async ({
+test("contact changes persist as drafts, appear in private preview, and reach visitors only after publication", async ({
   page,
   context,
 }) => {
   await login(page);
   await screenshot(page, "desktop-overview");
+  await page.getByRole("link", { name: "Contato", exact: true }).click();
   await page
-    .getByRole("link", { name: "Conteúdo do site", exact: false })
-    .click();
+    .getByLabel("E-mail de contato", { exact: true })
+    .fill("contato-teste@example.org");
   await page
-    .getByRole("button", { name: "Editar Quem Somos", exact: true })
-    .click();
+    .getByLabel("Perfil do Instagram", { exact: true })
+    .fill("https://www.instagram.com/nexo_teste/");
   await page
-    .getByLabel("Título da seção", { exact: true })
-    .fill("Uma comunidade que conecta");
-  await page
-    .getByLabel("Descrição", { exact: true })
-    .fill("Texto editorial de teste salvo no ambiente isolado.");
+    .getByLabel("Nome de usuário no Instagram", { exact: true })
+    .fill("@nexo_teste");
   await saveDraft(page);
 
   const visitor = await publicPage(context);
-  await expect(visitor.locator("#about-title")).toHaveText(originalAboutTitle);
+  await expect(visitor.locator(".contact-address a")).toHaveText(
+    DEFAULT_CONTENT.site.email,
+  );
   const preview = await openPreview(page);
-  await expect(preview.locator("#about-title")).toHaveText(
-    "Uma comunidade que conecta",
+  await expect(preview.locator(".contact-address a")).toHaveText(
+    "contato-teste@example.org",
   );
-  await expect(preview.locator("#about-description")).toHaveText(
-    "Texto editorial de teste salvo no ambiente isolado.",
+  await expect(preview.locator(".instagram-profile")).toHaveAttribute(
+    "href",
+    "https://www.instagram.com/nexo_teste/",
   );
+  await expect(preview.locator("#about-title")).toHaveText(originalAboutTitle);
   await page
     .getByRole("button", { name: "Fechar janela", exact: true })
     .click();
 
   await page.reload();
-  await expect(page.getByLabel("Título da seção", { exact: true })).toHaveValue(
-    "Uma comunidade que conecta",
-  );
-  await screenshot(page, "desktop-content-editor");
+  await expect(
+    page.getByLabel("E-mail de contato", { exact: true }),
+  ).toHaveValue("contato-teste@example.org");
+  await screenshot(page, "desktop-contact-editor");
   await publish(page);
   await visitor.reload();
-  await expect(visitor.locator("#about-title")).toHaveText(
-    "Uma comunidade que conecta",
+  await expect(visitor.locator(".contact-address a")).toHaveAttribute(
+    "href",
+    "mailto:contato-teste@example.org",
+  );
+  await expect(visitor.locator("#contact-form")).toHaveAttribute(
+    "data-recipient",
+    "contato-teste@example.org",
+  );
+  await expect(visitor.locator(".instagram-profile-handle")).toHaveText(
+    "@nexo_teste",
   );
   await expect(visitor.locator(".cms-preview-banner")).toHaveCount(0);
   const persisted = await stateOf(page);
-  expect(sectionTitle(persisted.draft, "about")).toBe(
-    "Uma comunidade que conecta",
-  );
-  expect(sectionTitle(persisted.published, "about")).toBe(
-    "Uma comunidade que conecta",
-  );
+  expect(persisted.draft.site.email).toBe("contato-teste@example.org");
+  expect(persisted.published.site.email).toBe("contato-teste@example.org");
+  expect(persisted.published.sections).toEqual(DEFAULT_CONTENT.sections);
+  expect(persisted.published.site.name).toBe(DEFAULT_CONTENT.site.name);
   await visitor.close();
 });
 
-test("selection editor publishes status, dates, links and structured stages to the public page", async ({
+test("selection publishes only operational information and structured stages while preserving institutional copy", async ({
   page,
   context,
 }) => {
@@ -214,27 +237,24 @@ test("selection editor publishes status, dates, links and structured stages to t
   await page
     .getByRole("link", { name: "Processo seletivo", exact: true })
     .click();
-  await screenshot(page, "desktop-selection-original");
-  await page.getByRole("button", { name: /^Inscrições abertas / }).click();
+  await page
+    .getByRole("radio", { name: "Inscrições abertas", exact: true })
+    .check();
   await page
     .getByLabel("Edição do processo", { exact: true })
     .fill("Edição de teste local");
-  await page
-    .getByLabel("Título do convite", { exact: true })
-    .fill("Faça parte desta próxima etapa");
-  await page
-    .getByLabel("Descrição e orientações", { exact: true })
-    .fill("Informações de teste para os candidatos.");
   await page
     .getByLabel("Abertura das inscrições", { exact: true })
     .fill(dateFromToday(-1));
   await page
     .getByLabel("Encerramento das inscrições", { exact: true })
     .fill(dateFromToday(7));
-  await page.getByRole("tab", { name: "Cronograma", exact: true }).click();
   await page
-    .getByLabel("Título do cronograma", { exact: true })
-    .fill("Etapas da seleção");
+    .getByLabel("Link do formulário de inscrição", { exact: true })
+    .fill("https://example.org/inscricoes");
+  await page
+    .getByLabel("Link do edital", { exact: true })
+    .fill("https://example.org/edital.pdf");
   await page
     .getByRole("button", { name: "Adicionar etapa", exact: true })
     .click();
@@ -247,19 +267,16 @@ test("selection editor publishes status, dates, links and structured stages to t
   await page
     .getByLabel("Orientações da etapa 1", { exact: true })
     .fill("Preencha o formulário de teste.");
-  await page
-    .getByRole("tab", { name: "Links e documentos", exact: true })
-    .click();
-  await page
-    .getByLabel("Link do formulário de inscrição", { exact: true })
-    .fill("https://example.org/inscricoes");
-  await page
-    .getByLabel("Texto do botão de inscrição", { exact: true })
-    .fill("Quero participar");
+  await expect(
+    page.getByLabel("Título do convite", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByLabel("Título do cronograma", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByLabel("Texto do botão de inscrição", { exact: true }),
+  ).toHaveCount(0);
   await saveDraft(page);
-  await page
-    .getByRole("tab", { name: "Informações gerais", exact: true })
-    .click();
   await screenshot(page, "desktop-selection-editor");
   await publish(page);
 
@@ -268,7 +285,7 @@ test("selection editor publishes status, dates, links and structured stages to t
     "Inscrições abertas",
   );
   await expect(visitor.locator("#selective-process-content h2")).toHaveText(
-    "Faça parte desta próxima etapa",
+    DEFAULT_CONTENT.selection.title,
   );
   await expect(visitor.locator(".cms-selection-edition")).toHaveText(
     "Edição de teste local",
@@ -278,12 +295,17 @@ test("selection editor publishes status, dates, links and structured stages to t
     "https://example.org/inscricoes",
   );
   await expect(visitor.locator(".cms-application-button")).toHaveText(
-    "Quero participar",
+    DEFAULT_CONTENT.selection.buttonLabel,
   );
   await expect(visitor.locator(".cms-application-button")).not.toHaveAttribute(
     "aria-disabled",
     "true",
   );
+  await expect(
+    visitor.locator(
+      "#selective-process-content a:not(.cms-application-button)",
+    ),
+  ).toHaveAttribute("href", "https://example.org/edital.pdf");
   await expect(visitor.locator(".cms-selection-stages h4")).toHaveText(
     "Envio de inscrições",
   );
@@ -293,185 +315,105 @@ test("selection editor publishes status, dates, links and structured stages to t
   await expect(
     visitor.locator("#selective-process-schedule > img"),
   ).toBeHidden();
-  const published = (await stateOf(page)).published.selection;
-  expect(published.opensAt).toBe(dateFromToday(-1));
-  expect(published.closesAt).toBe(dateFromToday(7));
-  expect(published.stages).toHaveLength(1);
+  const published = (await stateOf(page)).published;
+  expect(published.selection.opensAt).toBe(dateFromToday(-1));
+  expect(published.selection.closesAt).toBe(dateFromToday(7));
+  expect(published.selection.stages).toHaveLength(1);
+  expect(published.selection.description).toBe(
+    DEFAULT_CONTENT.selection.description,
+  );
+  expect(published.sections).toEqual(DEFAULT_CONTENT.sections);
   await visitor.close();
 });
 
-test("a real PNG upload can be inspected and selected for a project in the saved preview", async ({
+test("a PDF can be uploaded directly from the selection editor and used in its saved preview", async ({
   page,
 }) => {
   await login(page);
   await page
-    .getByRole("link", { name: "Biblioteca de mídia", exact: true })
+    .getByRole("link", { name: "Processo seletivo", exact: true })
     .click();
   const uploadResponse = page.waitForResponse(
     (response) =>
       response.url().endsWith("/api/admin/uploads") &&
       response.request().method() === "POST",
   );
-  await page
-    .getByLabel("Selecionar arquivos para upload", { exact: true })
-    .setInputFiles(path.resolve("src/assets/favicons/favicon-32x32.png"));
+  await page.getByLabel("Enviar edital em PDF", { exact: true }).setInputFiles({
+    name: "edital-teste.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from(
+      "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n",
+    ),
+  });
   const uploaded = await uploadResponse;
   expect(uploaded.ok()).toBeTruthy();
   const { asset } = await uploaded.json();
-  expect(asset.url).toMatch(/^\/uploads\/.+\.png$/);
-  const assetCard = page
-    .locator(".media-card")
-    .filter({ has: page.locator("strong", { hasText: "favicon-32x32.png" }) })
-    .last();
-  await expect(assetCard).toBeVisible();
-  await assetCard.click();
-  await expect(
-    page.getByLabel("Endereço do arquivo", { exact: true }),
-  ).toHaveValue(asset.url);
-  await expect
-    .poll(() =>
-      page
-        .locator(".asset-modal-image")
-        .evaluate((image) => image.complete && image.naturalWidth),
-    )
-    .toBe(32);
-  await page
-    .getByRole("button", { name: "Fechar janela", exact: true })
-    .click();
-  await screenshot(page, "desktop-media-library");
-
-  await page
-    .getByRole("link", { name: "Conteúdo do site", exact: false })
-    .click();
-  await page
-    .getByRole("button", { name: "Editar Veja Mais", exact: true })
-    .click();
-  await page.getByRole("tab", { name: "Projetos", exact: true }).click();
-  const project = page.locator(".item-editor").first();
-  await project.locator("summary").click();
-  await project
-    .getByRole("button", { name: "Escolher na biblioteca", exact: false })
-    .click();
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "favicon-32x32.png", exact: true })
-    .last()
-    .click();
-  await expect(
-    project.getByLabel("Imagem do item", { exact: true }),
-  ).toHaveValue(asset.url);
-  await project
-    .getByLabel("Descrição da imagem (acessibilidade)", { exact: true })
-    .fill("Imagem de teste local");
+  expect(asset.url).toMatch(/^\/uploads\/.+\.pdf$/);
+  await expect(page.getByLabel("Link do edital", { exact: true })).toHaveValue(
+    asset.url,
+  );
+  const download = await page.request.get(asset.url);
+  expect(download.ok()).toBeTruthy();
+  expect(download.headers()["content-type"]).toContain("application/pdf");
   await saveDraft(page);
   const preview = await openPreview(page);
   await expect(
-    preview.locator(".more-project").first().locator("img"),
-  ).toHaveAttribute("src", asset.url);
-  await expect(
-    preview.locator(".more-project").first().locator("img"),
-  ).toHaveAttribute("alt", "Imagem de teste local");
-  await expect
-    .poll(() =>
-      preview
-        .locator(".more-project")
-        .first()
-        .locator("img")
-        .evaluate((image) => image.complete && image.naturalWidth > 0),
-    )
-    .toBe(true);
-  await expect
-    .poll(() =>
-      preview
-        .locator(".more-project")
-        .first()
-        .locator("img")
-        .evaluate((image) => new URL(image.currentSrc).pathname),
-    )
-    .toBe(asset.url);
-  await expect(
-    preview.locator(".more-project").first().locator("source"),
-  ).toHaveCount(0);
+    preview.locator(
+      "#selective-process-content a:not(.cms-application-button)",
+    ),
+  ).toHaveAttribute("href", asset.url);
+  await expect(preview.locator("#about-title")).toHaveText(originalAboutTitle);
 });
 
-test("restoring a historical version recovers the draft while leaving the publication unchanged", async ({
+test("navigation exposes four essential areas and legacy hashes cannot reopen the full site editor", async ({
   page,
-  context,
 }) => {
   await login(page);
-  await page
-    .getByRole("link", { name: "Conteúdo do site", exact: false })
-    .click();
-  await page
-    .getByRole("button", { name: "Editar Quem Somos", exact: true })
-    .click();
-  await page
-    .getByLabel("Título da seção", { exact: true })
-    .fill("Primeira versão para recuperar");
-  await saveDraft(page);
-  const firstVersionId = (await stateOf(page)).history[0].id;
-  await page
-    .getByLabel("Título da seção", { exact: true })
-    .fill("Segunda versão publicada");
-  await saveDraft(page);
-  await publish(page);
-  const beforeRestore = await stateOf(page);
-  const index = beforeRestore.history.findIndex(
-    (entry) => entry.id === firstVersionId,
-  );
-  expect(index).toBeGreaterThanOrEqual(0);
-  await page
-    .getByRole("link", { name: "Histórico de versões", exact: true })
-    .click();
-  await page
-    .locator(".history-row")
-    .nth(index)
-    .getByRole("button", { name: "Restaurar", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Restaurar como rascunho", exact: true })
-    .click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  const restored = await stateOf(page);
-  expect(sectionTitle(restored.draft, "about")).toBe(
-    "Primeira versão para recuperar",
-  );
-  expect(sectionTitle(restored.published, "about")).toBe(
-    "Segunda versão publicada",
-  );
-  await screenshot(page, "desktop-version-history");
-  const visitor = await publicPage(context);
-  await expect(visitor.locator("#about-title")).toHaveText(
-    "Segunda versão publicada",
-  );
-  await page
-    .getByRole("link", { name: "Conteúdo do site", exact: false })
-    .click();
-  await page
-    .getByRole("button", { name: "Editar Quem Somos", exact: true })
-    .click();
-  await expect(page.getByLabel("Título da seção", { exact: true })).toHaveValue(
-    "Primeira versão para recuperar",
-  );
-  const preview = await openPreview(page);
-  await expect(preview.locator("#about-title")).toHaveText(
-    "Primeira versão para recuperar",
-  );
-  await visitor.close();
+  const navigation = page.getByRole("navigation", { name: "Menu principal" });
+  await expect(navigation.getByRole("link")).toHaveText([
+    "Visão geral",
+    "Processo seletivo",
+    "Blog do Nexo",
+    "Contato",
+  ]);
+  await expect(
+    page.getByRole("link", {
+      name: /Conteúdo do site|Biblioteca de mídia|Histórico de versões|Configurações/,
+    }),
+  ).toHaveCount(0);
+  for (const [route, heading] of [
+    ["conteudo", "Visão geral"],
+    ["secao/about", "Visão geral"],
+    ["midia", "Visão geral"],
+    ["historico", "Visão geral"],
+    ["configuracoes", "Contato"],
+    ["secao/selective-process", "Processo seletivo"],
+  ]) {
+    await page.goto(`/admin/#${route}`);
+    await expect(page.locator("#workspace-main h1")).toHaveText(heading);
+    await expect(
+      page.getByLabel("Título da seção", { exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByLabel("Nome do projeto", { exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Restaurar", exact: true }),
+    ).toHaveCount(0);
+  }
 });
 
-test("mobile navigation works at 390px and principal pages fit without horizontal overflow", async ({
+test("mobile navigation works at 390px and all four areas fit without horizontal overflow", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await login(page);
-  const pages = [
+  for (const [label, route, file] of [
     ["Visão geral", "inicio", "mobile-overview"],
-    ["Conteúdo do site", "conteudo", "mobile-content"],
     ["Processo seletivo", "processo", "mobile-selection"],
-    ["Biblioteca de mídia", "midia", "mobile-media"],
-  ];
-  for (const [label, route, file] of pages) {
+    ["Blog do Nexo", "blog", "mobile-blog"],
+    ["Contato", "contato", "mobile-contact"],
+  ]) {
     if (route !== "inicio") {
       await page
         .getByRole("button", { name: "Abrir navegação", exact: true })
@@ -479,7 +421,7 @@ test("mobile navigation works at 390px and principal pages fit without horizonta
       await expect(page.locator(".sidebar")).toHaveClass(/sidebar-open/);
       await page
         .getByRole("navigation", { name: "Menu principal" })
-        .getByRole("link", { name: label, exact: false })
+        .getByRole("link", { name: label, exact: true })
         .click();
       await expect(page).toHaveURL(new RegExp(`#${route}$`));
       await expect(page.locator(".sidebar")).not.toHaveClass(/sidebar-open/);
@@ -500,64 +442,50 @@ test("mobile navigation works at 390px and principal pages fit without horizonta
   }
 });
 
-test("gallery fields and a new schedule row remain usable on desktop and mobile", async ({
+test("selection stages can be ordered and removed on mobile without losing their contents", async ({
   page,
 }) => {
   await login(page);
   await page
-    .getByRole("link", { name: "Conteúdo do site", exact: false })
-    .click();
-  await page
-    .getByRole("button", { name: "Editar Reconhecimento", exact: true })
-    .click();
-  await page.getByRole("tab", { name: "Galeria", exact: true }).click();
-  const item = page.locator(".item-editor").first();
-  await item.locator("summary").click();
-  await expect(item.getByLabel("Título do item", { exact: true })).toHaveValue(
-    DEFAULT_CONTENT.sections.find((section) => section.id === "recognize")
-      .items[0].title,
-  );
-  await expect(
-    item.getByLabel("Descrição da imagem (acessibilidade)", { exact: true }),
-  ).toBeVisible();
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () => document.documentElement.scrollWidth <= window.innerWidth,
-      ),
-    )
-    .toBe(true);
-  await screenshot(page, "desktop-gallery-editor");
-
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () => document.documentElement.scrollWidth <= window.innerWidth,
-      ),
-    )
-    .toBe(true);
-  await expect(
-    item.getByLabel("Imagem do item", { exact: true }),
-  ).toBeVisible();
-  await screenshot(page, "mobile-gallery-editor");
-  await page
-    .getByRole("button", { name: "Abrir navegação", exact: true })
-    .click();
-  await page
-    .getByRole("navigation", { name: "Menu principal" })
     .getByRole("link", { name: "Processo seletivo", exact: true })
     .click();
-  await page.getByRole("tab", { name: "Cronograma", exact: true }).click();
   await page
     .getByRole("button", { name: "Adicionar etapa", exact: true })
     .click();
+  await page.getByLabel("Nome da etapa 1", { exact: true }).fill("Inscrições");
+  await page
+    .getByLabel("Orientações da etapa 1", { exact: true })
+    .fill("Preencha o formulário.");
+  await page
+    .getByRole("button", { name: "Adicionar etapa", exact: true })
+    .click();
+  await page.getByLabel("Nome da etapa 2", { exact: true }).fill("Entrevistas");
+  await page
+    .getByLabel("Data da etapa 2", { exact: true })
+    .fill(dateFromToday(8));
+  await expect(
+    page.getByRole("button", { name: "Mover etapa 1 para cima", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Mover etapa 2 para baixo", exact: true }),
+  ).toBeDisabled();
+  await screenshot(page, "desktop-selection-stages");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page
+    .getByRole("button", { name: "Mover etapa 2 para cima", exact: true })
+    .click();
   await expect(page.getByLabel("Nome da etapa 1", { exact: true })).toHaveValue(
-    "",
+    "Entrevistas",
   );
   await expect(page.getByLabel("Data da etapa 1", { exact: true })).toHaveValue(
-    "",
+    dateFromToday(8),
   );
+  await expect(page.getByLabel("Nome da etapa 2", { exact: true })).toHaveValue(
+    "Inscrições",
+  );
+  await expect(
+    page.getByLabel("Orientações da etapa 2", { exact: true }),
+  ).toHaveValue("Preencha o formulário.");
   await expect
     .poll(() =>
       page.evaluate(
@@ -565,14 +493,26 @@ test("gallery fields and a new schedule row remain usable on desktop and mobile"
       ),
     )
     .toBe(true);
-  await screenshot(page, "mobile-empty-stage");
-  await page.setViewportSize({ width: 1440, height: 1100 });
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () => document.documentElement.scrollWidth <= window.innerWidth,
-      ),
-    )
-    .toBe(true);
-  await screenshot(page, "desktop-empty-stage");
+  await screenshot(page, "mobile-selection-stages");
+  await page
+    .getByRole("button", { name: "Remover etapa 1", exact: true })
+    .click();
+  await expect(page.getByLabel("Nome da etapa 1", { exact: true })).toHaveValue(
+    "Inscrições",
+  );
+  await expect(page.getByLabel("Nome da etapa 2", { exact: true })).toHaveCount(
+    0,
+  );
+  await saveDraft(page);
+  await page.reload();
+  await expect(page.getByLabel("Nome da etapa 1", { exact: true })).toHaveValue(
+    "Inscrições",
+  );
+  const state = await stateOf(page);
+  expect(state.draft.selection.stages.map((stage) => stage.title)).toEqual([
+    "Inscrições",
+  ]);
+  expect(state.published.selection.stages).toEqual(
+    DEFAULT_CONTENT.selection.stages,
+  );
 });

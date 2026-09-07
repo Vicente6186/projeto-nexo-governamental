@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const { mkdtempSync, rmSync, mkdirSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const path = require("node:path");
+const { DatabaseSync } = require("node:sqlite");
 const { buildApp } = require("../server/app.cjs");
 const { DEFAULT_CONTENT } = require("../shared/content.cjs");
 
@@ -166,12 +167,32 @@ test("every editing operation requires the origin and CSRF token; logout revokes
   assert.equal((await app.inject({ ...request, headers })).statusCode, 401);
 });
 
-test("drafts persist across restarts, publication is explicit, and restore affects only the draft", async (t) => {
+test("selection and contact drafts persist across restarts and publication is explicit", async (t) => {
   const { app, open } = await fixture(t);
   const headers = await localLogin(app);
   const original = await getState(app, headers);
   const draft = copy(original.draft);
-  draft.sections[0].title = "Um novo título para o Nexo";
+  Object.assign(draft.selection, {
+    edition: "2027.1",
+    status: "upcoming",
+    opensAt: "2027-02-01",
+    closesAt: "2027-02-28",
+    noticeUrl: "https://nexo.example.com/edital.pdf",
+    applicationUrl: "https://forms.example.com/nexo-2027",
+    stages: [
+      {
+        id: "inscricoes",
+        title: "Inscrições",
+        date: "2027-02-01",
+        description: "Inscreva-se pelo formulário.",
+      },
+    ],
+  });
+  Object.assign(draft.site, {
+    email: "contato@nexo.example.com",
+    instagramUrl: "https://www.instagram.com/nexogovernamental/",
+    instagramHandle: "@nexogovernamental",
+  });
   let response = await app.inject({
     method: "PUT",
     url: "/api/admin/content",
@@ -181,13 +202,13 @@ test("drafts persist across restarts, publication is explicit, and restore affec
   assert.equal(response.statusCode, 200, response.body);
   assert.equal(response.json().version, original.version + 1);
   assert.equal(
-    (await app.inject("/api/content")).json().content.sections[0].title,
-    original.draft.sections[0].title,
+    (await app.inject("/api/content")).json().content.selection.edition,
+    original.draft.selection.edition,
   );
   assert.equal(
     (await app.inject({ url: "/api/admin/preview", headers })).json().content
-      .sections[0].title,
-    draft.sections[0].title,
+      .selection.edition,
+    draft.selection.edition,
   );
   await app.close();
   const restarted = await open();
@@ -203,22 +224,105 @@ test("drafts persist across restarts, publication is explicit, and restore affec
   const published = response.json();
   assert.equal(published.publishedVersion, published.version);
   assert.equal(
-    (await restarted.inject("/api/content")).json().content.sections[0].title,
-    draft.sections[0].title,
+    (await restarted.inject("/api/content")).json().content.selection.edition,
+    draft.selection.edition,
   );
-  response = await restarted.inject({
+  const expected = copy(draft);
+  expected.selection.scheduleImage = "";
+  assert.deepEqual(published.published, expected);
+  assert.deepEqual(published.published.sections, original.published.sections);
+});
+
+test("publishing a structured schedule retires the historical image and clearing stages never restores it", async (t) => {
+  const { app, dataDir } = await fixture(t);
+  const headers = await localLogin(app);
+  const original = await getState(app, headers);
+  assert.ok(original.published.selection.scheduleImage);
+  const draft = copy(original.draft);
+  draft.selection.stages = [
+    {
+      id: "inscricoes",
+      title: "Inscrições",
+      date: "2027-02-01",
+      description: "",
+    },
+  ];
+  const saved = await app.inject({
+    method: "PUT",
+    url: "/api/admin/content",
+    headers,
+    payload: { content: draft, version: original.version },
+  });
+  assert.equal(saved.statusCode, 200, saved.body);
+  assert.equal(
+    saved.json().draft.selection.scheduleImage,
+    original.published.selection.scheduleImage,
+  );
+  assert.equal(
+    (await app.inject("/api/content")).json().content.selection.scheduleImage,
+    original.published.selection.scheduleImage,
+  );
+  const published = await app.inject({
+    method: "POST",
+    url: "/api/admin/publish",
+    headers,
+    payload: { version: saved.json().version },
+  });
+  assert.equal(published.statusCode, 200, published.body);
+  assert.equal(published.json().published.selection.scheduleImage, "");
+  assert.equal(published.json().draft.selection.scheduleImage, "");
+  const clearedDraft = copy(published.json().draft);
+  clearedDraft.selection.stages = [];
+  const cleared = await app.inject({
+    method: "PUT",
+    url: "/api/admin/content",
+    headers,
+    payload: { content: clearedDraft, version: published.json().version },
+  });
+  assert.equal(cleared.statusCode, 200, cleared.body);
+  const preview = await app.inject({ url: "/api/admin/preview", headers });
+  assert.equal(preview.json().content.selection.scheduleImage, "");
+  assert.deepEqual(preview.json().content.selection.stages, []);
+  const finalPublication = await app.inject({
+    method: "POST",
+    url: "/api/admin/publish",
+    headers,
+    payload: { version: cleared.json().version },
+  });
+  assert.equal(finalPublication.statusCode, 200, finalPublication.body);
+  const publicContent = (await app.inject("/api/content")).json().content;
+  assert.equal(publicContent.selection.scheduleImage, "");
+  assert.deepEqual(publicContent.selection.stages, []);
+  assert.deepEqual(publicContent.sections, original.published.sections);
+  const db = new DatabaseSync(path.join(dataDir, "nexo.sqlite"));
+  try {
+    const historical = JSON.parse(
+      db
+        .prepare("SELECT content FROM history WHERE id = ?")
+        .get(original.history[0].id).content,
+    );
+    assert.deepEqual(historical, original.published);
+  } finally {
+    db.close();
+  }
+});
+
+test("full-history restoration is blocked without modifying drafts, publication or history", async (t) => {
+  const { app } = await fixture(t);
+  const headers = await localLogin(app);
+  const original = await getState(app, headers);
+  const response = await app.inject({
     method: "POST",
     url: "/api/admin/restore",
     headers,
-    payload: { id: original.history[0].id, version: published.version },
+    payload: { id: original.history[0].id, version: original.version },
   });
-  assert.equal(response.statusCode, 200, response.body);
-  assert.deepEqual(response.json().draft, original.draft);
-  assert.deepEqual(response.json().published, draft);
-  assert.equal(response.json().history[0].action, "draft.restored");
+  assert.equal(response.statusCode, 403, response.body);
+  assert.match(response.json().error, /restauração de versões completas/);
+  assert.deepEqual(await getState(app, headers), original);
 });
 
-test("concurrent editors cannot overwrite, publish or restore a stale version", async (t) => {
+test("concurrent editors cannot overwrite or publish a stale version", async (t) => {
   const { app } = await fixture(t);
   const headers = await localLogin(app);
   const original = await getState(app, headers);
@@ -239,11 +343,6 @@ test("concurrent editors cannot overwrite, publish or restore a stale version", 
       method: "POST",
       url: "/api/admin/publish",
       payload: { version: original.version },
-    },
-    {
-      method: "POST",
-      url: "/api/admin/restore",
-      payload: { id: original.history[0].id, version: original.version },
     },
   ]) {
     const response = await app.inject({ ...request, headers });
@@ -326,8 +425,6 @@ test("content validation rejects script URLs, invalid shapes, duplicate sections
   }
   assert.equal((await getState(app, headers)).version, original.version);
   const valid = copy(original.draft);
-  valid.sections[0].title = "x".repeat(300);
-  valid.selection.title = "x".repeat(300);
   valid.selection.stages = [
     { id: "stage-1", title: "Inscrições", date: "", description: "" },
   ];
@@ -338,6 +435,146 @@ test("content validation rejects script URLs, invalid shapes, duplicate sections
     payload: { content: valid, version: original.version },
   });
   assert.equal(accepted.statusCode, 200, accepted.body);
+});
+
+test("direct requests cannot change institutional content, section structure or process presentation", async (t) => {
+  const { app } = await fixture(t);
+  const headers = await localLogin(app);
+  const original = await getState(app, headers);
+  const mutations = [
+    (draft) => {
+      draft.site.name = "Outro nome";
+    },
+    (draft) => {
+      draft.site.description = "Outra descrição institucional";
+    },
+    (draft) => {
+      draft.site.footerTitle = "Outro rodapé";
+    },
+    (draft) => {
+      draft.sections[0].title = "Outro título";
+    },
+    (draft) => {
+      draft.sections[0].visible = !draft.sections[0].visible;
+    },
+    (draft) => {
+      draft.sections.reverse();
+    },
+    (draft) => {
+      draft.sections[3].items[0].image = "https://example.com/outra.jpg";
+    },
+    (draft) => {
+      draft.selection.title = "Título alterado";
+    },
+    (draft) => {
+      draft.selection.description = "Descrição alterada";
+    },
+    (draft) => {
+      draft.selection.buttonLabel = "Botão alterado";
+    },
+    (draft) => {
+      draft.selection.scheduleTitle = "Cronograma alterado";
+    },
+    (draft) => {
+      draft.selection.scheduleImage = "https://example.com/cronograma.jpg";
+    },
+  ];
+  for (const mutation of mutations) {
+    const draft = copy(original.draft);
+    draft.site.email = "tentativa@nexo.example.com";
+    mutation(draft);
+    const response = await app.inject({
+      method: "PUT",
+      url: "/api/admin/content",
+      headers,
+      payload: { content: draft, version: original.version },
+    });
+    assert.equal(response.statusCode, 403, response.body);
+    assert.match(
+      response.json().error,
+      /textos institucionais e a estrutura do site são fixos/,
+    );
+  }
+  assert.deepEqual(await getState(app, headers), original);
+  assert.deepEqual(
+    (await app.inject("/api/content")).json().content,
+    original.published,
+  );
+});
+
+test("legacy drafts cannot leak protected changes through admin state, preview or publication", async (t) => {
+  const { app, dataDir } = await fixture(t);
+  const headers = await localLogin(app);
+  const original = await getState(app, headers);
+  const published = copy(original.published);
+  published.site.name = "Nome institucional já publicado";
+  published.sections[0].title = "Título institucional já publicado";
+  published.selection.title = "Título do processo já publicado";
+  const legacyDraft = copy(published);
+  legacyDraft.site.name = "Nome privado de rascunho legado";
+  legacyDraft.site.footerTitle = "Rodapé privado de rascunho legado";
+  legacyDraft.sections[0].title = "Título privado de rascunho legado";
+  legacyDraft.sections[0].visible = false;
+  legacyDraft.selection.title = "Título do processo privado de rascunho legado";
+  legacyDraft.selection.status = "upcoming";
+  legacyDraft.selection.edition = "2028.1";
+  legacyDraft.site.email = "atualizado@nexo.example.com";
+  const db = new DatabaseSync(path.join(dataDir, "nexo.sqlite"));
+  t.after(() => db.close());
+  db.prepare("UPDATE content SET published = ?, draft = ? WHERE id = 1").run(
+    JSON.stringify(published),
+    JSON.stringify(legacyDraft),
+  );
+  const expected = copy(published);
+  expected.selection.status = legacyDraft.selection.status;
+  expected.selection.edition = legacyDraft.selection.edition;
+  expected.site.email = legacyDraft.site.email;
+  const current = await getState(app, headers);
+  assert.deepEqual(current.draft, expected);
+  assert.deepEqual(current.published, published);
+  const preview = await app.inject({ url: "/api/admin/preview", headers });
+  assert.deepEqual(preview.json().content, expected);
+  assert.deepEqual(
+    (await app.inject("/api/content")).json().content,
+    published,
+  );
+  assert.deepEqual(
+    JSON.parse(
+      db.prepare("SELECT draft FROM content WHERE id = 1").get().draft,
+    ),
+    legacyDraft,
+  );
+  const response = await app.inject({
+    method: "POST",
+    url: "/api/admin/publish",
+    headers,
+    payload: { version: current.version },
+  });
+  assert.equal(response.statusCode, 200, response.body);
+  assert.deepEqual(response.json().published, expected);
+  assert.deepEqual(response.json().draft, expected);
+  assert.deepEqual((await app.inject("/api/content")).json().content, expected);
+  assert.deepEqual(
+    JSON.parse(
+      db.prepare("SELECT draft FROM content WHERE id = 1").get().draft,
+    ),
+    legacyDraft,
+  );
+  assert.equal(response.json().history.length, original.history.length + 1);
+  const secondDraft = copy(response.json().draft);
+  secondDraft.site.email = "mais-atual@nexo.example.com";
+  const saved = await app.inject({
+    method: "PUT",
+    url: "/api/admin/content",
+    headers,
+    payload: { content: secondDraft, version: response.json().version },
+  });
+  assert.equal(saved.statusCode, 200, saved.body);
+  assert.equal(saved.json().draft.site.name, published.site.name);
+  assert.equal(
+    saved.json().draft.sections[0].title,
+    published.sections[0].title,
+  );
 });
 
 test("open selection requires an application link; valid dates can schedule future or expired periods", async (t) => {

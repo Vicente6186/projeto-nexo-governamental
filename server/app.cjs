@@ -21,6 +21,7 @@ const {
 } = require("node:crypto");
 const { DEFAULT_CONTENT } = require("../shared/content.cjs");
 const { validateContent, ValidationError } = require("./validation.cjs");
+const { editableDraft, validateEditableContent } = require("./site-policy.cjs");
 const { registerBlog } = require("./blog.cjs");
 const { registerBlogPages } = require("./blog-routes.cjs");
 
@@ -227,6 +228,8 @@ async function buildApp(options = {}) {
     maxAge: SESSION_MS / 1000,
   };
   const record = () => db.prepare("SELECT * FROM content WHERE id = 1").get();
+  const projectedDraft = (row) =>
+    editableDraft(JSON.parse(row.published), JSON.parse(row.draft));
   const assets = () =>
     db
       .prepare(
@@ -236,7 +239,7 @@ async function buildApp(options = {}) {
   const state = () => {
     const row = record();
     return {
-      draft: JSON.parse(row.draft),
+      draft: projectedDraft(row),
       published: JSON.parse(row.published),
       version: row.version,
       publishedVersion: row.published_version,
@@ -323,12 +326,7 @@ async function buildApp(options = {}) {
       body.version < 1
     )
       throw new ValidationError("Informe a versão do conteúdo.");
-    const allowed =
-      action === "save"
-        ? ["content", "version"]
-        : action === "restore"
-          ? ["id", "version"]
-          : ["version"];
+    const allowed = action === "save" ? ["content", "version"] : ["version"];
     if (Object.keys(body).some((key) => !allowed.includes(key)))
       throw new ValidationError(
         "A solicitação contém campos não reconhecidos.",
@@ -345,24 +343,23 @@ async function buildApp(options = {}) {
         throw error;
       }
       let content;
-      if (action === "save") content = validateContent(body.content);
-      if (action === "publish")
-        content = validateContent(JSON.parse(row.draft), {
+      if (action === "save")
+        content = validateEditableContent(
+          JSON.parse(row.published),
+          body.content,
+        );
+      if (action === "publish") {
+        content = validateContent(projectedDraft(row), {
           publishing: true,
           now: now(),
         });
-      if (action === "restore") {
-        if (typeof body.id !== "string" || body.id.length > 80)
-          throw new ValidationError("Versão do histórico inválida.");
-        const historical = db
-          .prepare("SELECT content FROM history WHERE id = ?")
-          .get(body.id);
-        if (!historical) {
-          const error = new Error("Versão não encontrada no histórico.");
-          error.statusCode = 404;
-          throw error;
-        }
-        content = validateContent(JSON.parse(historical.content));
+        // Once the team publishes a structured schedule, retiring its stages
+        // must not bring the historical schedule image back onto the site.
+        if (
+          content.selection.stages.length ||
+          JSON.parse(row.published).selection.stages.length
+        )
+          content.selection.scheduleImage = "";
       }
       const serialized = JSON.stringify(content);
       const timestamp = now().toISOString();
@@ -377,17 +374,11 @@ async function buildApp(options = {}) {
         ).run(serialized, nextVersion, timestamp);
       const summary =
         action === "save"
-          ? "Alterações salvas no rascunho"
-          : action === "publish"
-            ? "Conteúdo publicado no site"
-            : "Versão anterior restaurada no rascunho";
+          ? "Processo seletivo e contatos salvos no rascunho"
+          : "Processo seletivo e contatos publicados no site";
       db.prepare("INSERT INTO history VALUES (?, ?, ?, ?, ?)").run(
         randomUUID(),
-        action === "save"
-          ? "draft.saved"
-          : action === "publish"
-            ? "published"
-            : "draft.restored",
+        action === "save" ? "draft.saved" : "published",
         timestamp,
         summary,
         serialized,
@@ -520,7 +511,7 @@ async function buildApp(options = {}) {
     state(),
   );
   app.get("/api/admin/preview", { preHandler: requireAuth }, async () => ({
-    content: JSON.parse(record().draft),
+    content: projectedDraft(record()),
   }));
   app.get("/api/admin/assets", { preHandler: requireAuth }, async () => ({
     assets: assets(),
@@ -538,7 +529,11 @@ async function buildApp(options = {}) {
   app.post(
     "/api/admin/restore",
     { preHandler: requireMutation },
-    async (request) => update(request.body, "restore"),
+    async (_request, reply) =>
+      reply.code(403).send({
+        error:
+          "A restauração de versões completas não está disponível. Atualize o processo seletivo ou os canais de contato no painel.",
+      }),
   );
   app.post(
     "/api/admin/uploads",
@@ -592,7 +587,15 @@ async function buildApp(options = {}) {
     requireAuth,
     requireMutation,
   });
-  registerBlogPages(app, { blog, config, requireAuth, record });
+  registerBlogPages(app, {
+    blog,
+    config,
+    requireAuth,
+    record: () => {
+      const row = record();
+      return { ...row, draft: JSON.stringify(projectedDraft(row)) };
+    },
+  });
   await app.register(staticFiles, {
     root: uploadsDir,
     prefix: "/uploads/",

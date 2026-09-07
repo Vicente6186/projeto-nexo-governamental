@@ -1,6 +1,6 @@
 # Nexo Governamental · site e painel editorial
 
-Site institucional e blog do Nexo Governamental XI de Agosto, organização estudantil da Faculdade de Direito da USP, com painel em **React + Tailwind CSS**, API em **Node.js 24 + Fastify** e persistência em **SQLite**. A equipe edita o site e os artigos em `/admin`.
+Site institucional e blog do Nexo Governamental XI de Agosto, organização estudantil da Faculdade de Direito da USP, com painel em **React + Tailwind CSS**, API em **Node.js 24 + Fastify** e persistência em **SQLite**. A equipe mantém o processo seletivo, os canais de contato e os artigos em `/admin`.
 
 ## Rodar no computador
 
@@ -24,16 +24,27 @@ npm run dev
 
 O Webpack atende a interface na porta 8080 e encaminha `/api`, `/uploads` e `/blog` para o Fastify na porta 3001. Os dois processos iniciam juntos. A prévia local permite avaliar o editor sem configurar credenciais; mantenha-a restrita ao computador de desenvolvimento.
 
-## Fluxo editorial
+## Painel essencial
 
-1. Edite os títulos, descrições, textos complementares, itens e visibilidade das seções.
-2. No processo seletivo, atualize a edição, a situação das inscrições, as datas, o edital, o link de inscrição e o cronograma.
-3. Salve o rascunho e confira a prévia antes de publicar.
-4. Publique para disponibilizar o conteúdo no site. O histórico permite recuperar uma versão anterior como rascunho para revisão.
+O painel tem quatro áreas: **Visão geral**, **Processo seletivo**, **Blog do Nexo** e **Contato**. A visão geral reúne os atalhos e o estado das alterações. A edição do site se concentra no que a equipe precisa atualizar com frequência:
+
+- **Processo seletivo:** edição, situação das inscrições, abertura e encerramento, link do formulário, edital por link ou envio de PDF e etapas do cronograma com nome, data e orientações.
+- **Contato:** e-mail, endereço do perfil e nome de usuário do Instagram.
+- **Blog do Nexo:** criação e edição completa dos artigos, com capas, rascunhos, prévia e publicação.
+
+Os títulos e textos institucionais, as imagens principais, os projetos, a visibilidade das seções e a estrutura da página ficam fixos. Esses campos também são protegidos pela API; não podem ser alterados por uma requisição direta ao antigo editor. Os conteúdos e arquivos existentes são preservados. Mudanças na apresentação institucional passam pelo código do site.
+
+Para atualizar o processo seletivo ou os contatos:
+
+1. Edite os campos da área correspondente.
+2. Salve o rascunho e confira **Pré-visualizar**.
+3. Use **Publicar alterações** e confirme para atualizar o site deste ambiente.
 
 O rascunho é separado do conteúdo publicado. O site consulta apenas a versão publicada. O modelo inicial preserva os conteúdos existentes e mantém as inscrições encerradas até a equipe revisar e publicar uma nova edição. Publicar com a situação “Inscrições abertas” exige um link de inscrição válido. Quando houver datas, o site mostra “Em breve” antes da abertura, libera o botão dentro do período e encerra as inscrições depois do prazo, seguindo o horário de Brasília. A situação “Em breve” escolhida manualmente permanece assim até uma nova publicação.
 
-O painel inclui biblioteca de arquivos e configurações institucionais. Os uploads aceitam imagens PNG, JPEG, WebP e AVIF, além de PDFs, com limite de 8 MB por arquivo. Os arquivos enviados recebem uma URL pública; use a biblioteca apenas para materiais destinados ao site.
+As etapas cadastradas substituem a imagem antiga do cronograma quando são publicadas. Se todas as etapas forem removidas depois, o site deixa de exibir o cronograma; a imagem antiga não volta automaticamente.
+
+O edital pode ser enviado diretamente na página do processo seletivo. A biblioteca de capas fica dentro do editor do blog, sem uma área separada de gerenciamento do site. Os uploads aceitam imagens PNG, JPEG, WebP e AVIF, além de PDFs, com limite de 8 MB por arquivo. Os arquivos enviados recebem uma URL pública; envie apenas materiais destinados ao site. O registro interno das alterações permanece no banco, sem oferecer restauração de versões do site no painel simplificado.
 
 O menu de aparência, no topo do painel e na tela de acesso, oferece os temas Claro, Escuro e Sistema. A escolha fica salva neste navegador e acompanha as outras abas abertas. O modo Sistema segue a preferência do dispositivo. Essa escolha altera apenas o painel; o site público mantém a própria identidade visual. A busca do painel também pode ser aberta com `⌘ K` ou `Ctrl K`.
 
