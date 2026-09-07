@@ -10,6 +10,7 @@ const {
   writeFileSync,
   unlinkSync,
   chmodSync,
+  readFileSync,
 } = require("node:fs");
 const path = require("node:path");
 const {
@@ -28,6 +29,8 @@ const {
 } = require("./site-policy.cjs");
 const { registerBlog } = require("./blog.cjs");
 const { registerBlogPages } = require("./blog-routes.cjs");
+const { registerBlogImages } = require("./blog-images.cjs");
+const { htmlCsp } = require("./blog-seo.cjs");
 
 const { initializeUsers } = require("./users.cjs");
 const { registerPasswordReset } = require("./password-reset.cjs");
@@ -520,10 +523,7 @@ async function buildApp(options = {}) {
       config.production &&
       String(reply.getHeader("content-type") || "").startsWith("text/html")
     ) {
-      reply.header(
-        "Content-Security-Policy",
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; media-src 'self'; font-src 'self'; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' mailto:; frame-ancestors 'self'",
-      );
+      reply.header("Content-Security-Policy", htmlCsp(payload));
     }
     return payload;
   });
@@ -739,8 +739,10 @@ async function buildApp(options = {}) {
     requireMutation,
     validateAssetReference,
   });
+  const blogImages = registerBlogImages(app, { db, config });
   registerBlogPages(app, {
     blog,
+    images: blogImages,
     config,
     requireAuth,
     record: () => {
@@ -768,6 +770,21 @@ async function buildApp(options = {}) {
     });
     app.get("/admin", async (_, reply) => reply.redirect("/admin/"));
     app.get("/admin/", async (_, reply) => reply.sendFile("admin/index.html"));
+    if (existsSync(path.join(config.distDir, "index.html")))
+      app.get("/", async (_, reply) =>
+        reply
+          .type("text/html; charset=utf-8")
+          .header("Cache-Control", "no-cache")
+          .send(
+            readFileSync(
+              path.join(config.distDir, "index.html"),
+              "utf8",
+            ).replaceAll(
+              "https://nexo-governamental.netlify.app",
+              config.origin || "https://nexo-governamental.netlify.app",
+            ),
+          ),
+      );
   }
   app.setNotFoundHandler((request, reply) =>
     reply

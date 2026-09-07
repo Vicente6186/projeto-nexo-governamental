@@ -323,6 +323,21 @@ function registerBlog(
     };
   }
   const service = {
+    sitemapPosts: () =>
+      db
+        .prepare(
+          "SELECT published_slug AS slug, published_updated_at AS updatedAt, published FROM blog_posts WHERE published IS NOT NULL AND archived = 0 ORDER BY published_slug",
+        )
+        .all()
+        .map((row) => {
+          const post = JSON.parse(row.published);
+          return {
+            slug: row.slug,
+            updatedAt: row.updatedAt,
+            category: post.category,
+            coverImage: post.coverImage,
+          };
+        }),
     readList: (query) => list(query),
     readPreviewList: (query) => list(query, true),
     readPublished: (slug) => {

@@ -14,6 +14,7 @@
     "backup": "node --env-file-if-exists=.env scripts/backup.cjs",
     "restore:backup": "node --env-file-if-exists=.env scripts/restore.cjs",
     "check:readiness": "node --env-file-if-exists=.env scripts/readiness.cjs",
+    "check:seo": "node scripts/seo-check.cjs",
     "content:institutional": "node --env-file-if-exists=.env scripts/update-institutional.cjs"
   },
   "keywords": [],

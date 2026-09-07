@@ -132,8 +132,15 @@ function chrome(content, { site = {}, preview = false, article = false } = {}) {
 function cover(post, { className = "", eager = false } = {}) {
   const image = safeUrl(post.coverImage);
   return image
-    ? `<img class="${esc(className)}" src="${esc(image)}" alt="${esc(post.coverAlt || "")}" loading="${eager ? "eager" : "lazy"}" decoding="async"${eager ? ' fetchpriority="high"' : ""} />`
+    ? `<img class="${esc(className)}" src="${esc(image)}" alt="${esc(post.coverAlt || "")}"${imageAttributes(post, eager ? "(max-width: 768px) 100vw, 60vw" : "(max-width: 600px) 100vw, (max-width: 1000px) 50vw, 33vw")} loading="${eager ? "eager" : "lazy"}" decoding="async"${eager ? ' fetchpriority="high"' : ""} />`
     : `<div class="editorial-cover ${esc(className)}" aria-hidden="true"><span>NEXO</span><span class="editorial-cover-line"></span><small>IDEIAS EM DIÁLOGO</small></div>`;
+}
+
+function imageAttributes(post, sizes) {
+  const media = post.coverMedia;
+  return media
+    ? ` width="${media.width}" height="${media.height}" srcset="${esc(media.srcset)}" sizes="${sizes}"`
+    : "";
 }
 
 function postMeta(post, { includeAuthor = true } = {}) {
@@ -228,8 +235,10 @@ function renderBlogIndex({
     <aside class="journal-invitation"><div><span class="eyebrow">CONHECIMENTO EM MOVIMENTO</span><p>A conversa continua<br /><em>fora destas páginas.</em></p></div><div><p>Conheça os projetos e encontros que aproximam o Nexo da vida pública.</p><a href="/#more" class="article-link">Explore o Nexo <span>${icon("diagonal")}</span></a></div></aside>
   </div>`;
   return {
-    title: `${search ? `Busca: ${search}` : category || "Blog"} · ${BRAND}`,
-    description: DEFAULT_DESCRIPTION,
+    title: `${search ? `Busca: ${search}` : category || "Blog"}${cleanPage > 1 ? ` · Página ${cleanPage}` : ""} · ${BRAND}`,
+    description: category
+      ? `Artigos sobre ${category.toLocaleLowerCase("pt-BR")} no blog do Nexo Governamental, organização estudantil da Faculdade de Direito da USP.`
+      : DEFAULT_DESCRIPTION,
     canonicalPath: queryLink({ category, search, page: cleanPage }),
     ogImage: safeUrl(
       featured?.coverImage,
@@ -304,7 +313,7 @@ function renderBlogArticle({
       <nav class="article-breadcrumb" aria-label="Você está em"><a href="${blogHref}">Blog</a>${icon("chevron")}<a href="${categoryHref}">${esc(category)}</a></nav>
       <div class="article-heading-inner"><a class="category-label" href="${categoryHref}">${esc(category)}</a><h1>${esc(post.title)}</h1><p class="article-deck">${esc(post.excerpt)}</p><div class="article-byline"><span class="author-avatar" aria-hidden="true">${esc(initials(post.author))}</span><div class="author-details"><strong>${esc(post.author || BRAND)}</strong>${post.authorRole ? `<span>${esc(post.authorRole)}</span>` : ""}</div><div class="article-date">${dateMarkup(post.publishedAt)}<span>${icon("clock")}${readTime} min de leitura</span></div></div></div>
     </header>
-    ${coverImage ? `<figure class="article-cover blog-container"><img src="${esc(coverImage)}" alt="${esc(post.coverAlt || "")}" fetchpriority="high" decoding="async" />${post.coverCredit ? `<figcaption>${esc(post.coverCredit)}</figcaption>` : ""}</figure>` : ""}
+    ${coverImage ? `<figure class="article-cover blog-container"><img src="${esc(coverImage)}" alt="${esc(post.coverAlt || "")}"${imageAttributes(post, "(max-width: 1280px) 100vw, 1280px")} fetchpriority="high" decoding="async" />${post.coverCredit ? `<figcaption>${esc(post.coverCredit)}</figcaption>` : ""}</figure>` : ""}
     <div class="article-layout blog-container">
       <aside class="article-sidebar"><div class="article-sidebar-sticky">${contents.length >= 2 ? `<nav class="table-of-contents" aria-label="Neste artigo"><h2>NESTE ARTIGO</h2><ol>${contents.map((entry) => `<li><a href="#${esc(entry.id)}">${esc(entry.title)}</a></li>`).join("")}</ol></nav>` : `<div class="sidebar-reading-note"><span class="eyebrow">CADERNO NEXO</span><p>Um convite à<br /><em>reflexão.</em></p></div>`}${preview ? '<div class="article-share"><span class="eyebrow">LEITURA EM PRÉVIA</span><p class="share-status">A publicação libera o link para compartilhar este artigo.</p></div>' : `<div class="article-share"><span class="eyebrow">COMPARTILHE A IDEIA</span><button class="copy-link" type="button" data-copy-link hidden>${icon("copy")} Copiar link</button><label class="sr-only" for="share-link-fallback">Link deste artigo</label><input class="share-fallback" id="share-link-fallback" data-share-fallback readonly hidden /><p class="share-status" data-share-status role="status" aria-live="polite"></p></div>`}</div></aside>
       <div class="article-reading-column"><div class="article-body">${rendered.html}</div>

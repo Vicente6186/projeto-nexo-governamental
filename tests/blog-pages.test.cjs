@@ -67,7 +67,7 @@ async function fixture(t) {
     assert.equal(response.statusCode, 200, response.body);
     return response.json().post;
   }
-  return { app, headers, create, action };
+  return { app, headers, create, action, directory, distDir };
 }
 
 function document(response) {
@@ -123,7 +123,7 @@ test("SSR pages, RSS and sitemap never expose unpublished drafts", async (t) => 
     [`${ORIGIN}/blog/`],
   );
   const redirect = await app.inject("/blog?search=universidade");
-  assert.equal(redirect.statusCode, 302);
+  assert.equal(redirect.statusCode, 301);
   assert.equal(redirect.headers.location, "/blog/?search=universidade");
 });
 
@@ -212,7 +212,21 @@ test("published articles render complete HTML and metadata without JavaScript, e
     post.publishedAt,
   );
   assert.equal(page.querySelector('meta[name="injected"]'), null);
-  assert.equal(page.querySelectorAll("script, [onload], [onerror]").length, 0);
+  assert.equal(
+    page.querySelectorAll(
+      'script:not([type="application/ld+json"]), [onload], [onerror]',
+    ).length,
+    0,
+  );
+  const data = JSON.parse(
+    page.querySelector('script[type="application/ld+json"]').textContent,
+  );
+  assert.equal(data["@graph"][0]["@type"], "BlogPosting");
+  assert.equal(data["@graph"][0].headline, unsafeTitle);
+  assert.equal(
+    data["@graph"][0].publisher.name,
+    "Nexo Governamental XI de Agosto",
+  );
   assert.equal(
     page.querySelector(".article-body strong").textContent,
     "acessível",
@@ -299,4 +313,242 @@ test("RSS and sitemap include only published snapshots and update immediately af
     1,
   );
   assert.equal((await app.inject(`/blog/${post.draft.slug}`)).statusCode, 404);
+});
+
+test("discovery files use the configured origin and publish only public categories and images", async (t) => {
+  const { app, create, action, distDir } = await fixture(t);
+  writeFileSync(
+    path.join(distDir, "robots.txt"),
+    "Sitemap: https://obsolete.example/sitemap.xml",
+  );
+  const robots = await app.inject("/robots.txt");
+  assert.match(robots.body, new RegExp(`${ORIGIN}/sitemap.xml`));
+  assert.doesNotMatch(robots.body, /obsolete|Disallow: \/\n/);
+  const index = xml(await app.inject("/sitemap.xml"));
+  assert.deepEqual(
+    [...index.querySelectorAll("sitemap > loc")].map(
+      (node) => node.textContent,
+    ),
+    [`${ORIGIN}/sitemap-pages.xml`, `${ORIGIN}/blog/sitemap.xml`],
+  );
+  assert.equal(
+    xml(await app.inject("/sitemap-pages.xml")).querySelector("loc")
+      .textContent,
+    `${ORIGIN}/`,
+  );
+  let post = await create({
+    coverImage: "https://images.example/photo.webp",
+    coverAlt: "Uma imagem de teste",
+    category: "Institucional",
+  });
+  post = await action(post, "publish");
+  const sitemap = xml(await app.inject("/blog/sitemap.xml"));
+  assert.equal(
+    sitemap.getElementsByTagName("image:loc")[0].textContent,
+    "https://images.example/photo.webp",
+  );
+  assert.ok(
+    [...sitemap.querySelectorAll("loc")].some(
+      (node) => node.textContent === `${ORIGIN}/blog/?category=Institucional`,
+    ),
+  );
+  await action(post, "archive");
+  assert.doesNotMatch(
+    (await app.inject("/blog/sitemap.xml")).body,
+    /photo.webp|category=/,
+  );
+});
+
+test("search is unindexed, pagination has its own canonical and invalid pages are not soft 404s", async (t) => {
+  const { app, create, action } = await fixture(t);
+  for (let number = 0; number < 13; number++)
+    await action(
+      await create({
+        slug: `artigo-${number}`,
+        title: `Reflexão pública ${number}`,
+      }),
+      "publish",
+    );
+  const response = await app.inject({
+    url: "/blog/?page=2&utm_source=example",
+    headers: { host: "foreign.example" },
+  });
+  const page = document(response);
+  assert.equal(response.statusCode, 200);
+  assert.match(page.title, /Página 2/);
+  assert.equal(
+    page.querySelector('link[rel="canonical"]').href,
+    `${ORIGIN}/blog/?page=2`,
+  );
+  assert.equal(
+    page.querySelector('[aria-label="Página anterior"]').getAttribute("href"),
+    "/blog/",
+  );
+  for (const url of ["/blog/?page=999", "/blog/?category=inexistente"]) {
+    const missing = await app.inject(url);
+    assert.equal(missing.statusCode, 404);
+    assert.match(missing.headers["x-robots-tag"], /noindex/);
+    assert.equal(
+      document(missing).querySelector('link[rel="canonical"]'),
+      null,
+    );
+  }
+  for (const url of ["/blog/?page=1", "/blog/?page=invalid"]) {
+    const normalized = await app.inject(url);
+    assert.equal(normalized.statusCode, 301);
+    assert.equal(normalized.headers.location, "/blog/");
+  }
+  const search = await app.inject("/blog/?search=Reflex%C3%A3o");
+  assert.equal(search.statusCode, 200);
+  assert.equal(search.headers["x-robots-tag"], "noindex, follow");
+  const api = await app.inject("/api/blog?page=999");
+  assert.equal(api.statusCode, 200);
+  assert.equal(api.json().page, 2);
+});
+
+test("article structured data is injection safe and cannot pick up an unpublished revision", async (t) => {
+  const { app, headers, create, action } = await fixture(t);
+  let post = await action(
+    await create({
+      title: "Pesquisa </script><script>alert(1)</script>",
+      author: 'Autora " & <teste>',
+    }),
+    "publish",
+  );
+  const response = await app.inject(`/blog/${post.published.slug}`);
+  const page = document(response);
+  const blocks = page.querySelectorAll("script");
+  assert.equal(blocks.length, 1);
+  assert.equal(blocks[0].type, "application/ld+json");
+  const data = JSON.parse(blocks[0].textContent)["@graph"];
+  assert.equal(data[0].headline, post.published.title);
+  assert.equal(data[0].author.name, post.published.author);
+  assert.equal(data[0].dateModified, post.publishedAt);
+  assert.equal(data[1]["@type"], "BreadcrumbList");
+  assert.deepEqual(
+    data[1].itemListElement.map((item) => item.position),
+    [1, 2, 3],
+  );
+  const saved = await app.inject({
+    method: "PUT",
+    url: `/api/admin/blog/${post.id}`,
+    headers,
+    payload: {
+      version: post.version,
+      post: { ...post.draft, title: "Novo título privado" },
+    },
+  });
+  assert.equal(saved.statusCode, 200);
+  assert.deepEqual(
+    JSON.parse(
+      document(await app.inject(`/blog/${post.published.slug}`)).querySelector(
+        "script",
+      ).textContent,
+    )["@graph"],
+    data,
+  );
+  const preview = document(
+    await app.inject({ url: `/blog/preview/${post.id}`, headers }),
+  );
+  assert.equal(
+    preview.querySelector('script[type="application/ld+json"]'),
+    null,
+  );
+});
+
+test("local cover images get real dimensions and bounded WebP variants without exposing files", async (t) => {
+  const { app, create, action, distDir, directory } = await fixture(t);
+  const sharp = require("sharp");
+  const assets = path.join(distDir, "assets");
+  mkdirSync(assets);
+  const original = await sharp({
+    create: { width: 1600, height: 900, channels: 3, background: "#195c67" },
+  })
+    .png()
+    .toBuffer();
+  writeFileSync(path.join(assets, "cover.png"), original);
+  const post = await action(
+    await create({
+      coverImage: "/assets/cover.png",
+      coverAlt: "Capa de teste",
+    }),
+    "publish",
+  );
+  const page = document(await app.inject(`/blog/${post.published.slug}`));
+  const cover = page.querySelector(".article-cover img");
+  assert.equal(cover.width, 1600);
+  assert.equal(cover.height, 900);
+  assert.match(cover.srcset, /\/media\/480\/assets\/cover.png 480w/);
+  assert.match(cover.sizes, /1280px/);
+  const variant = await app.inject("/media/480/assets/cover.png");
+  assert.equal(variant.statusCode, 200);
+  assert.equal(variant.headers["content-type"], "image/webp");
+  const info = await sharp(variant.rawPayload).metadata();
+  assert.equal(info.width, 480);
+  assert.equal(info.height, 270);
+  assert.equal(
+    (
+      await app.inject({
+        url: "/media/480/assets/cover.png",
+        headers: { "if-none-match": variant.headers.etag },
+      })
+    ).statusCode,
+    304,
+  );
+  assert.deepEqual(
+    require("node:fs").readFileSync(path.join(assets, "cover.png")),
+    original,
+  );
+  writeFileSync(path.join(directory, "outside.png"), original);
+  require("node:fs").symlinkSync(
+    path.join(directory, "outside.png"),
+    path.join(assets, "escape.png"),
+  );
+  for (const url of [
+    "/media/999/assets/cover.png",
+    "/media/1920/assets/cover.png",
+    "/media/480/assets/escape.png",
+    "/media/480/uploads/unknown.png",
+    "/media/480/originals/cover.png",
+    "/media/480/https://example.com/cover.png",
+  ])
+    assert.equal((await app.inject(url)).statusCode, 404, url);
+});
+
+test("remote covers keep their URL without server-side fetching or invented image dimensions", async (t) => {
+  const { app, create, action } = await fixture(t);
+  const post = await action(
+    await create({
+      coverImage: "https://images.example/unavailable.webp",
+      coverAlt: "Imagem externa",
+    }),
+    "publish",
+  );
+  const page = document(await app.inject(`/blog/${post.published.slug}`));
+  const cover = page.querySelector(".article-cover img");
+  assert.equal(
+    cover.getAttribute("src"),
+    "https://images.example/unavailable.webp",
+  );
+  assert.equal(cover.getAttribute("width"), null);
+  assert.equal(cover.getAttribute("srcset"), null);
+});
+
+test("production CSP authorizes only the exact inert structured-data block", () => {
+  const { htmlCsp, jsonLd } = require("../server/blog-seo.cjs");
+  const { createHash } = require("node:crypto");
+  const encoded = jsonLd({
+    headline: "Um título </script><script>malicioso</script>",
+  });
+  assert.doesNotMatch(encoded, /<\/script>/);
+  const policy = htmlCsp(
+    `<script type="application/ld+json">${encoded}</script><script>alert(1)</script>`,
+  );
+  const scriptPolicy = policy
+    .split(";")
+    .find((item) => item.trim().startsWith("script-src"));
+  assert.equal(
+    scriptPolicy.trim(),
+    `script-src 'self' 'sha256-${createHash("sha256").update(encoded).digest("base64")}'`,
+  );
 });

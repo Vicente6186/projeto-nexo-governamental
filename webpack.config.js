@@ -98,7 +98,15 @@ module.exports = {
     headers: { "Cache-Control": "no-store" },
     proxy: [
       {
-        context: ["/api", "/uploads", "/blog"],
+        context: [
+          "/api",
+          "/uploads",
+          "/blog",
+          "/media",
+          "/robots.txt",
+          "/sitemap.xml",
+          "/sitemap-pages.xml",
+        ],
         target: "http://127.0.0.1:3001",
       },
     ],
