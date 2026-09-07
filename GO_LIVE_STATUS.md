@@ -21,7 +21,7 @@ O site, o blog e o painel estão publicados em **https://nexo-governamental.netl
 | Serviço Node | `https://nexo-governamental-production.up.railway.app`; uma instância, porta 3001. |
 | Armazenamento | Volume `42b255da-186a-4e04-b425-eacb3f398a1a` em `/app/data`; banco ativo em `/app/data/nexo`. |
 | Origem canônica | `CMS_ORIGIN=https://nexo-governamental.netlify.app`; site, painel e API na mesma origem para a equipe. |
-| Deploy Railway validado | `2a7aab73-0fb1-44e6-8e47-7f285499a98f`, status `SUCCESS`, após ativação da base restaurada. |
+| Deploy Railway validado | `7deb9718-1838-4110-9c37-54a0d39d9581`, status `SUCCESS`, após substituir o contêiner com a base restaurada. O manifesto confirmou `/api/health`, timeout de 120 segundos e reinício `ON_FAILURE` com cinco tentativas. |
 | Deploy Netlify validado | `6a9f489183c75d5eb45869b5`, no site existente `a110ae89-14a7-44cd-ac6e-ef67004f304a`. |
 | Retorno público | `/`, `/blog/`, `/admin/`, `/api/health`, robots, sitemaps e arquivo de verificação Google responderam corretamente. |
 | Autenticação | Login de Vicente confirmado; cookie Secure, HttpOnly e SameSite=Strict, respostas da API sem cache. A sessão de teste foi encerrada. |

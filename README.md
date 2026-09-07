@@ -22,7 +22,7 @@ npm run dev
 - Painel: <http://127.0.0.1:8080/admin/>
 - API: <http://127.0.0.1:3001/>
 
-O Webpack atende a interface na porta 8080 e encaminha API, blog, uploads, variantes de imagens, robots e sitemaps para o Fastify na porta 3001. Os dois processos iniciam juntos. Entre no painel com o e-mail e a senha configurados. O acesso de demonstração está desabilitado; a pré-visualização editorial dos rascunhos permanece disponível após entrar.
+O Webpack atende a interface na porta 8080 e encaminha API, blog, uploads e variantes de imagens para o Fastify na porta 3001. Para conferir o SEO completo localmente, use o Fastify na porta 3001: os arquivos estáticos do Webpack podem ter precedência sobre robots e sitemaps na porta 8080. Os dois processos iniciam juntos. Entre no painel com o e-mail e a senha configurados. O acesso de demonstração está desabilitado; a pré-visualização editorial dos rascunhos permanece disponível após entrar.
 
 ## Painel essencial
 
@@ -76,8 +76,8 @@ Pelo checkout local com `npm ci` executado (o verificador usa as dependências d
 
 ```sh
 npm run check:seo -- --url https://nexo-governamental.netlify.app
-# Para conferir um servidor local com o domínio canônico de produção:
-npm run check:seo -- --url http://127.0.0.1:3001 --canonical https://nexo-governamental.netlify.app
+# Para conferir o Fastify com a origem padrão do desenvolvimento:
+npm run check:seo -- --url http://127.0.0.1:3001 --canonical http://127.0.0.1:8080
 ```
 
 O comando confere descoberta, canonical, autenticação das prévias e até dez artigos presentes no sitemap. Quando não há publicações, informa essa limitação. Os testes automatizados também verificam artigos em banco isolado, sem publicar exemplos no site.
