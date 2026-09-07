@@ -621,11 +621,23 @@ function Workspace({ session, initialState, onLogout, onSession }) {
   function focusError(field) {
     navigate(field.startsWith("site.") ? "contato" : "processo");
     setTimeout(() => {
-      const input = [...document.querySelectorAll("[data-field]")].find(
-        (item) => item.dataset.field === field,
+      const targetField =
+        field === "site.instagramHandle" ? "site.instagramUrl" : field;
+      window.dispatchEvent(
+        new CustomEvent("nexo:focus-field", { detail: { field: targetField } }),
       );
-      input?.focus();
-      input?.scrollIntoView({ block: "center", behavior: "smooth" });
+      requestAnimationFrame(() => {
+        const input = [...document.querySelectorAll("[data-field]")].find(
+          (item) => item.dataset.field === targetField,
+        );
+        let parent = input?.parentElement;
+        while (parent) {
+          if (parent.tagName === "DETAILS") parent.open = true;
+          parent = parent.parentElement;
+        }
+        input?.focus();
+        input?.scrollIntoView({ block: "center", behavior: "smooth" });
+      });
     }, 100);
   }
   function checkContent(publishing = false) {

@@ -99,6 +99,7 @@ async function readArticle(page, id) {
 
 async function openEditor(page, id) {
   await page.goto(`/admin/#blog/${id}`);
+  await goBlogStep(page, "Informações");
   await expect(
     page.getByLabel("Título do artigo", { exact: true }),
   ).toBeVisible();
@@ -113,7 +114,20 @@ async function saveDraft(page) {
   );
 }
 
+async function goBlogStep(page, name) {
+  await page
+    .getByRole("navigation", { name: "Etapas do artigo", exact: true })
+    .getByRole("button", { name, exact: true })
+    .click();
+}
+async function openOptional(page, text) {
+  const summary = page.getByText(text, { exact: true });
+  if (await summary.locator("..").evaluate((el) => !el.open))
+    await summary.click();
+}
+
 async function fillMarkdown(page, body) {
+  await goBlogStep(page, "Texto");
   await page
     .getByRole("button", { name: "Editar Markdown", exact: true })
     .click();
@@ -126,6 +140,7 @@ async function fillMarkdown(page, body) {
 }
 
 async function publish(page) {
+  await goBlogStep(page, "Revisão");
   await page
     .getByRole("button", { name: /^Publicar (artigo|alterações)$/ })
     .click();
@@ -192,6 +207,7 @@ test("an article can be written and saved in the editor while its preview remain
   await page.getByRole("link", { name: "Blog do Nexo", exact: true }).click();
   await page.getByRole("button", { name: "Novo artigo", exact: true }).click();
   const content = article();
+  await goBlogStep(page, "Revisão");
   await page
     .getByRole("button", { name: "Publicar artigo", exact: true })
     .click();
@@ -207,30 +223,44 @@ test("an article can be written and saved in the editor while its preview remain
     .getByRole("dialog")
     .getByRole("button", { name: "Continuar editando", exact: true })
     .click();
+  await goBlogStep(page, "Informações");
   await page
     .getByLabel("Título do artigo", { exact: true })
     .fill(content.title);
+  await goBlogStep(page, "Informações");
   await page.getByLabel("Resumo", { exact: true }).fill(content.excerpt);
   await fillMarkdown(page, content.body);
+  await goBlogStep(page, "Revisão");
   await page.getByText("Endereço e compartilhamento", { exact: true }).click();
+  await goBlogStep(page, "Revisão");
   await page
     .getByLabel("Endereço do artigo", { exact: true })
     .fill(content.slug);
+  await goBlogStep(page, "Informações");
   await page
     .getByLabel("Categoria", { exact: true })
     .selectOption(content.category);
+  await goBlogStep(page, "Informações");
   await page.getByLabel("Autoria", { exact: true }).fill(content.author);
+  await goBlogStep(page, "Informações");
+  await page.locator(".form-optional > summary").click();
   await page
     .getByLabel("Descrição da autoria", { exact: true })
     .fill(content.authorRole);
+  await goBlogStep(page, "Revisão");
+  await openOptional(page, "Ajustes de publicação");
   await page.getByLabel("Temas", { exact: true }).fill(content.tags.join(", "));
+  await goBlogStep(page, "Capa");
   await page.getByText("Usar uma imagem por link", { exact: true }).click();
+  await goBlogStep(page, "Capa");
   await page
     .getByLabel("Link da imagem de capa", { exact: true })
     .fill(content.coverImage);
+  await goBlogStep(page, "Capa");
   await page
     .getByLabel("Descrição da imagem", { exact: true })
     .fill(content.coverAlt);
+  await goBlogStep(page, "Capa");
   await page
     .getByLabel("Crédito da imagem", { exact: true })
     .fill(content.coverCredit);
@@ -365,6 +395,7 @@ test("publication serves complete article HTML and keeps saved edits private unt
   await noScriptContext.close();
 
   const revisedTitle = "Universidade em diálogo: uma leitura revisada";
+  await goBlogStep(page, "Informações");
   await page.getByLabel("Título do artigo", { exact: true }).fill(revisedTitle);
   await saveDraft(page);
   await visitor.reload();
@@ -395,6 +426,7 @@ test("withdrawing, archiving and restoring an article never republishes it autom
 }) => {
   const post = await createArticle(page, article(), true);
   await openEditor(page, post.id);
+  await goBlogStep(page, "Revisão");
   await page
     .getByRole("button", { name: "Retirar do ar", exact: true })
     .click();
@@ -407,6 +439,7 @@ test("withdrawing, archiving and restoring an article never republishes it autom
     .toBeNull();
   const visitor = await context.newPage();
   expect((await visitor.goto(`/blog/${post.draft.slug}`)).status()).toBe(404);
+  await goBlogStep(page, "Revisão");
   await page
     .getByRole("button", { name: "Arquivar artigo", exact: true })
     .click();
@@ -504,6 +537,7 @@ test("a duplicate article address is an actionable field error, not an editing c
   const occupied = await createArticle(page, article());
   const editable = await createArticle(page, article());
   await openEditor(page, editable.id);
+  await goBlogStep(page, "Revisão");
   await page.getByText("Endereço e compartilhamento", { exact: true }).click();
   const slug = page.getByLabel("Endereço do artigo", { exact: true });
   const rejected = page.waitForResponse(
@@ -512,6 +546,7 @@ test("a duplicate article address is an actionable field error, not an editing c
       response.request().method() === "PUT",
   );
   await slug.fill(occupied.draft.slug);
+  await goBlogStep(page, "Informações");
   await page.getByLabel("Autoria", { exact: true }).focus();
   await page.keyboard.press("Control+s");
   const response = await rejected;
@@ -525,6 +560,12 @@ test("a duplicate article address is an actionable field error, not an editing c
     /Este endereço já está em uso/,
   );
   await expect(slug).toBeFocused();
+  await expect(page.locator(".blog-review-checks")).toContainText(
+    "Este endereço já está em uso",
+  );
+  await expect(page.locator(".blog-review-checks")).not.toContainText(
+    "Tudo pronto para a revisão final",
+  );
   await expect(
     page.getByRole("dialog", {
       name: "Este artigo foi atualizado",
@@ -560,10 +601,12 @@ test("a pending cover upload blocks editorial actions and its new image requires
       response.url().endsWith("/api/admin/uploads") &&
       response.request().method() === "POST",
   );
+  await goBlogStep(page, "Capa");
   await page
     .getByLabel("Enviar capa do artigo", { exact: true })
     .setInputFiles(path.resolve("src/assets/more/events.webp"));
   try {
+    await goBlogStep(page, "Revisão");
     await expect(
       page.getByRole("button", { name: "Publicar artigo", exact: true }),
     ).toBeDisabled();
@@ -580,6 +623,7 @@ test("a pending cover upload blocks editorial actions and its new image requires
   const response = await uploaded;
   expect(response.ok()).toBeTruthy();
   const { asset } = await response.json();
+  await goBlogStep(page, "Capa");
   await expect(
     page.getByLabel("Descrição da imagem", { exact: true }),
   ).toHaveValue("");
@@ -590,6 +634,7 @@ test("a pending cover upload blocks editorial actions and its new image requires
     "src",
     asset.url,
   );
+  await goBlogStep(page, "Revisão");
   await page
     .getByRole("button", { name: "Publicar artigo", exact: true })
     .click();
@@ -601,9 +646,12 @@ test("a pending cover upload blocks editorial actions and its new image requires
   await review
     .getByRole("button", { name: "Continuar editando", exact: true })
     .click();
+  await goBlogStep(page, "Capa");
+  await goBlogStep(page, "Capa");
   await page
     .getByLabel("Descrição da imagem", { exact: true })
     .fill("Auditório com cadeiras azuis e mesa de debate");
+  await goBlogStep(page, "Capa");
   await page
     .getByLabel("Crédito da imagem", { exact: true })
     .fill("Acervo de teste do Nexo");
@@ -622,7 +670,9 @@ test("replacing a cover URL or choosing a library image clears metadata belongin
 }) => {
   const post = await createArticle(page, article());
   await openEditor(page, post.id);
+  await goBlogStep(page, "Capa");
   await page.getByText("Usar uma imagem por link", { exact: true }).click();
+  await goBlogStep(page, "Capa");
   await page
     .getByLabel("Link da imagem de capa", { exact: true })
     .fill("/assets/more/school.webp");
@@ -632,6 +682,7 @@ test("replacing a cover URL or choosing a library image clears metadata belongin
   await expect(credit).toHaveValue("");
   await alt.fill("Descrição exclusiva da imagem por link");
   await credit.fill("Crédito exclusivo da imagem por link");
+  await goBlogStep(page, "Capa");
   await page
     .getByRole("button", { name: "Usar biblioteca", exact: true })
     .click();
@@ -660,6 +711,7 @@ test("an article can be withdrawn while an invalid local draft remains available
 }) => {
   const post = await createArticle(page, article(), true);
   await openEditor(page, post.id);
+  await goBlogStep(page, "Capa");
   await page.getByText("Usar uma imagem por link", { exact: true }).click();
   const cover = page.getByLabel("Link da imagem de capa", { exact: true });
   await cover.fill("javascript:invalid-draft");
@@ -672,6 +724,7 @@ test("an article can be withdrawn while an invalid local draft remains available
     )
       writes.push(request);
   });
+  await goBlogStep(page, "Revisão");
   await page
     .getByRole("button", { name: "Retirar do ar", exact: true })
     .click();
@@ -717,6 +770,7 @@ test("restoring a historical article revision updates only the draft and preserv
     version: post.version,
   }));
   await openEditor(page, post.id);
+  await goBlogStep(page, "Revisão");
   await page
     .getByRole("button", { name: "Versões anteriores", exact: true })
     .click();
@@ -797,6 +851,52 @@ test("automatic saving preserves edits typed while an earlier request is still i
   );
 });
 
+test("a delayed validation error does not block a newer corrected article draft", async ({
+  page,
+}) => {
+  const occupied = await createArticle(page, article());
+  const post = await createArticle(page, article());
+  await openEditor(page, post.id);
+  await goBlogStep(page, "Revisão");
+  await openOptional(page, "Endereço e compartilhamento");
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  let first = true;
+  await page.route(`**/api/admin/blog/${post.id}`, async (route) => {
+    if (route.request().method() === "PUT" && first) {
+      first = false;
+      await gate;
+    }
+    await route.continue();
+  });
+  const pending = page.waitForRequest(
+    (request) =>
+      request.url().endsWith(`/api/admin/blog/${post.id}`) &&
+      request.method() === "PUT",
+  );
+  const slug = page.getByLabel("Endereço do artigo", { exact: true });
+  await slug.fill(occupied.draft.slug);
+  await pending;
+  const corrected = article().slug;
+  try {
+    await slug.fill(corrected);
+  } finally {
+    release();
+  }
+  await expect
+    .poll(async () => (await readArticle(page, post.id)).draft.slug)
+    .toBe(corrected);
+  await expect(slug).not.toHaveAttribute("aria-invalid", "true");
+  await expect(page.locator(".blog-review-checks")).toContainText(
+    "Tudo pronto para a revisão final",
+  );
+  await expect(page.locator(".blog-save-status")).toContainText(
+    "Rascunho salvo",
+  );
+});
+
 test("a failed autosave can be recovered after reload without overwriting the saved article until the editor chooses to save", async ({
   page,
 }) => {
@@ -840,6 +940,7 @@ test("visual article formatting round trips to Markdown and unsupported source r
 }) => {
   const post = await createArticle(page, article({ body: "" }));
   await openEditor(page, post.id);
+  await goBlogStep(page, "Texto");
   const editor = page.getByRole("textbox", {
     name: "Texto do artigo",
     exact: true,
@@ -868,6 +969,7 @@ test("visual article formatting round trips to Markdown and unsupported source r
   await saveDraft(page);
   expect((await readArticle(page, post.id)).draft.body).toBe(advancedBody);
   await page.reload();
+  await goBlogStep(page, "Texto");
   await expect(source).toBeVisible();
   await expect(source).toHaveValue(advancedBody);
   await expect(
@@ -881,6 +983,7 @@ test("Undo returns to the loaded article and cannot erase it as an initial edito
   const original = "Texto original que precisa permanecer preservado.";
   const post = await createArticle(page, article({ body: original }));
   await openEditor(page, post.id);
+  await goBlogStep(page, "Texto");
   const editor = page.getByRole("textbox", {
     name: "Texto do artigo",
     exact: true,
@@ -891,6 +994,9 @@ test("Undo returns to the loaded article and cannot erase it as an initial edito
   await editor.fill(`${original} Uma nova ideia.`);
   await expect(editor).toHaveText(`${original} Uma nova ideia.`);
   await expect(undo).toBeEnabled();
+  await goBlogStep(page, "Informações");
+  await expect(editor).toBeHidden();
+  await goBlogStep(page, "Texto");
   await undo.click();
   await expect(editor).toHaveText(original);
   await expect(undo).toBeDisabled();
@@ -995,18 +1101,24 @@ test("the blog workspace and article editor remain usable in both appearances on
       await expect(
         page.getByLabel("Título do artigo", { exact: true }),
       ).toBeVisible();
-      const writingColumn = await page
-        .locator(".blog-writing-column")
-        .boundingBox();
-      for (const selector of [".blog-writing-card", ".blog-cover-card"]) {
+      for (const [name, selector] of [
+        ["Informações", ".blog-writing-card:not([hidden])"],
+        ["Texto", ".blog-text-step"],
+        ["Capa", ".blog-cover-card"],
+        ["Revisão", ".blog-review-card"],
+      ]) {
+        await goBlogStep(page, name);
+        await noOverflow(page);
         const card = await page.locator(selector).boundingBox();
-        expect(
-          Math.abs(card.width - writingColumn.width),
-          `${selector} fills the writing column at ${width}px`,
-        ).toBeLessThanOrEqual(2);
         expect(card.x).toBeGreaterThanOrEqual(0);
         expect(card.x + card.width).toBeLessThanOrEqual(width + 1);
+        await expect(
+          page
+            .getByRole("navigation", { name: "Etapas do artigo" })
+            .getByRole("button", { name, exact: true }),
+        ).toHaveAttribute("aria-current", "step");
       }
+      await goBlogStep(page, "Informações");
       await screenshot(page, `admin-${suffix}-editor-${width}`);
     }
   }

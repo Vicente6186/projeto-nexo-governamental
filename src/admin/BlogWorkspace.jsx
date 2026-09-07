@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
+  ArrowRight,
   ArrowUpRight,
   BookOpen,
   CheckCircle2,
@@ -41,6 +42,8 @@ import {
   dateLabel,
 } from "./components";
 import "./blog.css";
+import { FormSteps, focusStep } from "./FormSteps";
+import "./blog-steps.css";
 const RichTextEditor = lazy(() => import("./RichTextEditor"));
 
 const STATUS_TABS = [
@@ -190,22 +193,22 @@ function readableValue(value) {
   return value || "Não informado";
 }
 function focusField(field) {
-  requestAnimationFrame(() => {
-    const element =
-      document.querySelector(`[data-blog-field="${field}"]`) ||
-      document.querySelector(
-        field === "body"
-          ? '#blog-body, [contenteditable="true"]'
-          : `#blog-${field}`,
-      );
-    let parent = element?.parentElement;
-    while (parent) {
-      if (parent.tagName === "DETAILS") parent.open = true;
-      parent = parent.parentElement;
-    }
-    element?.focus();
-    element?.scrollIntoView({ block: "center", behavior: "smooth" });
-  });
+  const element =
+    document.querySelector(`[data-blog-field="${field}"]`) ||
+    document.querySelector(
+      field === "body"
+        ? '#blog-body, [contenteditable="true"]'
+        : `#blog-${field}`,
+    );
+  let parent = element?.parentElement;
+  while (parent) {
+    if (parent.tagName === "DETAILS") parent.open = true;
+    parent = parent.parentElement;
+  }
+  if (!element?.getClientRects().length) return false;
+  element.focus();
+  element.scrollIntoView({ block: "center", behavior: "smooth" });
+  return true;
 }
 
 export default function BlogWorkspace({
@@ -216,6 +219,77 @@ export default function BlogWorkspace({
   onSessionExpired,
   onDirtyChange,
 }) {
+  const [step, setStep] = useState(0);
+  const steps = [
+    {
+      id: "info",
+      label: "Informações",
+      title: "Apresente o artigo",
+      description: "Título, resumo e quem assina o texto.",
+    },
+    {
+      id: "text",
+      label: "Texto",
+      title: "Escreva o artigo",
+      description:
+        "Concentre-se no texto. Você pode voltar às outras etapas quando precisar.",
+    },
+    {
+      id: "cover",
+      label: "Capa",
+      title: "Escolha uma capa",
+      description:
+        "A imagem é opcional. Se usar uma, inclua uma descrição acessível.",
+    },
+    {
+      id: "review",
+      label: "Revisão",
+      title: "Revise antes de publicar",
+      description:
+        "Confira os dados e abra a prévia para ver como o artigo ficará.",
+    },
+  ];
+  function goStep(next) {
+    setFocusRequest(null);
+    setStep(next);
+    focusStep("blog-step-title");
+  }
+  function focusBlogField(field) {
+    setStep(
+      field === "body"
+        ? 1
+        : field.startsWith("cover")
+          ? 2
+          : ["tags", "featured", "slug"].includes(field)
+            ? 3
+            : 0,
+    );
+    setFocusRequest({ field });
+  }
+  const [focusRequest, setFocusRequest] = useState(null);
+  useEffect(() => {
+    if (!focusRequest) return;
+    let observer;
+    const frame = requestAnimationFrame(() => {
+      if (focusField(focusRequest.field)) return;
+      const heading = document.getElementById("blog-step-title");
+      heading?.focus({ preventScroll: true });
+      const layout = document.querySelector(".blog-editor-layout");
+      if (!layout) return;
+      observer = new MutationObserver(() => {
+        if (
+          document.activeElement !== heading ||
+          focusField(focusRequest.field)
+        )
+          observer.disconnect();
+      });
+      observer.observe(layout, { childList: true, subtree: true });
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      observer?.disconnect();
+    };
+  }, [focusRequest]);
   const postId = route.startsWith("blog/") ? route.slice(5) : null;
   const [posts, setPosts] = useState([]),
     [categories, setCategories] = useState(CATEGORIES);
@@ -289,12 +363,20 @@ export default function BlogWorkspace({
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
   function fail(error, { automatic = false } = {}) {
+    const field = errorField(error);
+    if (
+      field &&
+      error.submittedPost &&
+      !equivalent(error.submittedPost[field], draftRef.current?.[field])
+    ) {
+      setAutosaveFailed(false);
+      return;
+    }
     setAutosaveFailed(true);
     if (error.status === 401) {
       onSessionExpired?.();
       return;
     }
-    const field = errorField(error);
     if (field) {
       setErrors((current) => ({
         ...current,
@@ -303,7 +385,7 @@ export default function BlogWorkspace({
             ? "Este endereço já está em uso. Escolha outro para este artigo."
             : error.message,
       }));
-      if (!automatic) focusField(field);
+      if (!automatic) focusBlogField(field);
     }
     if (error.code === "VERSION_CONFLICT" || (error.status === 409 && !field)) {
       setAutosaveFailed(true);
@@ -343,6 +425,8 @@ export default function BlogWorkspace({
   useEffect(() => {
     let active = true;
     setLoading(true);
+    setStep(0);
+    setFocusRequest(null);
     setLoadError("");
     setModal(null);
     setPreview(null);
@@ -543,10 +627,23 @@ export default function BlogWorkspace({
       error.field = field;
       throw error;
     }
-    const result = await api(`/api/admin/blog/${current.id}`, {
-      method: "PUT",
-      body: { post: content, version: current.version },
-    });
+    let result;
+    try {
+      result = await api(`/api/admin/blog/${current.id}`, {
+        method: "PUT",
+        body: { post: content, version: current.version },
+      });
+    } catch (error) {
+      error.submittedPost = content;
+      throw error;
+    }
+    setErrors((currentErrors) =>
+      Object.fromEntries(
+        Object.entries(currentErrors).filter(
+          ([field]) => !equivalent(content[field], draftRef.current[field]),
+        ),
+      ),
+    );
     return accept(result.post, { submitted: content });
   }
   async function save(automatic = false) {
@@ -614,7 +711,7 @@ export default function BlogWorkspace({
       if (Object.keys(invalid).length) {
         setErrors(invalid);
         setModal(null);
-        focusField(Object.keys(invalid)[0]);
+        focusBlogField(Object.keys(invalid)[0]);
         return;
       }
       if (!hasPublicationChanges) return;
@@ -790,7 +887,7 @@ export default function BlogWorkspace({
     }
   }
   const filtered = posts;
-  const publicationErrors = validationErrors(draft, true);
+  const publicationErrors = { ...validationErrors(draft, true), ...errors };
   const requirements = Object.entries(publicationErrors).map(
     ([field, message]) => ({
       field,
@@ -1242,12 +1339,28 @@ export default function BlogWorkspace({
               </Button>
             </div>
           )}
-          <div className="blog-editor-layout">
+          <FormSteps
+            label="Etapas do artigo"
+            steps={steps}
+            value={step}
+            onChange={goStep}
+          />
+          <header className="form-step-intro">
+            <h2 id="blog-step-title" tabIndex={-1}>
+              {steps[step].title}
+            </h2>
+            <p>{steps[step].description}</p>
+          </header>
+          <div className="blog-editor-layout blog-wizard-layout">
             <div className="blog-writing-column">
-              <section className="card blog-writing-card">
+              <section
+                className="card blog-writing-card"
+                hidden={step !== 0}
+                aria-label="Informações do artigo"
+              >
                 <fieldset disabled={locked} className="blog-title-fields">
                   <label htmlFor="blog-title" className="blog-section-eyebrow">
-                    ARTIGO DO NEXO
+                    Título do artigo
                   </label>
                   <textarea
                     id="blog-title"
@@ -1331,8 +1444,28 @@ export default function BlogWorkspace({
                       placeholder="Nome da pessoa ou equipe"
                     />
                   </div>
+                  <details className="form-optional">
+                    <summary>
+                      Mais sobre a autoria <span>Opcional</span>
+                    </summary>
+                    <Field
+                      label="Descrição da autoria"
+                      data-blog-field="authorRole"
+                      error={errors.authorRole}
+                      value={draft.authorRole}
+                      onChange={(authorRole) => patch({ authorRole })}
+                      maxLength={180}
+                      placeholder="Vínculo, área ou breve apresentação"
+                      hint="Opcional. Use apenas informações confirmadas."
+                    />
+                  </details>
                 </fieldset>
-                <div className="blog-editor-divider" />
+              </section>
+              <section
+                className="card blog-writing-card blog-text-step"
+                hidden={step !== 1}
+                aria-label="Texto do artigo"
+              >
                 <div className="blog-body-heading">
                   <div>
                     <h2>Texto do artigo</h2>
@@ -1366,7 +1499,11 @@ export default function BlogWorkspace({
                   <span>Rascunho privado até a publicação</span>
                 </div>
               </section>
-              <section className="card blog-cover-card">
+              <section
+                className="card blog-cover-card"
+                hidden={step !== 2}
+                aria-label="Capa do artigo"
+              >
                 <div className="blog-card-heading">
                   <div>
                     <h2>Imagem de capa</h2>
@@ -1523,25 +1660,78 @@ export default function BlogWorkspace({
             </div>
             <aside
               className="blog-settings-column"
+              hidden={step !== 3}
               aria-label="Configurações do artigo"
             >
-              <section className="card blog-settings-card">
+              <section
+                className="card blog-review-card"
+                aria-label="Resumo do artigo"
+              >
+                {draft.coverImage && (
+                  <img
+                    src={draft.coverImage}
+                    alt={draft.coverAlt || "Capa do artigo"}
+                    className="blog-review-image"
+                  />
+                )}
+                <div className="blog-review-content">
+                  <span className="blog-review-category">
+                    {draft.category || "Categoria a definir"}
+                  </span>
+                  <h3>{draft.title || "Artigo sem título"}</h3>
+                  <p>
+                    {draft.excerpt ||
+                      "Adicione um resumo na etapa Informações."}
+                  </p>
+                  <div className="blog-review-byline">
+                    {draft.author || "Autoria a definir"} <span>·</span>{" "}
+                    {minutes(draft.body)} min de leitura
+                  </div>
+                </div>
+                <div className="blog-review-checks">
+                  <strong>
+                    {ready
+                      ? "Tudo pronto para a revisão final"
+                      : "Confira antes de publicar"}
+                  </strong>
+                  {requirements.map((item) => (
+                    <button
+                      key={item.field}
+                      type="button"
+                      onClick={() => {
+                        setErrors(publicationErrors);
+                        focusBlogField(item.field);
+                      }}
+                    >
+                      <AlertCircle size={16} /> {item.message}{" "}
+                      <ArrowRight size={15} />
+                    </button>
+                  ))}
+                  {coverError && (
+                    <button type="button" onClick={() => goStep(2)}>
+                      <AlertCircle size={16} /> Confira a imagem de capa{" "}
+                      <ArrowRight size={15} />
+                    </button>
+                  )}
+                  {ready && (
+                    <p>
+                      <CheckCircle2 size={17} /> Os campos necessários estão
+                      preenchidos. A publicação só acontece após sua
+                      confirmação.
+                    </p>
+                  )}
+                </div>
+              </section>
+              <details className="card blog-settings-card blog-review-options">
+                <summary>
+                  Ajustes de publicação <ChevronDown size={17} />
+                </summary>
                 <div className="blog-card-heading">
                   <h2>
-                    <Settings2 size={17} /> Detalhes do artigo
+                    <Settings2 size={17} /> Organização e destaque
                   </h2>
                 </div>
                 <fieldset disabled={locked}>
-                  <Field
-                    label="Descrição da autoria"
-                    data-blog-field="authorRole"
-                    error={errors.authorRole}
-                    value={draft.authorRole}
-                    onChange={(authorRole) => patch({ authorRole })}
-                    maxLength={180}
-                    placeholder="Vínculo, área ou breve apresentação"
-                    hint="Opcional. Use apenas informações confirmadas."
-                  />
                   <Field
                     label="Temas"
                     data-blog-field="tags"
@@ -1574,7 +1764,7 @@ export default function BlogWorkspace({
                     />
                   </div>
                 </fieldset>
-              </section>
+              </details>
               <details className="card blog-settings-card blog-address-card">
                 <summary>
                   <span>
@@ -1692,18 +1882,32 @@ export default function BlogWorkspace({
                   >
                     {busy === "save" ? "Salvando…" : "Salvar rascunho"}
                   </Button>
-                  <Button
-                    variant="primary"
-                    icon={Send}
-                    onClick={() => {
-                      if (!uploadRef.current) setModal({ type: "publish" });
-                    }}
-                    disabled={!!busy || uploading || !hasPublicationChanges}
-                  >
-                    {record.published
-                      ? "Publicar alterações"
-                      : "Publicar artigo"}
-                  </Button>
+                  {step > 0 && (
+                    <Button icon={ArrowLeft} onClick={() => goStep(step - 1)}>
+                      Voltar
+                    </Button>
+                  )}
+                  {step < steps.length - 1 ? (
+                    <Button variant="primary" onClick={() => goStep(step + 1)}>
+                      {step === 2 && !draft.coverImage
+                        ? "Continuar sem capa"
+                        : "Continuar"}{" "}
+                      <ArrowRight size={16} />
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="primary"
+                      icon={Send}
+                      onClick={() => {
+                        if (!uploadRef.current) setModal({ type: "publish" });
+                      }}
+                      disabled={!!busy || uploading || !hasPublicationChanges}
+                    >
+                      {record.published
+                        ? "Publicar alterações"
+                        : "Publicar artigo"}
+                    </Button>
+                  )}
                 </>
               )}
             </div>
@@ -1829,7 +2033,7 @@ export default function BlogWorkspace({
                     onClick={() => {
                       setErrors(publicationErrors);
                       setModal(null);
-                      focusField(item.field);
+                      focusBlogField(item.field);
                     }}
                   >
                     <AlertCircle size={14} /> {item.label}

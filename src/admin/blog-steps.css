@@ -1,0 +1,148 @@
+.blog-workspace:has(.blog-wizard-layout) {
+  max-width: 960px;
+  margin-inline: auto;
+}
+.blog-wizard-layout {
+  display: block;
+}
+.blog-wizard-layout .blog-writing-column {
+  display: contents;
+}
+.blog-wizard-layout .blog-settings-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.blog-wizard-layout .blog-title-input {
+  font-size: 36px;
+  min-height: 94px;
+  margin: 12px 0 24px;
+}
+.blog-wizard-layout .blog-section-eyebrow {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 14px;
+  color: var(--text);
+}
+.blog-wizard-layout .blog-writing-card,
+.blog-wizard-layout .blog-cover-card {
+  width: 100%;
+}
+.blog-text-step {
+  padding-top: 8px;
+}
+.blog-review-card {
+  overflow: hidden;
+}
+.blog-review-image {
+  width: 100%;
+  max-height: 250px;
+  object-fit: cover;
+  display: block;
+}
+.blog-review-content {
+  padding: 30px;
+}
+.blog-review-category {
+  font-size: 13px;
+  color: var(--accent);
+}
+.blog-review-content h3 {
+  font-family: "Instrument Serif", serif;
+  font-size: 36px;
+  font-weight: 400;
+  line-height: 1.2;
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+}
+.blog-review-content > p {
+  font-size: 16px;
+  line-height: 1.75;
+  color: var(--muted);
+}
+.blog-review-byline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  color: var(--muted);
+  font-size: 14px;
+  margin-top: 22px;
+}
+.blog-review-checks {
+  padding: 23px 30px;
+  border-top: 1px solid var(--line);
+}
+.blog-review-checks strong {
+  font-size: 14px;
+  font-weight: 500;
+}
+.blog-review-checks button,
+.blog-review-checks p {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  line-height: 1.7;
+  font-size: 14px;
+}
+.blog-review-checks button {
+  width: 100%;
+  min-height: 44px;
+  color: var(--muted);
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 8px 0;
+}
+.blog-review-checks button:hover {
+  color: var(--accent);
+}
+.blog-review-checks svg {
+  flex-shrink: 0;
+}
+.blog-review-checks button svg:last-child {
+  margin-left: auto;
+}
+.blog-review-checks p {
+  color: var(--muted);
+}
+.blog-review-options > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  cursor: pointer;
+  min-height: 32px;
+}
+.blog-review-options[open] > summary {
+  margin-bottom: 24px;
+}
+.blog-workspace:has(.blog-wizard-layout) .blog-savebar {
+  gap: 18px;
+  margin-top: 28px;
+}
+.blog-workspace:has(.blog-wizard-layout) .blog-savebar-actions {
+  flex-wrap: wrap;
+}
+@media (max-width: 600px) {
+  .blog-wizard-layout .blog-title-input {
+    font-size: 30px;
+  }
+  .blog-review-content,
+  .blog-review-checks {
+    padding: 22px;
+  }
+  .blog-review-content h3 {
+    font-size: 30px;
+  }
+  .blog-workspace:has(.blog-wizard-layout) .blog-savebar-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+  .blog-workspace:has(.blog-wizard-layout) .blog-savebar-actions .button {
+    flex: 1 0 calc(50% - 8px);
+  }
+  .blog-workspace:has(.blog-wizard-layout) .blog-savebar {
+    position: static;
+  }
+}

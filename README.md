@@ -36,13 +36,15 @@ Os títulos e textos institucionais, as imagens principais, os projetos, a visib
 
 Para atualizar o processo seletivo ou os contatos:
 
-1. Edite os campos da área correspondente.
+1. No processo seletivo, avance por **Inscrições**, **Documentos** e **Cronograma**. Em Contato, preencha o e-mail e o perfil do Instagram em uma única tela.
 2. Salve o rascunho e confira **Pré-visualizar**.
 3. Use **Publicar alterações** e confirme para atualizar o site deste ambiente.
 
 O rascunho é separado do conteúdo publicado. O site consulta apenas a versão publicada. O modelo inicial preserva os conteúdos existentes e mantém as inscrições encerradas até a equipe revisar e publicar uma nova edição. Publicar com a situação “Inscrições abertas” exige um link de inscrição válido. Quando houver datas, o site mostra “Em breve” antes da abertura, libera o botão dentro do período e encerra as inscrições depois do prazo, seguindo o horário de Brasília. A situação “Em breve” escolhida manualmente permanece assim até uma nova publicação.
 
 As etapas cadastradas substituem a imagem antiga do cronograma quando são publicadas. Se todas as etapas forem removidas depois, o site deixa de exibir o cronograma; a imagem antiga não volta automaticamente.
+
+Os botões **Continuar** e **Voltar** apenas navegam entre as etapas; os dados preenchidos e o salvamento de rascunhos são preservados. Campos opcionais ficam recolhidos, e erros direcionam à etapa e ao campo que precisam de correção. Em **Meu acesso**, a alteração de senha aparece somente ao abrir essa opção. O cadastro de integrante segue duas etapas: **Pessoa** e **Permissões e senha**; o acesso só é criado na confirmação final.
 
 O edital pode ser enviado diretamente na página do processo seletivo. A biblioteca de capas fica dentro do editor do blog, sem uma área separada de gerenciamento do site. Os uploads aceitam imagens PNG, JPEG, WebP e AVIF, além de PDFs, com limite de 8 MB por arquivo. As imagens são decodificadas e verificadas antes de salvar; imagens corrompidas ou animadas, maiores que 40 megapixels ou com dimensão acima de 16.000 pixels são recusadas. A versão pública é convertida para WebP com dimensão máxima de 2.400 pixels; o original permanece privado em `originals/`. Os arquivos enviados recebem uma URL pública; envie apenas materiais destinados ao site. O registro interno das alterações permanece no banco, sem oferecer restauração de versões do site no painel simplificado.
 
@@ -52,9 +54,9 @@ O menu de aparência, no topo do painel e na tela de acesso, oferece os temas Cl
 
 Abra **Blog do Nexo** no painel para criar artigos, acompanhar rascunhos e gerenciar publicações. Cada artigo tem título, endereço, resumo, categoria, autoria, descrição da autoria, imagem de capa com descrição e crédito, palavras-chave e opção de destaque.
 
-1. Crie um artigo e escreva no editor visual, com títulos, listas, citações e links. O modo Markdown continua disponível nas opções avançadas e preserva conteúdos que o editor visual não suporta.
-2. Salve o rascunho. O botão **Prévia** também salva as alterações antes de abrir a visualização privada, com opções de computador e celular. Visitantes continuam vendo somente o que foi publicado.
-3. Revise texto, fontes, autoria, créditos e endereço, e confirme a publicação. Artigos publicados aparecem em `/blog/` e têm uma página própria em `/blog/endereco-do-artigo`.
+1. Crie um artigo. Em **Informações**, preencha título, resumo, categoria e autoria. Em **Texto**, escreva no editor visual, com títulos, listas, citações e links. O modo Markdown continua disponível nas opções avançadas e preserva conteúdos que o editor visual não suporta. Trocar de etapa mantém o texto e o histórico de Desfazer.
+2. Em **Capa**, escolha uma imagem e descreva seu conteúdo, ou continue sem imagem. **Salvar rascunho** e **Prévia** ficam disponíveis em todas as etapas. A prévia salva as alterações antes de abrir a visualização privada, com opções de computador e celular. Visitantes continuam vendo somente o que foi publicado.
+3. Em **Revisão**, confira o resumo da publicação e as pendências. Os ajustes de destaque, palavras-chave e endereço ficam recolhidos. Revise texto, fontes, autoria e créditos na prévia e confirme a publicação. Artigos publicados aparecem em `/blog/` e têm uma página própria em `/blog/endereco-do-artigo`.
 4. Para atualizar um artigo publicado, edite e salve o rascunho, confira a prévia e publique novamente. A versão pública anterior permanece disponível até essa confirmação.
 5. Retire uma publicação do ar quando necessário. Arquivar organiza os artigos fora da lista ativa; restaurar devolve o artigo como rascunho, sem republicá-lo automaticamente.
 

@@ -14,6 +14,7 @@ import {
 import { api } from "./api";
 import { Badge, Button, Field, Modal } from "./components";
 import "./access.css";
+import { FormSteps } from "./FormSteps";
 
 const roleLabel = (role) => (role === "admin" ? "Administrador" : "Editor");
 const blankMember = () => ({
@@ -74,6 +75,12 @@ export default function AccessPanel({
   onExpired,
 }) {
   const [view, setView] = useState("account");
+  const [memberStep, setMemberStep] = useState(0);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const memberSteps = [
+    { id: "person", label: "Pessoa" },
+    { id: "permissions", label: "Permissões e senha" },
+  ];
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -86,6 +93,7 @@ export default function AccessPanel({
   const busyRef = useRef(false);
   const mountedRef = useRef(true);
   const contentRef = useRef(null);
+  const passwordSummaryRef = useRef(null);
   const focusErrorsRef = useRef(false);
   const viewRef = useRef(view);
   const user = session.user || {};
@@ -104,9 +112,11 @@ export default function AccessPanel({
   useEffect(() => {
     if (viewRef.current === view) return;
     viewRef.current = view;
-    const focus = contentRef.current?.querySelector(
-      "input, select, [data-view-focus]",
-    );
+    const focus = Array.from(
+      contentRef.current?.querySelectorAll(
+        "input, select, button, summary, [data-view-focus]",
+      ) || [],
+    ).find((element) => !element.disabled && element.getClientRects().length);
     focus?.focus();
   }, [view]);
   useEffect(() => {
@@ -116,6 +126,8 @@ export default function AccessPanel({
   }, [errors]);
 
   function showErrors(next) {
+    if (view === "add") setMemberStep(next.name || next.email ? 0 : 1);
+    if (view === "account") setPasswordOpen(true);
     focusErrorsRef.current = true;
     setErrors(next);
   }
@@ -125,6 +137,8 @@ export default function AccessPanel({
     setError("");
     setErrors({});
     setView(next);
+    setMemberStep(0);
+    setPasswordOpen(false);
     if (next !== "account") setPassword(blankPassword());
     if (next !== "add") setMember(blankMember());
   }
@@ -173,6 +187,14 @@ export default function AccessPanel({
     setMember((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({ ...current, [field]: undefined }));
   }
+  function goMemberStep(next) {
+    setMemberStep(next);
+    requestAnimationFrame(() => {
+      document
+        .getElementById(next === 0 ? "access-name" : "access-password")
+        ?.focus();
+    });
+  }
   function changePassword(field, value) {
     setPassword((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({ ...current, [field]: undefined }));
@@ -204,6 +226,8 @@ export default function AccessPanel({
       if (mountedRef.current) {
         setPassword(blankPassword());
         setPasswordChanged(true);
+        setPasswordOpen(false);
+        requestAnimationFrame(() => passwordSummaryRef.current?.focus());
       }
       notify?.(
         "Sua senha foi alterada. Os outros acessos desta conta foram encerrados.",
@@ -220,6 +244,14 @@ export default function AccessPanel({
     if (!member.name.trim()) invalid.name = "Informe o nome do integrante.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(member.email.trim()))
       invalid.email = "Informe um e-mail válido.";
+    if (memberStep === 0) {
+      if (Object.keys(invalid).length) {
+        showErrors(invalid);
+        return;
+      }
+      goMemberStep(1);
+      return;
+    }
     if (member.password.length < 12 || member.password.length > 1024)
       invalid.password = "Use uma senha com 12 a 1.024 caracteres.";
     if (Object.keys(invalid).length) {
@@ -346,64 +378,76 @@ export default function AccessPanel({
                 individuais podem alterar a senha por aqui.
               </p>
             ) : (
-              <form
-                className="access-form"
-                onSubmit={submitPassword}
-                noValidate
-              >
-                <h3>
-                  <KeyRound size={18} />
-                  Alterar senha
-                </h3>
+              <>
                 {passwordChanged && (
                   <p className="access-success" role="status">
-                    <Check size={18} />
-                    Senha alterada com sucesso.
+                    <Check size={18} /> Senha alterada com sucesso.
                   </p>
                 )}
-                <PasswordField
-                  label="Senha atual"
-                  field="currentPassword"
-                  value={password.currentPassword}
-                  onChange={(value) => changePassword("currentPassword", value)}
-                  error={errors.currentPassword}
-                  autoComplete="current-password"
-                  disabled={busy}
-                />
-                <PasswordField
-                  label="Nova senha"
-                  field="newPassword"
-                  value={password.newPassword}
-                  onChange={(value) => changePassword("newPassword", value)}
-                  error={errors.newPassword}
-                  autoComplete="new-password"
-                  hint="Use pelo menos 12 caracteres. Uma frase longa é fácil de lembrar."
-                  disabled={busy}
-                />
-                <PasswordField
-                  label="Confirmar nova senha"
-                  field="confirmPassword"
-                  value={password.confirmPassword}
-                  onChange={(value) => changePassword("confirmPassword", value)}
-                  error={errors.confirmPassword}
-                  autoComplete="new-password"
-                  disabled={busy}
-                />
-                <p className="access-note">
-                  Ao alterar a senha, os outros dispositivos desta conta
-                  precisarão entrar novamente.
-                </p>
-                <div className="access-actions">
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    icon={busy ? LoaderCircle : KeyRound}
-                    disabled={busy}
+                <details
+                  className="access-password-section"
+                  open={passwordOpen}
+                  onToggle={(event) =>
+                    setPasswordOpen(event.currentTarget.open)
+                  }
+                >
+                  <summary ref={passwordSummaryRef}>
+                    <KeyRound size={18} /> Alterar minha senha
+                  </summary>
+                  <form
+                    className="access-form"
+                    onSubmit={submitPassword}
+                    noValidate
                   >
-                    {busy ? "Alterando…" : "Alterar senha"}
-                  </Button>
-                </div>
-              </form>
+                    <PasswordField
+                      label="Senha atual"
+                      field="currentPassword"
+                      value={password.currentPassword}
+                      onChange={(value) =>
+                        changePassword("currentPassword", value)
+                      }
+                      error={errors.currentPassword}
+                      autoComplete="current-password"
+                      disabled={busy}
+                    />
+                    <PasswordField
+                      label="Nova senha"
+                      field="newPassword"
+                      value={password.newPassword}
+                      onChange={(value) => changePassword("newPassword", value)}
+                      error={errors.newPassword}
+                      autoComplete="new-password"
+                      hint="Use pelo menos 12 caracteres. Uma frase longa é fácil de lembrar."
+                      disabled={busy}
+                    />
+                    <PasswordField
+                      label="Confirmar nova senha"
+                      field="confirmPassword"
+                      value={password.confirmPassword}
+                      onChange={(value) =>
+                        changePassword("confirmPassword", value)
+                      }
+                      error={errors.confirmPassword}
+                      autoComplete="new-password"
+                      disabled={busy}
+                    />
+                    <p className="access-note">
+                      Ao alterar a senha, os outros dispositivos desta conta
+                      precisarão entrar novamente.
+                    </p>
+                    <div className="access-actions">
+                      <Button
+                        type="submit"
+                        variant="primary"
+                        icon={busy ? LoaderCircle : KeyRound}
+                        disabled={busy}
+                      >
+                        {busy ? "Alterando…" : "Alterar senha"}
+                      </Button>
+                    </div>
+                  </form>
+                </details>
+              </>
             )}
           </>
         )}
@@ -500,71 +544,102 @@ export default function AccessPanel({
         )}
         {view === "add" && (
           <form className="access-form" onSubmit={submitMember} noValidate>
-            <Field
-              id="access-name"
-              label="Nome"
-              value={member.name}
-              onChange={(value) => changeMember("name", value)}
-              error={errors.name}
-              maxLength={120}
-              autoComplete="off"
+            <FormSteps
+              label="Etapas do novo acesso"
+              steps={memberSteps}
+              value={memberStep}
+              onChange={goMemberStep}
               disabled={busy}
             />
-            <Field
-              id="access-email"
-              label="E-mail"
-              type="email"
-              value={member.email}
-              onChange={(value) => changeMember("email", value)}
-              error={errors.email}
-              autoComplete="off"
-              autoCapitalize="none"
-              spellCheck={false}
+            <fieldset
+              className="form-step-panel"
+              hidden={memberStep !== 0}
               disabled={busy}
-            />
-            <PasswordField
-              label="Senha inicial"
-              field="password"
-              value={member.password}
-              onChange={(value) => changeMember("password", value)}
-              error={errors.password}
-              autoComplete="new-password"
-              hint="Pelo menos 12 caracteres. Compartilhe diretamente com o integrante, que poderá trocar a senha no primeiro acesso."
-              disabled={busy}
-            />
-            <div className={`field${errors.role ? " field-invalid" : ""}`}>
-              <div className="field-label">
-                <label htmlFor="access-role">Perfil</label>
-              </div>
-              <select
-                id="access-role"
-                value={member.role}
-                onChange={(event) => changeMember("role", event.target.value)}
-                aria-invalid={Boolean(errors.role)}
-                aria-describedby={`access-role-hint${errors.role ? " access-role-error" : ""}`}
+            >
+              <Field
+                id="access-name"
+                label="Nome"
+                value={member.name}
+                onChange={(value) => changeMember("name", value)}
+                error={errors.name}
+                maxLength={120}
+                autoComplete="off"
                 disabled={busy}
-              >
-                <option value="editor">Editor</option>
-                <option value="admin">Administrador</option>
-              </select>
-              <p className="field-hint" id="access-role-hint">
-                {member.role === "admin"
-                  ? "Edita e publica conteúdos e também gerencia os acessos da equipe."
-                  : "Edita e publica conteúdos do processo seletivo, contato e blog."}
+              />
+              <Field
+                id="access-email"
+                label="E-mail"
+                type="email"
+                value={member.email}
+                onChange={(value) => changeMember("email", value)}
+                error={errors.email}
+                autoComplete="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                disabled={busy}
+              />
+            </fieldset>
+            <fieldset
+              className="form-step-panel"
+              hidden={memberStep !== 1}
+              disabled={busy}
+            >
+              <p className="access-member-summary">
+                <strong>{member.name || "Novo integrante"}</strong>
+                <span>
+                  {member.email || "E-mail a preencher na etapa Pessoa"}
+                </span>
               </p>
-              {errors.role && (
-                <p className="field-error" id="access-role-error" role="alert">
-                  {errors.role}
+              <PasswordField
+                label="Senha inicial"
+                field="password"
+                value={member.password}
+                onChange={(value) => changeMember("password", value)}
+                error={errors.password}
+                autoComplete="new-password"
+                hint="Pelo menos 12 caracteres. Compartilhe a senha diretamente com o integrante."
+                disabled={busy}
+              />
+              <div className={`field${errors.role ? " field-invalid" : ""}`}>
+                <div className="field-label">
+                  <label htmlFor="access-role">Perfil</label>
+                </div>
+                <select
+                  id="access-role"
+                  value={member.role}
+                  onChange={(event) => changeMember("role", event.target.value)}
+                  aria-invalid={Boolean(errors.role)}
+                  aria-describedby={`access-role-hint${errors.role ? " access-role-error" : ""}`}
+                  disabled={busy}
+                >
+                  <option value="editor">Editor</option>
+                  <option value="admin">Administrador</option>
+                </select>
+                <p className="field-hint" id="access-role-hint">
+                  {member.role === "admin"
+                    ? "Edita e publica conteúdos e também gerencia os acessos da equipe."
+                    : "Edita e publica conteúdos do processo seletivo, contato e blog."}
                 </p>
-              )}
-            </div>
+                {errors.role && (
+                  <p
+                    className="field-error"
+                    id="access-role-error"
+                    role="alert"
+                  >
+                    {errors.role}
+                  </p>
+                )}
+              </div>
+            </fieldset>
             <div className="access-actions">
               <Button
                 disabled={busy}
                 icon={ArrowLeft}
-                onClick={() => go("team")}
+                onClick={() =>
+                  memberStep === 0 ? go("team") : goMemberStep(0)
+                }
               >
-                Voltar à equipe
+                {memberStep === 0 ? "Voltar à equipe" : "Voltar"}
               </Button>
               <Button
                 type="submit"
@@ -572,7 +647,11 @@ export default function AccessPanel({
                 icon={busy ? LoaderCircle : Plus}
                 disabled={busy}
               >
-                {busy ? "Criando…" : "Criar acesso"}
+                {busy
+                  ? "Criando…"
+                  : memberStep === 0
+                    ? "Continuar"
+                    : "Criar acesso"}
               </Button>
             </div>
           </form>

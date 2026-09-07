@@ -32,6 +32,13 @@ const dateFromToday = (offset) =>
     new Date(Date.now() + offset * 86400000),
   );
 
+async function selectionStep(page, name) {
+  await page
+    .getByRole("navigation", { name: "Etapas do processo seletivo" })
+    .getByRole("button", { name, exact: true })
+    .click();
+}
+
 async function stateOf(page) {
   const response = await page.request.get("/api/admin/content");
   expect(response.ok()).toBeTruthy();
@@ -235,21 +242,32 @@ test("selection publishes only operational information and structured stages whi
   await page
     .getByLabel("Encerramento das inscrições", { exact: true })
     .fill(dateFromToday(7));
+  await selectionStep(page, "Documentos");
   await page
     .getByLabel("Link do formulário de inscrição", { exact: true })
     .fill("https://example.org/inscricoes");
+  await selectionStep(page, "Documentos");
   await page
     .getByLabel("Link do edital", { exact: true })
     .fill("https://example.org/edital.pdf");
+  await selectionStep(page, "Cronograma");
   await page
     .getByRole("button", { name: "Adicionar etapa", exact: true })
     .click();
+  await selectionStep(page, "Cronograma");
   await page
     .getByLabel("Nome da etapa 1", { exact: true })
     .fill("Envio de inscrições");
+  await selectionStep(page, "Cronograma");
   await page
     .getByLabel("Data da etapa 1", { exact: true })
     .fill(dateFromToday(3));
+  await selectionStep(page, "Cronograma");
+  await page
+    .locator(".essentials-stage-details")
+    .nth(0)
+    .locator("summary")
+    .click();
   await page
     .getByLabel("Orientações da etapa 1", { exact: true })
     .fill("Preencha o formulário de teste.");
@@ -324,6 +342,7 @@ test("a PDF can be uploaded directly from the selection editor and used in its s
       response.url().endsWith("/api/admin/uploads") &&
       response.request().method() === "POST",
   );
+  await selectionStep(page, "Documentos");
   await page.getByLabel("Enviar edital em PDF", { exact: true }).setInputFiles({
     name: "edital-teste.pdf",
     mimeType: "application/pdf",
@@ -435,17 +454,28 @@ test("selection stages can be ordered and removed on mobile without losing their
   await page
     .getByRole("link", { name: "Processo seletivo", exact: true })
     .click();
+  await selectionStep(page, "Cronograma");
   await page
     .getByRole("button", { name: "Adicionar etapa", exact: true })
     .click();
+  await selectionStep(page, "Cronograma");
   await page.getByLabel("Nome da etapa 1", { exact: true }).fill("Inscrições");
+  await selectionStep(page, "Cronograma");
+  await page
+    .locator(".essentials-stage-details")
+    .nth(0)
+    .locator("summary")
+    .click();
   await page
     .getByLabel("Orientações da etapa 1", { exact: true })
     .fill("Preencha o formulário.");
+  await selectionStep(page, "Cronograma");
   await page
     .getByRole("button", { name: "Adicionar etapa", exact: true })
     .click();
+  await selectionStep(page, "Cronograma");
   await page.getByLabel("Nome da etapa 2", { exact: true }).fill("Entrevistas");
+  await selectionStep(page, "Cronograma");
   await page
     .getByLabel("Data da etapa 2", { exact: true })
     .fill(dateFromToday(8));
@@ -457,6 +487,7 @@ test("selection stages can be ordered and removed on mobile without losing their
   ).toBeDisabled();
   await screenshot(page, "desktop-selection-stages");
   await page.setViewportSize({ width: 390, height: 844 });
+  await selectionStep(page, "Cronograma");
   await page
     .getByRole("button", { name: "Mover etapa 2 para cima", exact: true })
     .click();
@@ -480,6 +511,7 @@ test("selection stages can be ordered and removed on mobile without losing their
     )
     .toBe(true);
   await screenshot(page, "mobile-selection-stages");
+  await selectionStep(page, "Cronograma");
   await page
     .getByRole("button", { name: "Remover etapa 1", exact: true })
     .click();
@@ -499,11 +531,13 @@ test("selection stages can be ordered and removed on mobile without losing their
   await expect(page.getByLabel("Data da etapa 1", { exact: true })).toHaveValue(
     dateFromToday(8),
   );
+  await selectionStep(page, "Cronograma");
   await page
     .getByRole("button", { name: "Remover etapa 1", exact: true })
     .click();
   await saveDraft(page);
   await page.reload();
+  await selectionStep(page, "Cronograma");
   await expect(page.getByLabel("Nome da etapa 1", { exact: true })).toHaveValue(
     "Inscrições",
   );
@@ -557,6 +591,7 @@ test("an incomplete selection stage is saved as a draft but must be completed be
   await page
     .getByRole("link", { name: "Processo seletivo", exact: true })
     .click();
+  await selectionStep(page, "Cronograma");
   await page
     .getByRole("button", { name: "Adicionar etapa", exact: true })
     .click();
@@ -565,6 +600,7 @@ test("an incomplete selection stage is saved as a draft but must be completed be
   expect(incomplete.draft.selection.stages).toHaveLength(1);
   expect(incomplete.draft.selection.stages[0].title).toBe("");
   expect(incomplete.published.selection.stages).toHaveLength(0);
+  await selectionStep(page, "Inscrições");
   await page
     .getByRole("button", { name: "Publicar alterações", exact: true })
     .click();
@@ -574,6 +610,21 @@ test("an incomplete selection stage is saved as a draft but must be completed be
   await expect(title).toBeFocused();
   await expect(title).toHaveAccessibleDescription(/nome|título|etapa/i);
   await title.fill("Entrevistas com a equipe");
+  await saveDraft(page);
+  const optional = page.locator(".essentials-stage-details").first();
+  await optional.locator("summary").click();
+  const instructions = page.getByLabel("Orientações da etapa 1", {
+    exact: true,
+  });
+  await instructions.fill("Local a confirmar\u0001");
+  await selectionStep(page, "Inscrições");
+  await expect(instructions).toHaveAttribute("aria-invalid", "true");
+  await expect(instructions).toBeFocused();
+  await instructions.press("End");
+  await instructions.press("Backspace");
+  await expect(instructions).toBeVisible();
+  await expect(instructions).toBeFocused();
+  await expect(instructions).not.toHaveAttribute("aria-invalid", "true");
   await saveDraft(page);
   await publish(page);
   expect((await stateOf(page)).published.selection.stages[0].title).toBe(
@@ -604,6 +655,7 @@ test("selection publication waits for its PDF upload and includes the file that 
       response.url().endsWith("/api/admin/uploads") &&
       response.request().method() === "POST",
   );
+  await selectionStep(page, "Documentos");
   await page.getByLabel("Enviar edital em PDF", { exact: true }).setInputFiles({
     name: "edital-completo.pdf",
     mimeType: "application/pdf",

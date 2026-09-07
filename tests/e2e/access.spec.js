@@ -30,6 +30,11 @@ test("an administrator can create an individual editor account and revoke its ex
   const password = "Senha-temporaria-QA-3101!";
   await create.getByLabel("Nome", { exact: true }).fill(name);
   await create.getByLabel("E-mail", { exact: true }).fill(email);
+  await create.getByRole("button", { name: "Continuar", exact: true }).click();
+  await expect(create.getByLabel("Nome", { exact: true })).toBeHidden();
+  await create.getByRole("button", { name: "Voltar", exact: true }).click();
+  await expect(create.getByLabel("Nome", { exact: true })).toHaveValue(name);
+  await create.getByRole("button", { name: "Continuar", exact: true }).click();
   await create.getByLabel("Senha inicial", { exact: true }).fill(password);
   await create.getByLabel("Perfil", { exact: true }).selectOption("editor");
   const created = page.waitForResponse(
@@ -88,5 +93,78 @@ test("an administrator can create an individual editor account and revoke its ex
     ).toBe(false);
   } finally {
     await editorContext.close();
+  }
+});
+
+test("password changes stay tucked away until requested and return to a clear confirmation", async ({
+  page,
+  browser,
+}) => {
+  const { loginPreview } = require("./auth.cjs");
+  await loginPreview(page);
+  const session = await (await page.request.get("/api/session")).json();
+  const email = `qa-access-password-${Date.now()}@example.org`;
+  const oldPassword = "Senha-inicial-teste-3101!";
+  const newPassword = "Senha-nova-teste-3101!";
+  const added = await page.request.post("/api/admin/users", {
+    headers: {
+      Origin: new URL(page.url()).origin,
+      "X-CSRF-Token": session.csrfToken,
+    },
+    data: {
+      name: "Pessoa de teste",
+      email,
+      password: oldPassword,
+      role: "editor",
+    },
+  });
+  expect(added.status()).toBe(201);
+  const context = await browser.newContext({
+    baseURL: "http://127.0.0.1:3101",
+  });
+  try {
+    const member = await context.newPage();
+    await member.goto("/admin/");
+    await member.getByLabel("E-mail", { exact: true }).fill(email);
+    await member.getByLabel("Senha", { exact: true }).fill(oldPassword);
+    await member
+      .getByRole("button", { name: "Entrar no painel", exact: true })
+      .click();
+    await member
+      .getByRole("button", { name: "Meu acesso", exact: true })
+      .click();
+    const dialog = member.getByRole("dialog", {
+      name: "Meu acesso",
+      exact: true,
+    });
+    await expect(
+      dialog.getByLabel("Senha atual", { exact: true }),
+    ).toBeHidden();
+    const disclosure = dialog.locator("summary", {
+      hasText: "Alterar minha senha",
+    });
+    await dialog
+      .getByRole("button", { name: "Fechar janela", exact: true })
+      .focus();
+    await member.keyboard.press("Tab");
+    await expect(disclosure).toBeFocused();
+    await member.keyboard.press("Enter");
+    await dialog.getByLabel("Senha atual", { exact: true }).fill(oldPassword);
+    await dialog.getByLabel("Nova senha", { exact: true }).fill(newPassword);
+    await dialog
+      .getByLabel("Confirmar nova senha", { exact: true })
+      .fill(newPassword);
+    await dialog
+      .getByRole("button", { name: "Alterar senha", exact: true })
+      .click();
+    await expect(
+      dialog.getByText("Senha alterada com sucesso.", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByLabel("Senha atual", { exact: true }),
+    ).toBeHidden();
+    await expect(disclosure).toBeFocused();
+  } finally {
+    await context.close();
   }
 });

@@ -7,12 +7,20 @@ O repositório contém a aplicação completa do site, painel e blog. A validaç
 ## Validação da versão final
 
 - `npm test`: 114 testes passaram, cobrindo API, usuários, publicação, imagens, recuperação, editor, temas, redefinição de senha e operação.
-- `npm run test:e2e`: 45 cenários passaram no Chromium, incluindo publicação e prévias, capas, versões, recuperação entre abas, renovação de sessão, Desfazer, teclado, temas, telas estreitas e o fluxo de redefinição de senha.
+- `npm run test:e2e`: 47 cenários passaram no Chromium, incluindo publicação e prévias, capas, versões, recuperação entre abas, renovação de sessão, Desfazer entre etapas, teclado, temas, telas estreitas, cadastro de integrante em etapas e troca/redefinição de senha.
 - `npm run build`: concluído; permanecem avisos de tamanho dos vídeos/imagens institucionais e dos pacotes JavaScript. O editor visual é carregado apenas ao abrir um artigo.
 - `npm audit --omit=dev`: nenhuma vulnerabilidade reportada.
 - `npm run check:readiness -- --url http://127.0.0.1:3001`: seis verificações locais passaram; `publicGoLiveConfirmed` permanece `false`.
 - Na revisão anterior, a imagem Docker foi reconstruída e executada em Linux ARM64 com Node 24.20.0, `NODE_ENV=production`, conta fictícia e volume temporário isolado. Foram confirmados login, acesso demonstrativo desabilitado, rotas públicas, salvamento, conversão de PNG para WebP de 2.400 px, persistência após reiniciar o contêiner, backup e restauração em outro diretório. O contêiner de teste foi encerrado; nenhum serviço público foi ativado. A integração de e-mail desta revisão foi exercitada com transporte simulado, conforme detalhado abaixo.
 - A revisão não publicou nem substituiu conteúdo no banco de desenvolvimento. Na conferência final, o rascunho estava na versão 4, com alteração no status do processo seletivo; a publicação permaneceu na versão 1 e com o hash anterior. Os três artigos continuavam na versão 1, sem publicação. Os testes de escrita usaram bancos temporários isolados.
+
+## Formulários simplificados
+
+- Artigos: quatro etapas, **Informações**, **Texto**, **Capa** e **Revisão**, com navegação livre, rascunho e prévia disponíveis durante todo o preenchimento. O editor permanece montado entre etapas, preservando o conteúdo e o histórico de Desfazer.
+- Processo seletivo: **Inscrições**, **Documentos** e **Cronograma**. As orientações opcionais ficam recolhidas, abrem quando precisam de correção e permanecem abertas enquanto a pessoa corrige o campo. Contato continua em uma tela curta.
+- Acessos: cadastro em **Pessoa** e **Permissões e senha**, com criação apenas na ação final. Alteração de senha recolhida, acessível por teclado e com confirmação visível após salvar.
+- A revisão do artigo inclui erros conhecidos da API, como endereço já ocupado. Respostas de erro que chegam depois de o campo ter sido corrigido não bloqueiam a edição atual. Corrigir uma pendência abre a etapa e o campo correspondentes. Os testes conferem preservação ao voltar, foco após erros, navegação por teclado e ausência de transbordamento em telas de 320, 390 e 768 px nos temas claro e escuro.
+- Build de produção e os 161 testes automatizados passaram nesta versão. A interface local respondeu HTTP 200. Esta revisão não realizou publicação externa nem migração de hospedagem; a arquitetura React/Fastify/Node existente foi preservada.
 
 ## Preparação para acesso autenticado e produção
 

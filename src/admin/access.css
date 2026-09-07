@@ -327,3 +327,56 @@
     animation: none;
   }
 }
+
+.access-password-section {
+  border-top: 1px solid var(--line);
+  margin-top: 22px;
+}
+.access-password-section > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 60px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text);
+}
+.access-password-section > summary::after {
+  content: "+";
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 22px;
+}
+.access-password-section[open] > summary::after {
+  content: "−";
+}
+.access-password-section .access-form {
+  border-top: 0;
+  margin-top: 0;
+  padding-top: 10px;
+}
+.access-member-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--line);
+  background: var(--surface-inset);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 24px;
+  overflow-wrap: anywhere;
+}
+.access-member-summary strong {
+  font-size: 15px;
+  font-weight: 500;
+}
+.access-member-summary span {
+  font-size: 14px;
+  color: var(--muted);
+}
+.access-form > fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}

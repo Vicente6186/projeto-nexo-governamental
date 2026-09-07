@@ -180,7 +180,7 @@ export function Modal({ title, description, children, onClose, wide = false }) {
     if (!dialog || !backdrop) return undefined;
     let active = true;
     const focusableSelector =
-      'button:not([disabled]),a[href],input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),iframe,[contenteditable="true"],[tabindex]';
+      'button:not([disabled]),a[href],summary,input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),iframe,[contenteditable="true"],[tabindex]';
     function frameDocument(frame) {
       try {
         return frame.contentDocument;

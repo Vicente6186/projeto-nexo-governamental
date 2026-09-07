@@ -1,0 +1,206 @@
+.form-steps {
+  margin-bottom: 28px;
+}
+.form-steps ol {
+  display: grid;
+  grid-template-columns: repeat(var(--step-count, 4), minmax(0, 1fr));
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.form-steps li {
+  min-width: 0;
+}
+.form-steps button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 58px;
+  padding: 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: left;
+}
+.form-steps button:hover {
+  background: var(--surface-inset);
+  color: var(--text);
+}
+.form-steps button[aria-current="step"] {
+  color: var(--text);
+  border-color: var(--line-strong);
+  background: var(--surface);
+}
+.form-step-number {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+[aria-current="step"] .form-step-number {
+  color: var(--accent-on);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.form-step-position {
+  margin: 10px 12px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.form-step-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 24px 0 0;
+  padding: 22px 0 0;
+  border-top: 1px solid var(--line);
+}
+.form-step-actions .button {
+  min-height: 46px;
+  font-size: 14px;
+}
+.form-step-intro {
+  margin: 0 0 26px;
+}
+.form-step-intro h2 {
+  color: var(--text);
+  font-family: "Instrument Serif", serif;
+  font-size: 32px;
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+  scroll-margin-top: 96px;
+  outline: none;
+}
+.form-step-intro p {
+  margin-top: 9px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.form-step-panel[hidden],
+.blog-writing-card[hidden],
+.blog-cover-card[hidden],
+.blog-settings-column[hidden] {
+  display: none !important;
+}
+.form-optional {
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+  padding-top: 16px;
+}
+.form-optional > summary {
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.form-optional > summary::after {
+  content: "+";
+  font-size: 20px;
+}
+.form-optional[open] > summary::after {
+  content: "−";
+}
+.form-optional[open] > summary {
+  margin-bottom: 16px;
+}
+.field-count:not(.is-near-limit) {
+  visibility: hidden;
+}
+.field:focus-within .field-count {
+  visibility: visible;
+}
+.login-main .field-count,
+.session-recovery .field-count,
+.password-reset .field-count,
+.access-panel .field-count {
+  display: none;
+}
+.field-label > label,
+.field-label label {
+  font-size: 14px;
+}
+.form-compact-contact,
+.essentials-editor:has(.form-steps) {
+  max-width: 900px;
+  margin-inline: auto;
+}
+.essentials-contact-layout.form-compact-contact {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+}
+.essentials-contact-aside {
+  padding: 22px 26px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.essentials-status-note p + p {
+  margin-top: 8px;
+}
+@media (max-width: 600px) {
+  .form-steps {
+    margin-bottom: 23px;
+  }
+  .form-steps ol {
+    gap: 4px;
+  }
+  .form-steps button {
+    padding: 10px 3px;
+    gap: 7px;
+    flex-direction: column;
+    text-align: center;
+    font-size: 12px;
+    line-height: 1.4;
+    min-height: 76px;
+  }
+  .form-step-number {
+    width: 28px;
+    height: 28px;
+  }
+  .form-step-position {
+    text-align: center;
+    margin-top: 10px;
+  }
+  .form-step-intro h2 {
+    font-size: 29px;
+  }
+  .form-step-actions {
+    margin-top: 20px;
+  }
+  .form-step-actions .button {
+    padding: 11px 15px;
+  }
+  .essentials-contact-aside {
+    padding: 20px;
+  }
+}
+
+.form-step-panel .field input,
+.form-step-panel .field textarea,
+.form-step-panel select,
+.blog-wizard-layout .field input,
+.blog-wizard-layout .field textarea,
+.blog-wizard-layout select {
+  font-size: 16px;
+}
+.essentials-editor [id^="selection-step-"] {
+  scroll-margin-top: 110px;
+  outline: none;
+}
+.essentials-stage-details[open] > summary {
+  margin-bottom: 18px;
+}

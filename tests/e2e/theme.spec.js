@@ -432,6 +432,19 @@ test("contact and selection cards fill their columns at tablet and phone widths"
         `${route} uses the available mobile workspace`,
       ).toBeGreaterThan(width * 0.75);
       for (const card of await page.locator(cardSelector).all()) {
+        if (route === "processo") {
+          const step = Number(
+            (await card.getAttribute("aria-labelledby")).split("-").pop(),
+          );
+          await page
+            .getByRole("navigation", { name: "Etapas do processo seletivo" })
+            .getByRole("button", {
+              name: ["Inscrições", "Documentos", "Cronograma"][step],
+              exact: true,
+            })
+            .click();
+          await noOverflow(page);
+        }
         const box = await card.boundingBox();
         expect(
           Math.abs(box.width - parent.width),

@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Badge, Button, Field, dateLabel, effectiveStatus } from "./components";
 import "./essentials.css";
+import { FormSteps, StepActions, focusStep } from "./FormSteps";
 
 const STATUS_OPTIONS = [
   {
@@ -287,6 +288,18 @@ export function Overview({
   );
 }
 
+function StageDetails({ error, children }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (error && ref.current) ref.current.open = true;
+  }, [error]);
+  return (
+    <details ref={ref} className="essentials-stage-details">
+      {children}
+    </details>
+  );
+}
+
 export function SelectionEditor({
   selection,
   onChange,
@@ -296,6 +309,31 @@ export function SelectionEditor({
   assets = [],
   errors = {},
 }) {
+  const [step, setStep] = useState(0);
+  const steps = [
+    { id: "dates", label: "Inscrições" },
+    { id: "documents", label: "Documentos" },
+    { id: "schedule", label: "Cronograma" },
+  ];
+  const goStep = (next) => {
+    setStep(next);
+    focusStep(`selection-step-${next}`);
+  };
+  useEffect(() => {
+    const reveal = (event) => {
+      const field = event.detail?.field || "";
+      if (!field.startsWith("selection.")) return;
+      setStep(
+        field.startsWith("selection.stages")
+          ? 2
+          : ["selection.noticeUrl", "selection.applicationUrl"].includes(field)
+            ? 1
+            : 0,
+      );
+    };
+    window.addEventListener("nexo:focus-field", reveal);
+    return () => window.removeEventListener("nexo:focus-field", reveal);
+  }, []);
   const statusName = useId();
   const uploadRef = useRef(null);
   const stageListRef = useRef(null);
@@ -366,13 +404,25 @@ export function SelectionEditor({
 
   return (
     <div className="essentials-editor">
-      <section className="essentials-card">
+      <FormSteps
+        label="Etapas do processo seletivo"
+        steps={steps}
+        value={step}
+        onChange={goStep}
+      />
+      <section
+        className="essentials-card form-step-panel"
+        hidden={step !== 0}
+        aria-labelledby="selection-step-0"
+      >
         <header className="essentials-section-heading">
           <span className="essentials-heading-icon">
             <CalendarDays size={20} strokeWidth={1.7} />
           </span>
           <div>
-            <h2>Inscrições</h2>
+            <h2 id="selection-step-0" tabIndex={-1}>
+              Inscrições
+            </h2>
             <p>Os dados que os candidatos precisam para participar.</p>
           </div>
         </header>
@@ -468,8 +518,25 @@ export function SelectionEditor({
               </p>
             </div>
           </div>
-
-          <div className="essentials-form-divider" />
+        </fieldset>
+      </section>
+      <section
+        className="essentials-card form-step-panel"
+        hidden={step !== 1}
+        aria-labelledby="selection-step-1"
+      >
+        <header className="essentials-section-heading">
+          <span className="essentials-heading-icon">
+            <FileText size={20} strokeWidth={1.7} />
+          </span>
+          <div>
+            <h2 id="selection-step-1" tabIndex={-1}>
+              Formulário e edital
+            </h2>
+            <p>Os links que serão disponibilizados aos candidatos.</p>
+          </div>
+        </header>
+        <fieldset className="essentials-form" disabled={disabled}>
           <Field
             label="Link do formulário de inscrição"
             value={selection.applicationUrl}
@@ -584,13 +651,19 @@ export function SelectionEditor({
         </fieldset>
       </section>
 
-      <section className="essentials-card">
+      <section
+        className="essentials-card form-step-panel"
+        hidden={step !== 2}
+        aria-labelledby="selection-step-2"
+      >
         <header className="essentials-section-heading essentials-schedule-heading">
           <span className="essentials-heading-icon">
             <FileText size={20} strokeWidth={1.7} />
           </span>
           <div>
-            <h2>Cronograma</h2>
+            <h2 id="selection-step-2" tabIndex={-1}>
+              Cronograma
+            </h2>
             <p>Organize as etapas na ordem em que devem aparecer no site.</p>
           </div>
           <span className="essentials-stage-count">
@@ -682,14 +755,7 @@ export function SelectionEditor({
                       error={errorFor(`stages.${index}.date`)}
                     />
                   </div>
-                  <details
-                    className="essentials-stage-details"
-                    open={
-                      stages.length <= 3 ||
-                      Boolean(stage.description) ||
-                      Boolean(errorFor(`stages.${index}.description`))
-                    }
-                  >
+                  <StageDetails error={errorFor(`stages.${index}.description`)}>
                     <summary>Orientações opcionais</summary>
                     <Field
                       label={`Orientações da etapa ${index + 1}`}
@@ -703,7 +769,7 @@ export function SelectionEditor({
                       data-field={`selection.stages.${index}.description`}
                       error={errorFor(`stages.${index}.description`)}
                     />
-                  </details>
+                  </StageDetails>
                 </div>
               </div>
             ))}
@@ -742,6 +808,7 @@ export function SelectionEditor({
           )}
         </fieldset>
       </section>
+      <StepActions value={step} steps={steps} onChange={goStep} />
     </div>
   );
 }
@@ -777,7 +844,7 @@ export function ContactEditor({ site, onChange, disabled, errors = {} }) {
     onChange(patch);
   }
   return (
-    <div className="essentials-contact-layout">
+    <div className="essentials-contact-layout form-compact-contact">
       <section className="essentials-card">
         <header className="essentials-section-heading">
           <span className="essentials-heading-icon">
@@ -785,7 +852,7 @@ export function ContactEditor({ site, onChange, disabled, errors = {} }) {
           </span>
           <div>
             <h2>Canais de contato</h2>
-            <p>Como estudantes, parceiros e a comunidade encontram o Nexo.</p>
+            <p>Os canais oficiais exibidos no site.</p>
           </div>
         </header>
         <fieldset className="essentials-form" disabled={disabled}>
@@ -812,7 +879,7 @@ export function ContactEditor({ site, onChange, disabled, errors = {} }) {
             autoCapitalize="none"
             spellCheck={false}
             maxLength={2048}
-            hint="Digite o @nome de usuário ou cole o link do perfil. O endereço e o nome exibidos no site são atualizados juntos."
+            hint="Use o @nome de usuário ou o link do perfil oficial."
             data-field="site.instagramUrl"
             error={profileError}
           />
