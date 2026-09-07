@@ -1,5 +1,6 @@
 // Read-only verification of the HTML and discovery endpoints actually deployed.
 const assert = require("node:assert/strict");
+const { JSDOM } = require("jsdom");
 const { args } = require("./cli.cjs");
 const decode = (value) =>
   value
@@ -26,15 +27,61 @@ async function main() {
     );
     return { response, text: await response.text() };
   }
-  const locations = (xml) =>
-    [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => decode(match[1]));
+  const locations = (xml, root) => {
+    const dom = new JSDOM(xml, { contentType: "application/xml" });
+    try {
+      const document = dom.window.document;
+      const namespace = "http://www.sitemaps.org/schemas/sitemap/0.9";
+      assert.equal(document.documentElement.localName, root);
+      assert.equal(document.documentElement.namespaceURI, namespace);
+      return [...document.getElementsByTagNameNS(namespace, "loc")].map(
+        (element) => element.textContent,
+      );
+    } finally {
+      dom.window.close();
+    }
+  };
+  const indexable = (page) => {
+    const dom = new JSDOM(page.text);
+    try {
+      const directives = [
+        page.response.headers.get("x-robots-tag") || "",
+        ...[
+          ...dom.window.document.querySelectorAll(
+            'meta[name="robots" i], meta[name="googlebot" i]',
+          ),
+        ].map((meta) => meta.content),
+      ].join(", ");
+      assert.doesNotMatch(
+        directives,
+        /\b(?:noindex|none)\b/i,
+        "Página pública bloqueia indexação",
+      );
+    } finally {
+      dom.window.close();
+    }
+  };
   const canonical = (html) =>
     decode(html.match(/<link rel="canonical" href="([^"]+)"/)?.[1] || "");
   const robots = await get("/robots.txt");
-  assert.ok(robots.text.includes(`Sitemap: ${canonicalOrigin}/sitemap.xml`));
-  checks.push("robots.txt aponta para o sitemap canônico");
+  assert.deepEqual(
+    robots.text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean),
+    [
+      "User-agent: *",
+      "Allow: /",
+      "Disallow: /api/",
+      `Sitemap: ${canonicalOrigin}/sitemap.xml`,
+    ],
+    "robots.txt difere da política pública esperada",
+  );
+  checks.push(
+    "robots.txt permite páginas públicas e aponta para o sitemap canônico",
+  );
   const index = await get("/sitemap.xml");
-  const maps = locations(index.text);
+  const maps = locations(index.text, "sitemapindex");
   assert.deepEqual(
     maps.sort(),
     [
@@ -45,8 +92,7 @@ async function main() {
   const urls = [];
   for (const map of maps) {
     const document = await get(new URL(map).pathname);
-    assert.ok(document.text.includes("<urlset"));
-    for (const url of locations(document.text)) {
+    for (const url of locations(document.text, "urlset")) {
       assert.equal(new URL(url).origin, canonicalOrigin);
       assert.ok(!/[?&]preview=/.test(url));
       urls.push(url);
@@ -55,6 +101,7 @@ async function main() {
   checks.push("sitemaps válidos, no domínio público e sem prévias");
   for (const path of ["/", "/blog/"]) {
     const page = await get(path);
+    indexable(page);
     assert.equal(canonical(page.text), `${canonicalOrigin}${path}`);
     assert.match(page.text, /<h1[\s>]/);
     assert.match(page.text, /<meta name="description" content="[^"]+"/);
@@ -75,6 +122,7 @@ async function main() {
   );
   for (const url of articles.slice(0, 10)) {
     const page = await get(new URL(url).pathname);
+    indexable(page);
     assert.equal(canonical(page.text), url);
     assert.match(
       page.response.headers.get("x-robots-tag") || "",

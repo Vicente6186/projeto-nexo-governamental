@@ -22,7 +22,7 @@ npm run dev
 - Painel: <http://127.0.0.1:8080/admin/>
 - API: <http://127.0.0.1:3001/>
 
-O Webpack atende a interface na porta 8080 e encaminha `/api`, `/uploads` e `/blog` para o Fastify na porta 3001. Os dois processos iniciam juntos. Entre no painel com o e-mail e a senha configurados. O acesso de demonstração está desabilitado; a pré-visualização editorial dos rascunhos permanece disponível após entrar.
+O Webpack atende a interface na porta 8080 e encaminha API, blog, uploads, variantes de imagens, robots e sitemaps para o Fastify na porta 3001. Os dois processos iniciam juntos. Entre no painel com o e-mail e a senha configurados. O acesso de demonstração está desabilitado; a pré-visualização editorial dos rascunhos permanece disponível após entrar.
 
 ## Painel essencial
 
@@ -63,6 +63,33 @@ Abra **Blog do Nexo** no painel para criar artigos, acompanhar rascunhos e geren
 O blog público tem busca, filtro por categoria e paginação. O servidor entrega o conteúdo completo das páginas, incluindo título, descrição e endereço canônico, sem depender de JavaScript para a leitura. O Markdown não executa HTML e restringe os protocolos de links; a prévia exige uma sessão administrativa. No editor, `⌘ S` ou `Ctrl S` salva o rascunho. O painel salva rascunhos automaticamente após a edição válida e mantém uma cópia de recuperação neste navegador, quando o armazenamento local está disponível. Publicar sempre exige revisão e confirmação. O histórico do artigo permite recuperar versões anteriores sem alterar a publicação no ar; mudanças simultâneas e recuperação de cópias antigas exigem revisão.
 
 Os bancos usados anteriormente para avaliação podem conter **rascunhos demonstrativos**, identificados no próprio texto. Eles permanecem sem publicação e devem ser revisados pela equipe antes de qualquer uso institucional. O acesso de demonstração fica desabilitado com `CMS_LOCAL_PREVIEW=0`; isso preserva os rascunhos existentes e a prévia editorial autenticada. Em produção não são criados artigos de exemplo. Publicar no ambiente local altera apenas esse ambiente; não envia conteúdo para uma hospedagem externa.
+
+## SEO dos artigos
+
+O blog entrega HTML completo pelo Fastify. Cada publicação recebe título, descrição, URL canônica, metadados de compartilhamento, dados estruturados `BlogPosting` e navegação `BreadcrumbList`. Autoria, categoria, datas, imagem e créditos vêm da versão publicada; salvar uma edição privada não altera os dados que o Google recebe. A entidade editora é o Nexo Governamental XI de Agosto, sem atribuir a publicação à USP.
+
+`/robots.txt` aponta para `/sitemap.xml`, que reúne a página institucional e o sitemap dinâmico do blog. Publicações e categorias com artigos entram automaticamente; despublicar ou arquivar retira os endereços. Buscas internas, categorias vazias, prévias e erros ficam fora do índice. Endereços inexistentes e páginas além da última retornam 404; a paginação tem URLs canônicas próprias. Prévias continuam protegidas por autenticação.
+
+Capas locais recebem dimensões reais e alternativas WebP de 480, 768, 1.200 e 1.920 px, conforme o tamanho original. O navegador escolhe a largura adequada. A imagem principal recebe prioridade de carregamento, enquanto os cartões usam carregamento adiado. As variantes têm cache e processamento limitado; o original e os backups são preservados. Capas externas continuam na origem escolhida e não são baixadas pelo servidor.
+
+Pelo checkout local com `npm ci` executado (o verificador usa as dependências de desenvolvimento), confira o endereço publicado sem escrever dados:
+
+```sh
+npm run check:seo -- --url https://nexo-governamental.netlify.app
+# Para conferir um servidor local com o domínio canônico de produção:
+npm run check:seo -- --url http://127.0.0.1:3001 --canonical https://nexo-governamental.netlify.app
+```
+
+O comando confere descoberta, canonical, autenticação das prévias e até dez artigos presentes no sitemap. Quando não há publicações, informa essa limitação. Os testes automatizados também verificam artigos em banco isolado, sem publicar exemplos no site.
+
+### Rotina editorial e acompanhamento
+
+1. Produza artigos originais que respondam a uma questão concreta do público. Use um título descritivo, resumo fiel, subtítulos claros e links para fontes primárias. Identifique o autor e sua experiência real; não preencha títulos acadêmicos ou vínculos não confirmados.
+2. Escolha uma capa relevante, descreva a imagem e registre os créditos. Inclua links para outras publicações relacionadas quando ajudarem a leitura. Revise dados, datas e referências antes de publicar; atualize quando o conteúdo mudar, sem renovar datas artificialmente.
+3. No Google Search Console, use a propriedade de prefixo `https://nexo-governamental.netlify.app/` e envie `sitemap.xml`. O arquivo de verificação Google já presente no projeto é preservado, mas sua presença não comprova que a conta atual controla a propriedade. Depois da primeira publicação, inspecione a URL e acompanhe indexação, consultas e desempenho.
+4. Valide uma publicação real no teste de resultados avançados do Google. Dados estruturados válidos permitem elegibilidade; não garantem exibição especial nem posição. Melhorias técnicas também não garantem o topo: conteúdo útil, relevância para a busca e reconhecimento editorial precisam ser construídos pela equipe.
+
+Referências: [dados estruturados de artigos](https://developers.google.com/search/docs/appearance/structured-data/article), [sitemaps](https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap), [imagens](https://developers.google.com/search/docs/appearance/google-images) e [conteúdo útil e confiável](https://developers.google.com/search/docs/fundamentals/creating-helpful-content).
 
 ## Recuperação de senha
 
@@ -108,7 +135,7 @@ Os testes de navegador usam Playwright. Se o Chromium ainda não estiver instala
 
 ## Uso pela equipe
 
-O painel precisa de um servidor Node.js com armazenamento persistente. A configuração atual do Netlify publica somente `dist`; ela não executa esta API Fastify. Para usar o editor com a equipe, publique a aplicação Node completa em uma hospedagem adequada, com HTTPS, credenciais próprias e volume persistente. Nenhuma infraestrutura pública é ativada por este projeto automaticamente.
+O painel usa o Fastify no Railway, com volume persistente. O serviço Railway usa o Dockerfile e o healthcheck configurados diretamente no provedor; `netlify.toml` encaminha todas as rotas ao serviço Node, preservando `https://nexo-governamental.netlify.app` como origem do site, painel e artigos. O Netlify sozinho não executa esta API. Consulte `GO_LIVE_STATUS.md` para a evidência do último deploy e as pendências operacionais.
 
 Prepare o `.env` do ambiente de destino:
 
@@ -145,6 +172,20 @@ NODE_ENV=production npm start
 ```
 
 Consulte `.env.example` para desenvolvimento e `deploy/production.env.example` para produção. Variáveis já definidas no ambiente têm precedência sobre o arquivo `.env`. O comando `npm start` não muda o modo por conta própria: use `NODE_ENV=production npm start` com a origem HTTPS e as credenciais corretas. Não adicione arquivos de ambiente preenchidos, senhas, bancos ou uploads ao Git.
+
+### Configuração do Railway
+
+O serviço existente tem um volume em `/app/data`, dados em `/app/data/nexo`, uma instância, `RAILWAY_DOCKERFILE_PATH=Dockerfile` e `RAILWAY_RUN_UID=0`. O ponto de entrada ajusta a propriedade do volume e reduz o processo da aplicação para UID/GID 1000 antes de abrir o banco. No provedor, configure healthcheck `/api/health`, timeout de 120 segundos e reinício `ON_FAILURE` com até cinco tentativas. As credenciais ficam nas variáveis privadas do serviço.
+
+Não dependa de `railway.toml` em um serviço novo: a configuração legada não é aplicada a novos serviços. Os parâmetros desta instalação foram aplicados diretamente e conferidos pela API do Railway. Consulte a [documentação atual de configuração](https://docs.railway.com/infrastructure-as-code) antes de automatizar infraestrutura adicional.
+
+Para publicar código neste projeto existente, após build, testes e backup:
+
+```sh
+railway up --project 8e16e118-4df9-4a36-90ec-4c1f028fe8e6 --service e58610d1-209f-4a88-934a-4d2b48470c35 --environment 7cf6409e-1d76-40eb-b468-e53d0524735c --detach --json
+```
+
+Acompanhe até `SUCCESS` e repita as verificações pelo domínio Netlify. O upload da CLI não configura publicação automática por GitHub. Preserve o volume e nunca use uma pasta temporária como `DATA_DIR` da aplicação pública.
 
 ### Docker
 

@@ -1,76 +1,63 @@
 # Estado de entrega · Nexo Governamental
 
-Data desta revisão: 7 de setembro de 2026.
+Revisão: 7 de setembro de 2026.
 
-O repositório contém a aplicação completa do site, painel e blog. A validação local não representa liberação pública para a equipe. Nenhuma hospedagem paga, novo domínio ou publicação externa é ativada por estes scripts.
+O site, o blog e o painel estão publicados em **https://nexo-governamental.netlify.app/**. O Netlify encaminha a aplicação ao Fastify no Railway. Login, proteção dos rascunhos, conteúdo público, imagens e descoberta para mecanismos de busca foram verificados pelo endereço HTTPS real. A recuperação por e-mail ainda depende do Resend; esta entrega não declara todos os critérios operacionais encerrados.
 
-## Validação da versão final
+## Validação da versão
 
-- `npm test`: 114 testes passaram, cobrindo API, usuários, publicação, imagens, recuperação, editor, temas, redefinição de senha e operação.
-- `npm run test:e2e`: 47 cenários passaram no Chromium, incluindo publicação e prévias, capas, versões, recuperação entre abas, renovação de sessão, Desfazer entre etapas, teclado, temas, telas estreitas, cadastro de integrante em etapas e troca/redefinição de senha.
-- `npm run build`: concluído; permanecem avisos de tamanho dos vídeos/imagens institucionais e dos pacotes JavaScript. O editor visual é carregado apenas ao abrir um artigo.
-- `npm audit --omit=dev`: nenhuma vulnerabilidade reportada.
-- `npm run check:readiness -- --url http://127.0.0.1:3001`: seis verificações locais passaram; `publicGoLiveConfirmed` permanece `false`.
-- Na revisão anterior, a imagem Docker foi reconstruída e executada em Linux ARM64 com Node 24.20.0, `NODE_ENV=production`, conta fictícia e volume temporário isolado. Foram confirmados login, acesso demonstrativo desabilitado, rotas públicas, salvamento, conversão de PNG para WebP de 2.400 px, persistência após reiniciar o contêiner, backup e restauração em outro diretório. O contêiner de teste foi encerrado; nenhum serviço público foi ativado. A integração de e-mail desta revisão foi exercitada com transporte simulado, conforme detalhado abaixo.
-- A revisão não publicou nem substituiu conteúdo no banco de desenvolvimento. Na conferência final, o rascunho estava na versão 4, com alteração no status do processo seletivo; a publicação permaneceu na versão 1 e com o hash anterior. Os três artigos continuavam na versão 1, sem publicação. Os testes de escrita usaram bancos temporários isolados.
+- `npm test`: **120 testes passaram**. Cobrem API, usuários, conteúdo, blog, upload, versões, temas, recuperação, redefinição de senha, sitemaps, canonical, dados estruturados, imagens responsivas e proteção das prévias.
+- `npm run test:e2e`: **47 cenários passaram** no Chromium. Incluem publicação e prévias, capas, versões, recuperação entre abas, renovação de sessão, etapas dos formulários, Desfazer, teclado, temas e telas estreitas. Os testes de escrita usaram bancos temporários isolados.
+- `npm run build`: concluído. Permanecem avisos de tamanho de mídia institucional e pacotes JavaScript; o editor visual é carregado quando necessário. Não foi realizada uma nova medição de Core Web Vitals com tráfego real após o deploy.
+- `npm audit --omit=dev`: nenhuma vulnerabilidade reportada nesta revisão.
+- Docker: imagem executada com Node 24, volume temporário, ambiente de produção e processo da aplicação em UID/GID 1000. Site, blog, sitemap, CSP e geração de WebP passaram. O Compose mantém usuário 1000 e todas as capacidades removidas; a permissão de escrita no volume foi conferida.
+- O verificador `npm run check:seo` passou no Docker local, no endereço Railway e no domínio público Netlify. Casos negativos confirmaram que ele rejeita bloqueio por `noindex`, robots impedindo rastreamento e XML truncado.
 
-## Formulários simplificados
+## Publicação e persistência
 
-- Artigos: quatro etapas, **Informações**, **Texto**, **Capa** e **Revisão**, com navegação livre, rascunho e prévia disponíveis durante todo o preenchimento. O editor permanece montado entre etapas, preservando o conteúdo e o histórico de Desfazer.
-- Processo seletivo: **Inscrições**, **Documentos** e **Cronograma**. As orientações opcionais ficam recolhidas, abrem quando precisam de correção e permanecem abertas enquanto a pessoa corrige o campo. Contato continua em uma tela curta.
-- Acessos: cadastro em **Pessoa** e **Permissões e senha**, com criação apenas na ação final. Alteração de senha recolhida, acessível por teclado e com confirmação visível após salvar.
-- A revisão do artigo inclui erros conhecidos da API, como endereço já ocupado. Respostas de erro que chegam depois de o campo ter sido corrigido não bloqueiam a edição atual. Corrigir uma pendência abre a etapa e o campo correspondentes. Os testes conferem preservação ao voltar, foco após erros, navegação por teclado e ausência de transbordamento em telas de 320, 390 e 768 px nos temas claro e escuro.
-- Build de produção e os 161 testes automatizados passaram nesta versão. A interface local respondeu HTTP 200. Esta revisão não realizou publicação externa nem migração de hospedagem; a arquitetura React/Fastify/Node existente foi preservada.
+| Item | Evidência |
+| --- | --- |
+| Railway | Projeto e serviço `nexo-governamental`; projeto `8e16e118-4df9-4a36-90ec-4c1f028fe8e6`, ambiente `production`. |
+| Serviço Node | `https://nexo-governamental-production.up.railway.app`; uma instância, porta 3001. |
+| Armazenamento | Volume `42b255da-186a-4e04-b425-eacb3f398a1a` em `/app/data`; banco ativo em `/app/data/nexo`. |
+| Origem canônica | `CMS_ORIGIN=https://nexo-governamental.netlify.app`; site, painel e API na mesma origem para a equipe. |
+| Deploy Railway validado | `2a7aab73-0fb1-44e6-8e47-7f285499a98f`, status `SUCCESS`, após ativação da base restaurada. |
+| Deploy Netlify validado | `6a9f489183c75d5eb45869b5`, no site existente `a110ae89-14a7-44cd-ac6e-ef67004f304a`. |
+| Retorno público | `/`, `/blog/`, `/admin/`, `/api/health`, robots, sitemaps e arquivo de verificação Google responderam corretamente. |
+| Autenticação | Login de Vicente confirmado; cookie Secure, HttpOnly e SameSite=Strict, respostas da API sem cache. A sessão de teste foi encerrada. |
+| Acesso privado | Conteúdo administrativo sem sessão: 401. Acesso de apresentação: 404. Painel e prévias fora do índice; prévias exigem login. |
+| Imagens | Variante pública de 480 × 600 px gerada e recebida através do Netlify. Originais privados preservados. |
+| Recuperação | Backup consistente local transferido por SSH para diretório privado novo e verificado antes de ativar. A restauração revogou sessões e tokens anteriores. |
+| Backup automático | Cópia gerada no Railway em `2026-09-07T23:27:22.946Z`, com manifesto e integridade SQLite verificados. Retenção configurada em 14 cópias e intervalo de 24 horas. |
 
-## Preparação para acesso autenticado e produção
+O conteúdo publicado permaneceu na versão 1, com SHA-256 `9e0343fffa5a3c61f72c202d50f1ebeaedb3e9b5789a59963679b56086f553da`. O rascunho do site permaneceu na versão 4. Os três artigos continuam na versão 1, como rascunhos, com **zero artigos publicados**. A conferência depois da substituição do contêiner e o acesso pela API pública confirmaram essa preservação. Nenhum artigo demonstrativo foi publicado.
 
-- O acesso de demonstração fica desabilitado por configuração; as prévias editoriais continuam privadas e disponíveis após login. Desabilitar esse acesso não publica nem apaga rascunhos existentes.
-- A configuração local foi atualizada para `CMS_LOCAL_PREVIEW=0`. A tela de login foi conferida no navegador, sem o bloco de apresentação; `/api/local-session` retornou 404 e os dados administrativos exigiram autenticação. A conta ativa de Vicente foi preservada.
-- Sessões antigas de demonstração são removidas quando esse acesso é desativado. O teste de regressão confirmou que reativar o modo futuramente não recupera esses cookies, preservando as sessões das contas individuais.
-- `compose.production.yml` fixa o modo de produção e desabilita o acesso demonstrativo, usa o Dockerfile existente e mantém os dados em um volume nomeado. A porta é exposta somente no loopback do servidor.
-- A configuração Compose foi validada com valores fictícios em um diretório temporário, inclusive a precedência das variáveis, a restrição de porta e o volume persistente. Nenhum serviço foi iniciado pelo Compose.
-- `deploy/production.env.example` é um modelo sem senha e sem domínio escolhido. A cópia preenchida `.env.production`, os diretórios de recuperação e os backups ficam fora do Git e do contexto de build.
-- A precedência do ambiente foi comprovada em subprocesso isolado: `NODE_ENV=production` e `CMS_LOCAL_PREVIEW=0` já definidos não são substituídos por um arquivo `.env` com outros valores.
-- O readiness de produção verifica a origem exata, a sintaxe dos proxies confiáveis e `/api/session`, recusando acesso demonstrativo ou uma sessão aberta sem autenticação.
-- Nenhum `compose up`, alteração de domínio ou nova infraestrutura foi executado na preparação deste kit. Hospedagem, TLS e publicação continuam dependendo do destino escolhido.
+A senha existente de Vicente foi preservada, sem registro no código ou nesta documentação. A infraestrutura foi criada com autorização do usuário na conta Railway existente; há consumo adicional de serviço e volume, sem contratação de novo plano.
 
-## Recuperação por e-mail
+## SEO entregue
 
-O projeto inclui recuperação de senha por Resend, com link de uso único, validade de 30 minutos e revogação das sessões anteriores. A disponibilidade depende de configuração válida; sem ela, o pedido informa indisponibilidade em vez de simular um envio.
+- HTML completo das publicações, títulos, resumos e URLs canônicas.
+- `BlogPosting` e `BreadcrumbList` com autoria, datas, categoria e imagens da versão publicada. Editora identificada como Nexo Governamental XI de Agosto; nenhuma autoria ou chancela editorial da USP foi inventada.
+- Dados estruturados escapados e permitidos pela política de segurança somente por hashes do conteúdo exato.
+- Sitemaps dinâmicos para artigos e categorias publicados, com imagens e datas de atualização; retirada automática ao despublicar ou arquivar.
+- Paginação com canonical próprio, normalização de endereços, páginas inexistentes com 404 e buscas internas sem indexação.
+- Capas responsivas com dimensões reais, WebP, carregamento prioritário da capa principal e adiado nos cartões. Cache e processamento limitados; sem baixar imagens externas no servidor.
+- Orientações editoriais e comando de conferência documentados no README.
 
-Os exemplos mantêm a chave e o remetente vazios, com limite local de 20 mensagens por dia UTC, somando os links de recuperação e os avisos de senha alterada. O limite pode ser configurado entre 1 e 90. A integração não contrata planos nem modifica cobrança. Chave, domínio verificado, rastreamento desativado e recebimento real precisam ser comprovados antes de liberar essa função à equipe.
+A propriedade `https://nexo-governamental.netlify.app/` já estava acessível na conta de Vicente no Google Search Console. O sitemap foi reenviado após a publicação e a interface confirmou **“Sitemap enviado”**. O recebimento não comprova rastreamento dos novos endereços, indexação dos artigos nem posição no Google. Ainda não existem artigos públicos para verificar resultados avançados ou desempenho orgânico dessa nova área. A equipe precisa publicar conteúdo real, com autoria e fontes, para essa avaliação.
 
-A verificação de produção exige configuração Resend válida e `passwordResetAvailable: true` na API. O readiness não envia e-mail e não verifica o estado do domínio ou a entrega no provedor. A restauração invalida tokens de recuperação presentes no backup, além das sessões, e preserva os contadores armazenados.
+## Pendências operacionais
 
-O teste integrado usou o navegador, a API real em uma porta isolada, uma conta fictícia e um transporte de e-mail simulado: solicitação do link, remoção do token do endereço e ausência em armazenamento do navegador, formulário em 390 px sem transbordamento, confirmação da senha, rejeição da sessão anterior e da reutilização do link, login com a nova senha e persistência após reiniciar o servidor. Nenhum e-mail real foi enviado e a senha de Vicente permaneceu inalterada.
+| Critério | Situação |
+| --- | --- |
+| Recuperação por e-mail | Implementada, porém indisponível em produção (`passwordResetAvailable: false`). Faltam chave e remetente Resend escolhido e teste de recebimento. Gmail e o subdomínio padrão netlify.app não substituem um domínio de envio verificado. |
+| Backup externo periódico | Há cópia privada local usada na migração e backups automáticos no volume. Falta rotina periódica para um segundo armazenamento; perder o volume também afeta as cópias dentro dele. |
+| Equipe | Vicente tem acesso administrativo confirmado. Demais integrantes precisam de contas individuais e responsabilidades definidas. |
+| Monitoramento e custos | Healthcheck e reinício estão configurados. Falta definir a rotina do responsável para disponibilidade, falhas de backup e consumo Railway. |
+| Proxy e limites | Nenhum proxy foi confiado indiscriminadamente. `CMS_TRUST_PROXY` permanece vazio; limites por IP podem agrupar usuários do proxy. Só configurar IPs/CIDRs específicos após validar a origem real. |
+| Revisão editorial | Processo seletivo, contatos, direitos de imagens, fontes e primeiros artigos dependem da revisão institucional da equipe. |
+| Acompanhamento de busca | Sitemap recebido. Indexação, rich results e posições dos futuros artigos precisam ser acompanhados no Search Console. Nenhuma posição foi prometida. |
 
-A conta Resend acessível no navegador mostrou dois domínios verificados: `vozdoestudante.com.br` e `prontojus.com.br`. Nenhum deles foi escolhido automaticamente como remetente do Nexo. A chave de envio ainda não está configurada neste projeto; por isso, a interface local informa que a recuperação por e-mail está indisponível. O subdomínio padrão `netlify.app` pode continuar sendo usado pelo site, mas não oferece o controle de DNS necessário para verificar um remetente próprio no Resend.
+A integração Resend foi testada com transporte simulado: link único, validade de 30 minutos, troca, revogação das sessões, rejeição de reutilização e persistência após reinício. Nenhum e-mail real foi enviado. O readiness de produção continua exigindo essa configuração e não deve ser tratado como aprovado integralmente enquanto ela estiver ausente.
 
-## Evidências locais
-
-| Área                    | Evidência e limite                                                                                                                                  |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Backup consistente      | Teste com conexão SQLite ativa e transação não confirmada: o snapshot contém apenas a versão confirmada.                                            |
-| Recuperação             | Teste de restauração em diretório temporário novo, conferindo conteúdo, usuários, artigos, uploads e originais. Sessões anteriores são revogadas.   |
-| Integridade             | Manifesto com SHA-256, conferência de todos os arquivos e `PRAGMA quick_check`; arquivos ausentes ou modificados impedem a restauração.             |
-| Proteção dos dados      | Testes recusam restauração sobre dados existentes, caminhos indevidos e links simbólicos. A retenção preserva diretórios manuais.                   |
-| Conteúdo institucional  | Simulação e aplicação em banco temporário preservam o processo seletivo, os contatos e o rascunho operacional; backup obrigatório antes da escrita. |
-| Verificação de ambiente | `npm run check:readiness` distingue o ambiente local da configuração de produção e nunca declara liberação pública automaticamente.                 |
-
-Os comandos `npm test`, `npm run build` e `npm run test:e2e` devem passar na revisão candidata à entrega. Os testes usam bancos e arquivos temporários; não substituem um ensaio na hospedagem de destino. A suíte específica de operação está em `tests/ops.test.cjs`.
-
-## Pendências de operação pública
-
-| Critério                        | Como comprovar no destino                                                                                                       | Estado nesta revisão                                                                                            |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Aplicação Node completa         | HTTPS responde ao site, `/blog/`, `/admin/` e `/api/health`, encaminhados ao Fastify.                                           | Não verificado em hospedagem pública. A configuração Netlify do repositório publica somente arquivos estáticos. |
-| Volume persistente              | Criar rascunho de teste e enviar arquivo; reiniciar/substituir contêiner; confirmar ambos.                                      | Depende da hospedagem de destino.                                                                               |
-| TLS, domínio e proxy            | Certificado válido, `CMS_ORIGIN` exata e apenas o proxy real em `CMS_TRUST_PROXY`.                                              | Depende do domínio e provedor escolhidos.                                                                       |
-| Contas da equipe                | Acessos individuais criados, senhas exclusivas e acesso antigo revogado.                                                        | Precisa de responsáveis e integrantes reais.                                                                    |
-| Recuperação de senha por e-mail | Domínio verificado, rastreamento desligado, chave de envio restrita e teste autorizado com mensagem recebida e troca concluída. | Configuração e entrega real do Resend ainda dependem da conta e do domínio escolhidos.                          |
-| Backup fora do servidor         | Conferir cópia em segundo armazenamento privado e permissão de acesso.                                                          | Não configurado externamente.                                                                                   |
-| Restauração no destino          | Executar ensaio com backup real em diretório isolado e conferir conteúdo e arquivos.                                            | A restauração automatizada foi testada apenas em banco temporário.                                              |
-| Monitoramento                   | Responsável recebe/acompanha falhas de disponibilidade, backup e armazenamento.                                                 | Precisa da rotina operacional do responsável.                                                                   |
-| Revisão editorial               | Conferir contatos, processo seletivo, links, direitos de imagens e artigos.                                                     | Exige revisão da equipe antes da publicação institucional.                                                      |
-
-Só liberar o acesso de produção após comprovar os critérios acima. O comando de readiness ajuda a repetir a conferência técnica; ele não verifica contratos, cobrança, revisão editorial, entrega de alertas ou durabilidade real do provedor.
+Para atualizar a aplicação, preserve o volume, as variáveis privadas e a origem pública. Não substitua o banco em uso nem publique o diretório de dados. Valide build e testes, faça backup e repita `check:seo` pelo checkout local. Publicar código no GitHub não é prova de atualização no Railway ou Netlify: confira também os provedores e o endereço HTTPS.
