@@ -47,8 +47,8 @@ function environment({
   };
 }
 
-test("saved appearance is applied to page and native controls before subscription", (t) => {
-  const env = environment({ preference: "dark" });
+test("dark is the default on light devices and explicit choices remain saved", (t) => {
+  const env = environment({ dark: false });
   t.after(env.dispose);
   assert.deepEqual(env.store.getSnapshot(), {
     preference: "dark",
@@ -64,10 +64,14 @@ test("saved appearance is applied to page and native controls before subscriptio
   env.store.setPreference("light");
   assert.equal(env.browser.localStorage.getItem(THEME_STORAGE_KEY), "light");
   assert.equal(env.browser.document.documentElement.style.colorScheme, "light");
+  assert.deepEqual(createThemeStore(env.browser).getSnapshot(), {
+    preference: "light",
+    resolved: "light",
+  });
 });
 
 test("system appearance follows the device only while the system preference is selected", (t) => {
-  const env = environment({ dark: true });
+  const env = environment({ preference: "system", dark: true });
   t.after(env.dispose);
   const changes = [];
   const unsubscribe = env.store.subscribe(() =>
@@ -99,8 +103,8 @@ test("system appearance follows the device only while the system preference is s
   assert.equal(changes.length, 3);
 });
 
-test("a preference changed in another tab updates the page, and clearing storage restores system", (t) => {
-  const env = environment({ preference: "light", dark: true });
+test("a preference changed in another tab updates the page, and clearing storage restores dark", (t) => {
+  const env = environment({ preference: "light", dark: false });
   t.after(env.dispose);
   t.after(env.store.subscribe(() => {}));
   env.storage("dark");
@@ -113,32 +117,35 @@ test("a preference changed in another tab updates the page, and clearing storage
   assert.equal(env.store.getSnapshot().preference, "dark");
   env.storage(null, null);
   assert.deepEqual(env.store.getSnapshot(), {
-    preference: "system",
+    preference: "dark",
     resolved: "dark",
   });
 });
 
 test("restricted storage and missing media queries leave appearance usable for the session", (t) => {
-  const env = environment({ blockedStorage: true, dark: true });
+  const env = environment({ blockedStorage: true, dark: false });
   t.after(env.dispose);
-  assert.equal(env.store.getSnapshot().resolved, "dark");
+  assert.deepEqual(env.store.getSnapshot(), {
+    preference: "dark",
+    resolved: "dark",
+  });
   assert.doesNotThrow(() => env.store.setPreference("light"));
   assert.equal(env.browser.document.documentElement.dataset.theme, "light");
 
   delete env.browser.matchMedia;
   const noMediaStore = createThemeStore(env.browser);
   assert.deepEqual(noMediaStore.getSnapshot(), {
-    preference: "system",
-    resolved: "light",
+    preference: "dark",
+    resolved: "dark",
   });
   assert.doesNotThrow(() => noMediaStore.setPreference("dark"));
   assert.equal(env.browser.document.documentElement.style.colorScheme, "dark");
 });
 
-test("unknown saved preferences fall back to system and listeners stop after unmount", (t) => {
-  const env = environment({ preference: "obsolete", dark: true });
+test("unknown saved preferences fall back to dark and listeners stop after unmount", (t) => {
+  const env = environment({ preference: "obsolete", dark: false });
   t.after(env.dispose);
-  assert.equal(env.store.getSnapshot().preference, "system");
+  assert.equal(env.store.getSnapshot().preference, "dark");
   let notifications = 0;
   const unsubscribe = env.store.subscribe(() => notifications++);
   unsubscribe();

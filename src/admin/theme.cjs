@@ -3,7 +3,7 @@ const THEME_MODES = ["light", "dark", "system"];
 const THEME_COLORS = { light: "#f5f6fa", dark: "#0e1124" };
 
 function normalizePreference(value) {
-  return THEME_MODES.includes(value) ? value : "system";
+  return THEME_MODES.includes(value) ? value : "dark";
 }
 
 /** Keeps the saved preference separate from the actual system appearance. */
@@ -21,7 +21,7 @@ function createThemeStore(browser) {
         browser?.localStorage?.getItem(THEME_STORAGE_KEY),
       );
     } catch {
-      return "system";
+      return "dark";
     }
   }
 

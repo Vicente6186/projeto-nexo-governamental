@@ -63,14 +63,14 @@ test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1100 });
 });
 
-test("appearance follows the system, supports keyboard selection, persists and synchronizes between panel tabs", async ({
+test("appearance starts dark, supports keyboard and explicit system selection, persists and synchronizes between tabs", async ({
   page,
   context,
 }) => {
-  await page.emulateMedia({ colorScheme: "dark" });
+  await page.emulateMedia({ colorScheme: "light" });
   await page.goto("/admin/");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await expect(themeTrigger(page)).toHaveAccessibleName("Aparência: Sistema");
+  await expect(themeTrigger(page)).toHaveAccessibleName("Aparência: Escuro");
   await screenshot(page, "dark-login");
 
   await themeTrigger(page).focus();

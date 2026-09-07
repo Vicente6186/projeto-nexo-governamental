@@ -46,7 +46,7 @@ As etapas cadastradas substituem a imagem antiga do cronograma quando são publi
 
 O edital pode ser enviado diretamente na página do processo seletivo. A biblioteca de capas fica dentro do editor do blog, sem uma área separada de gerenciamento do site. Os uploads aceitam imagens PNG, JPEG, WebP e AVIF, além de PDFs, com limite de 8 MB por arquivo. Os arquivos enviados recebem uma URL pública; envie apenas materiais destinados ao site. O registro interno das alterações permanece no banco, sem oferecer restauração de versões do site no painel simplificado.
 
-O menu de aparência, no topo do painel e na tela de acesso, oferece os temas Claro, Escuro e Sistema. A escolha fica salva neste navegador e acompanha as outras abas abertas. O modo Sistema segue a preferência do dispositivo. Essa escolha altera apenas o painel; o site público mantém a própria identidade visual. A busca do painel também pode ser aberta com `⌘ K` ou `Ctrl K`.
+O menu de aparência, no topo do painel e na tela de acesso, oferece os temas Claro, Escuro e Sistema. O tema Escuro é o padrão para novos acessos; as escolhas salvas de Claro ou Sistema são respeitadas. A escolha fica salva neste navegador e acompanha as outras abas abertas. O modo Sistema segue a preferência do dispositivo. Essa escolha altera apenas o painel; o site público mantém a própria identidade visual. A busca do painel também pode ser aberta com `⌘ K` ou `Ctrl K`.
 
 ## Blog
 
