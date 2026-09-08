@@ -30,7 +30,9 @@ O painel tem quatro áreas: **Visão geral**, **Processo seletivo**, **Blog do N
 
 - **Processo seletivo:** edição, situação das inscrições, abertura e encerramento, link do formulário, edital por link ou envio de PDF e etapas do cronograma com nome, data e orientações.
 - **Contato:** e-mail, endereço do perfil e nome de usuário do Instagram.
-- **Blog do Nexo:** criação e edição completa dos artigos, com capas, rascunhos, prévia e publicação.
+- **Blog do Nexo:** criação e edição completa dos artigos, categorias, capas, rascunhos, prévia e publicação.
+
+Em **Blog → Gerenciar categorias**, a equipe pode criar, renomear e excluir categorias. O mesmo atalho fica junto à categoria no editor. A exclusão de uma categoria em uso exige escolher outra para receber os artigos, incluindo rascunhos e arquivados; pelo menos uma categoria deve permanecer. Renomear ou transferir categorias também atualiza os artigos publicados, preservando as demais alterações em rascunho. As categorias ficam no banco de dados e entram no backup. Ao restaurar uma revisão cuja categoria foi removida, a categoria atual do artigo é mantida.
 
 Os títulos e textos institucionais, as imagens principais, os projetos, a visibilidade das seções e a estrutura da página ficam fixos. Esses campos também são protegidos pela API; não podem ser alterados por uma requisição direta ao antigo editor. Os conteúdos e arquivos existentes são preservados. A fonte dos textos institucionais é `shared/content.cjs`; quando ela muda, a atualização explícita descrita em **Conteúdo institucional fixo** sincroniza o banco sem substituir o processo seletivo, os contatos ou os artigos. Alterações de apresentação continuam no código do site.
 
@@ -118,7 +120,8 @@ Há limites de solicitação e de envio. `RESET_EMAIL_DAILY_LIMIT` restringe est
 | `src/admin/`                            | Painel em React e Tailwind                          |
 | `src/blog/`, `server/blog-pages.cjs`    | Estilos, leitura e páginas públicas do blog         |
 | `shared/content.cjs`                    | Conteúdo inicial e campos editoriais compartilhados |
-| `shared/blog.cjs`                       | Modelo, categorias, validação e Markdown do blog    |
+| `shared/blog.cjs`                       | Modelo inicial, validação e Markdown do blog    |
+| `server/blog-categories.cjs`            | Categorias persistentes e transferência de artigos  |
 | `server/`                               | API Fastify, autenticação, validação e persistência |
 | `data/`                                 | Banco SQLite e imagens enviadas; não versionar      |
 | `dist/`                                 | Saída do build, servida pelo Fastify em produção    |

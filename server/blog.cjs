@@ -1,6 +1,6 @@
 const { randomUUID } = require("node:crypto");
+const { registerCategories } = require("./blog-categories.cjs");
 const {
-  CATEGORIES,
   validatePost,
   readingMinutes,
   renderMarkdown,
@@ -154,8 +154,20 @@ function registerBlog(
       (session?.preview ? "Prévia local" : config.email || config.name || null)
     );
   };
+  const categories = registerCategories(app, {
+    db,
+    transaction,
+    timestamp,
+    snapshot,
+    actorFor,
+    requireAuth,
+    requireMutation,
+  });
   const validateDraft = (value, options) => {
-    const post = validatePost(value, options);
+    const post = validatePost(value, {
+      ...options,
+      categories: categories.names(),
+    });
     if (post.coverImage)
       validateAssetReference(post.coverImage, {
         kind: "image",
@@ -260,7 +272,7 @@ function registerBlog(
       page,
       pages,
       counts,
-      categories: CATEGORIES,
+      categories: categories.names(),
     };
   }
 
@@ -321,7 +333,7 @@ function registerBlog(
       total: posts.length,
       page,
       pages,
-      categories: CATEGORIES,
+      categories: categories.names(),
     };
   }
   const service = {
@@ -369,7 +381,7 @@ function registerBlog(
       ? adminList(request.query)
       : {
           posts: allRows().map(record),
-          categories: CATEGORIES,
+          categories: categories.names(),
         },
   );
   app.get(
@@ -379,7 +391,7 @@ function registerBlog(
       const row = find(request.params.id);
       if (!row)
         problem("Artigo não encontrado.", 404, { code: "ARTICLE_NOT_FOUND" });
-      return { post: record(row) };
+      return { post: record(row), categories: categories.names() };
     },
   );
   app.post(
@@ -387,10 +399,11 @@ function registerBlog(
     { preHandler: requireMutation },
     async (request, reply) => {
       requestBody(request.body, ["post"]);
-      const post = validateDraft(request.body.post);
-      return reply
-        .code(201)
-        .send({ post: transaction(() => insert(post, actorFor(request))) });
+      return reply.code(201).send({
+        post: transaction(() =>
+          insert(validateDraft(request.body.post), actorFor(request)),
+        ),
+      });
     },
   );
   app.get(
@@ -516,6 +529,9 @@ function registerBlog(
         const previous = JSON.parse(revision.snapshot);
         // Restoring a draft must never change the URL of the article that is live.
         if (row.published) previous.slug = row.published_slug;
+        // Historical content can be restored without reviving a removed category.
+        if (!categories.names().includes(previous.category))
+          previous.category = draft.category;
         const post = validateDraft(previous);
         assertSlug(post.slug, id);
         if (JSON.stringify(post) === row.draft) return { post: record(row) };

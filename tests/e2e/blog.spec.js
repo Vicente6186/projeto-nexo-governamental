@@ -1162,3 +1162,155 @@ test("public reading and browsing stay responsive and independent of the admin a
   }
   await visitor.close();
 });
+
+test("the team manages categories from an article without losing edits or publishing its draft", async ({
+  page,
+}) => {
+  await login(page);
+  const content = article();
+  const post = await createArticle(page, content, true);
+  await openEditor(page, post.id);
+  const categoryName = `Iniciativas ${Date.now()}`;
+  const renamed = `${categoryName} em destaque`;
+  const draftTitle = "Texto revisado ainda em rascunho";
+  await page.getByLabel("Título do artigo", { exact: true }).fill(draftTitle);
+  await page
+    .getByRole("button", { name: "Gerenciar categorias", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Categorias", exact: true });
+  await expect(dialog.getByLabel("Nova categoria")).toBeVisible();
+  await expect
+    .poll(async () => (await readArticle(page, post.id)).draft.title)
+    .toBe(draftTitle);
+  await dialog.getByLabel("Nova categoria").fill(categoryName);
+  await dialog
+    .getByRole("button", { name: "Criar categoria", exact: true })
+    .click();
+  await expect(dialog.getByRole("status")).toContainText("Categoria criada");
+  await dialog.getByRole("button", { name: "Concluir", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await page
+    .getByLabel("Categoria", { exact: true })
+    .selectOption(categoryName);
+  await saveDraft(page);
+  await page.reload();
+  await goBlogStep(page, "Informações");
+  await expect(page.getByLabel("Categoria", { exact: true })).toHaveValue(
+    categoryName,
+  );
+  await expect(
+    page.getByLabel("Título do artigo", { exact: true }),
+  ).toHaveValue(draftTitle);
+  await page
+    .getByRole("button", { name: "Gerenciar categorias", exact: true })
+    .click();
+  await dialog
+    .getByRole("button", { name: `Renomear ${categoryName}`, exact: true })
+    .click();
+  await dialog.getByLabel("Nome da categoria").fill(renamed);
+  await dialog
+    .getByRole("button", { name: "Salvar nome", exact: true })
+    .click();
+  await expect(dialog.getByRole("status")).toContainText("Categoria renomeada");
+  await dialog.getByRole("button", { name: "Concluir", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByLabel("Categoria", { exact: true })).toHaveValue(
+    renamed,
+  );
+  const beforePublish = await readArticle(page, post.id);
+  expect(beforePublish.draft.title).toBe(draftTitle);
+  expect(beforePublish.published.title).toBe(content.title);
+  expect(beforePublish.published.category).toBe(content.category);
+  await publish(page);
+  expect((await readArticle(page, post.id)).published.category).toBe(renamed);
+  const publicCategory = await page.request.get(
+    `/blog/?category=${encodeURIComponent(renamed)}`,
+  );
+  expect(publicCategory.status()).toBe(200);
+  expect(await publicCategory.text()).toContain(draftTitle);
+  await goBlogStep(page, "Informações");
+  await page
+    .getByRole("button", { name: "Gerenciar categorias", exact: true })
+    .click();
+  await dialog
+    .getByRole("button", { name: `Excluir ${renamed}`, exact: true })
+    .click();
+  await expect(
+    dialog.getByRole("button", { name: "Excluir categoria", exact: true }),
+  ).toBeDisabled();
+  const destination = (
+    await (await page.request.get("/api/admin/blog-categories")).json()
+  ).categories.find((item) => item.name === CATEGORIES[0]);
+  await dialog.getByLabel("Mover artigos para").selectOption(destination.id);
+  await dialog
+    .getByRole("button", { name: "Excluir categoria", exact: true })
+    .click();
+  await expect(dialog.getByRole("status")).toContainText("Artigos preservados");
+  await dialog.getByRole("button", { name: "Concluir", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByLabel("Categoria", { exact: true })).toHaveValue(
+    CATEGORIES[0],
+  );
+  const transferred = await readArticle(page, post.id);
+  expect(transferred.draft.title).toBe(draftTitle);
+  expect(transferred.published.category).toBe(CATEGORIES[0]);
+  expect((await page.request.get(`/blog/${content.slug}`)).status()).toBe(200);
+});
+
+test("category management from the blog handles duplicate names, retry, keyboard and a narrow screen", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page);
+  await page.goto("/admin/#blog");
+  let rejectCategoryLoad = true;
+  await page.route("**/api/admin/blog-categories", async (route) => {
+    if (route.request().method() === "GET" && rejectCategoryLoad) {
+      rejectCategoryLoad = false;
+      return route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ message: "Tente carregar novamente." }),
+      });
+    }
+    return route.continue();
+  });
+  await page
+    .getByRole("button", { name: "Gerenciar categorias", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Categorias", exact: true });
+  await expect(dialog.getByRole("alert")).toContainText(
+    "Tente carregar novamente",
+  );
+  await dialog.getByRole("button", { name: "Atualizar lista" }).click();
+  await expect(dialog.getByLabel("Nova categoria")).toBeVisible();
+  await dialog.getByLabel("Nova categoria").fill(CATEGORIES[0].toLowerCase());
+  await dialog
+    .getByRole("button", { name: "Criar categoria", exact: true })
+    .click();
+  await expect(dialog.getByRole("alert")).toContainText(
+    "Já existe uma categoria",
+  );
+  const name = `Categoria livre ${Date.now()}`;
+  await dialog.getByLabel("Nova categoria").fill(name);
+  await dialog
+    .getByRole("button", { name: "Criar categoria", exact: true })
+    .click();
+  await expect(dialog.getByRole("status")).toContainText("Categoria criada");
+  await noOverflow(page);
+  await dialog
+    .getByRole("button", { name: `Excluir ${name}`, exact: true })
+    .click();
+  await expect(
+    dialog.getByRole("button", { name: "Excluir categoria", exact: true }),
+  ).toBeEnabled();
+  await dialog
+    .getByRole("button", { name: "Excluir categoria", exact: true })
+    .click();
+  await expect(dialog.getByRole("status")).toContainText("Categoria excluída");
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Gerenciar categorias", exact: true }),
+  ).toBeFocused();
+});

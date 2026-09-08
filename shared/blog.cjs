@@ -155,7 +155,10 @@ function text(value, label, max, required = false) {
   return value.trim();
 }
 
-function validatePost(value, { publishing = false } = {}) {
+function validatePost(
+  value,
+  { publishing = false, categories = CATEGORIES } = {},
+) {
   if (
     !value ||
     typeof value !== "object" ||
@@ -192,7 +195,7 @@ function validatePost(value, { publishing = false } = {}) {
       "Endereço",
       "use letras minúsculas, números e hífens; este endereço pode estar reservado.",
     );
-  if (!CATEGORIES.includes(post.category))
+  if (!categories.includes(post.category))
     fail("Categoria", "escolha uma das categorias disponíveis.");
   if (typeof post.featured !== "boolean") fail("Destaque", "valor inválido.");
   if (!Array.isArray(value.tags) || value.tags.length > 8)

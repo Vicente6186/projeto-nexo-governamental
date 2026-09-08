@@ -1,0 +1,118 @@
+.category-manager {
+  display: grid;
+  gap: 20px;
+}
+.category-form fieldset {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.category-form .button {
+  justify-self: start;
+}
+.category-form h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  overflow-wrap: anywhere;
+}
+.category-form .field-hint {
+  margin: 0;
+}
+.category-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.category-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.category-list li:last-child {
+  border-bottom: 0;
+}
+.category-info {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.category-info strong {
+  font-size: 1.1429rem;
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+.category-info span {
+  color: var(--muted);
+  font-size: 1rem;
+}
+.category-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.category-actions .button {
+  padding: 0;
+  width: 44px;
+  min-height: 44px;
+  background: transparent;
+}
+.category-actions .button:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.category-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.category-success {
+  margin: 0;
+  color: var(--accent);
+  font-size: 1rem;
+}
+.category-feedback {
+  display: grid;
+  gap: 10px;
+}
+.category-feedback p {
+  margin: 0;
+  color: var(--danger);
+}
+.category-feedback .button {
+  justify-self: start;
+}
+.blog-category-label {
+  justify-content: space-between;
+}
+.blog-category-label .button {
+  min-height: 44px;
+  padding: 0 10px;
+  color: var(--accent);
+  background: transparent;
+  border-color: transparent;
+  font-size: 1rem;
+}
+@media (max-width: 480px) {
+  .category-list li {
+    gap: 8px;
+  }
+  .category-actions {
+    gap: 2px;
+  }
+}
+.category-form .button-danger {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
+.category-form .button-danger:hover {
+  color: var(--surface);
+  background: var(--danger);
+}

@@ -880,3 +880,383 @@ test("admin summaries paginate metadata and filter draft, pending and archived a
     true,
   );
 });
+
+async function categoryList(app, headers) {
+  const response = await app.inject({
+    url: "/api/admin/blog-categories",
+    headers,
+  });
+  assert.equal(response.statusCode, 200, response.body);
+  return response.json().categories;
+}
+async function addCategory(app, headers, name) {
+  const response = await app.inject({
+    method: "POST",
+    url: "/api/admin/blog-categories",
+    headers,
+    payload: { name },
+  });
+  assert.equal(response.statusCode, 201, response.body);
+  return response
+    .json()
+    .categories.find((item) => item.name === name.trim().replace(/\s+/g, " "));
+}
+
+test("categories require authentication and CSRF and reject invalid or duplicate names", async (t) => {
+  const { app, headers } = await fixture(t);
+  assert.equal(
+    (await app.inject("/api/admin/blog-categories")).statusCode,
+    401,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: "/api/admin/blog-categories",
+        payload: { name: "Tema" },
+      })
+    ).statusCode,
+    401,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: "/api/admin/blog-categories",
+        headers: { cookie: headers.cookie, origin },
+        payload: { name: "Tema" },
+      })
+    ).statusCode,
+    403,
+  );
+  for (const name of ["", "   ", "a".repeat(81), "Tema\nNovo", null]) {
+    assert.equal(
+      (
+        await app.inject({
+          method: "POST",
+          url: "/api/admin/blog-categories",
+          headers,
+          payload: { name },
+        })
+      ).statusCode,
+      400,
+    );
+  }
+  const added = await addCategory(app, headers, "  Ação   estudantil  ");
+  assert.equal(added.name, "Ação estudantil");
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: "/api/admin/blog-categories",
+        headers,
+        payload: { name: "ACAO ESTUDANTIL" },
+      })
+    ).json().code,
+    "CATEGORY_NAME_TAKEN",
+  );
+  for (const method of ["PUT", "DELETE"]) {
+    const payload =
+      method === "PUT"
+        ? { name: "Outro", version: 1 }
+        : { version: 1, replacementId: null };
+    assert.equal(
+      (
+        await app.inject({
+          method,
+          url: `/api/admin/blog-categories/${added.id}`,
+          payload,
+        })
+      ).statusCode,
+      401,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          method,
+          url: `/api/admin/blog-categories/${added.id}`,
+          headers: { cookie: headers.cookie, origin },
+          payload,
+        })
+      ).statusCode,
+      403,
+    );
+  }
+});
+
+test("custom categories work on direct editor loads and public filters and persist after restart", async (t) => {
+  const { app, headers, open } = await fixture(t);
+  await addCategory(app, headers, "Projetos e iniciativas");
+  const post = await action(
+    app,
+    headers,
+    await create(app, headers, article({ category: "Projetos e iniciativas" })),
+    "publish",
+  );
+  const detail = (
+    await app.inject({ url: `/api/admin/blog/${post.id}`, headers })
+  ).json();
+  assert.ok(detail.categories.includes("Projetos e iniciativas"));
+  const listing = await app.inject(
+    "/api/blog?category=Projetos%20e%20iniciativas",
+  );
+  assert.equal(listing.json().posts[0].id, post.id);
+  assert.equal(
+    (await app.inject("/blog/?category=Projetos%20e%20iniciativas")).statusCode,
+    200,
+  );
+  assert.match(
+    (await app.inject("/blog/sitemap.xml")).body,
+    /Projetos\+e\+iniciativas/,
+  );
+  await app.close();
+  const reopened = await open();
+  assert.equal(
+    (await categoryList(reopened, headers)).filter(
+      (item) => item.name === "Projetos e iniciativas",
+    ).length,
+    1,
+  );
+  assert.equal(
+    (
+      await reopened.inject("/api/blog?category=Projetos%20e%20iniciativas")
+    ).json().total,
+    1,
+  );
+});
+
+test("renaming categories preserves unpublished changes, history and stale-edit protection", async (t) => {
+  const { app, headers, tick } = await fixture(t);
+  const category = await addCategory(app, headers, "Estudos especiais");
+  let post = await action(
+    app,
+    headers,
+    await create(app, headers, article({ category: category.name })),
+    "publish",
+  );
+  const published = structuredClone(post.published);
+  const publishedAt = post.publishedAt;
+  const saved = await app.inject({
+    method: "PUT",
+    url: `/api/admin/blog/${post.id}`,
+    headers,
+    payload: {
+      version: post.version,
+      post: {
+        ...post.draft,
+        title: "Título ainda em rascunho",
+        body: "Novo texto ainda privado.",
+      },
+    },
+  });
+  post = saved.json().post;
+  const beforeHistory = (
+    await app.inject({ url: `/api/admin/blog/${post.id}/revisions`, headers })
+  ).json().revisions;
+  const revisionId = beforeHistory.find(
+    (item) => item.source === "published",
+  ).id;
+  tick();
+  const rename = await app.inject({
+    method: "PUT",
+    url: `/api/admin/blog-categories/${category.id}`,
+    headers,
+    payload: { name: "Pesquisas especiais", version: category.version },
+  });
+  assert.equal(rename.statusCode, 200, rename.body);
+  const updated = (
+    await app.inject({ url: `/api/admin/blog/${post.id}`, headers })
+  ).json().post;
+  assert.equal(updated.version, post.version + 1);
+  assert.equal(updated.draft.title, "Título ainda em rascunho");
+  assert.deepEqual(updated.published, {
+    ...published,
+    category: "Pesquisas especiais",
+  });
+  assert.equal(updated.publishedAt, publishedAt);
+  assert.equal(updated.hasChanges, true);
+  assert.equal(updated.draft.category, "Pesquisas especiais");
+  assert.equal(
+    (
+      await app.inject({
+        method: "PUT",
+        url: `/api/admin/blog/${post.id}`,
+        headers,
+        payload: { version: post.version, post: post.draft },
+      })
+    ).json().code,
+    "VERSION_CONFLICT",
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: "PUT",
+        url: `/api/admin/blog-categories/${category.id}`,
+        headers,
+        payload: { name: "Outro nome", version: category.version },
+      })
+    ).json().code,
+    "CATEGORY_VERSION_CONFLICT",
+  );
+  assert.equal(
+    (
+      await app.inject({
+        url: `/api/admin/blog/${post.id}/revisions/${revisionId}`,
+        headers,
+      })
+    ).json().revision.post.category,
+    "Estudos especiais",
+  );
+  const restored = await app.inject({
+    method: "POST",
+    url: `/api/admin/blog/${post.id}/restore-revision`,
+    headers,
+    payload: { version: updated.version, revisionId },
+  });
+  assert.equal(restored.statusCode, 200, restored.body);
+  assert.equal(restored.json().post.draft.category, "Pesquisas especiais");
+  assert.deepEqual(restored.json().post.published, updated.published);
+});
+
+test("deleting used categories transfers drafts, publications and archives without deleting articles", async (t) => {
+  const { app, headers, open } = await fixture(t);
+  const category = await addCategory(app, headers, "Categoria para transferir");
+  const target = await addCategory(app, headers, "Categoria de destino");
+  const live = await action(
+    app,
+    headers,
+    await create(
+      app,
+      headers,
+      article({ category: category.name, slug: "artigo-publicado-categorias" }),
+    ),
+    "publish",
+  );
+  const archived = await action(
+    app,
+    headers,
+    await create(
+      app,
+      headers,
+      article({ category: category.name, slug: "artigo-arquivado-categorias" }),
+    ),
+    "archive",
+  );
+  const draft = await create(
+    app,
+    headers,
+    article({ category: category.name, slug: "rascunho-categorias" }),
+  );
+  const history = (
+    await app.inject({ url: `/api/admin/blog/${draft.id}/revisions`, headers })
+  ).json().revisions[0];
+  const count = (await app.inject({ url: "/api/admin/blog", headers })).json()
+    .posts.length;
+  const remove = (replacementId) =>
+    app.inject({
+      method: "DELETE",
+      url: `/api/admin/blog-categories/${category.id}`,
+      headers,
+      payload: { version: category.version, replacementId },
+    });
+  assert.equal((await remove(null)).json().code, "CATEGORY_IN_USE");
+  assert.equal((await remove(category.id)).statusCode, 400);
+  assert.equal((await remove("missing")).statusCode, 400);
+  assert.equal(
+    (await categoryList(app, headers)).find((item) => item.id === category.id)
+      .articleCount,
+    3,
+  );
+  assert.equal((await remove(target.id)).statusCode, 200);
+  for (const previous of [live, archived, draft]) {
+    const current = (
+      await app.inject({ url: `/api/admin/blog/${previous.id}`, headers })
+    ).json().post;
+    assert.deepEqual(current.draft, {
+      ...previous.draft,
+      category: target.name,
+    });
+    assert.equal(current.archived, previous.archived);
+    assert.equal(current.version, previous.version + 1);
+    assert.deepEqual(
+      current.published,
+      previous.published
+        ? { ...previous.published, category: target.name }
+        : null,
+    );
+  }
+  const restored = await app.inject({
+    method: "POST",
+    url: `/api/admin/blog/${draft.id}/restore-revision`,
+    headers,
+    payload: { version: draft.version + 1, revisionId: history.id },
+  });
+  assert.equal(restored.statusCode, 200, restored.body);
+  assert.equal(restored.json().post.draft.category, target.name);
+  assert.equal(
+    (await app.inject({ url: "/api/admin/blog", headers })).json().posts.length,
+    count,
+  );
+  await app.close();
+  const reopened = await open();
+  assert.ok(
+    !(await categoryList(reopened, headers)).some(
+      (item) => item.id === category.id,
+    ),
+  );
+});
+
+test("category transfer treats draft and public categories independently and keeps the final category", async (t) => {
+  const { app, headers } = await fixture(t);
+  let categories = await categoryList(app, headers);
+  let post = await action(
+    app,
+    headers,
+    await create(app, headers, article()),
+    "publish",
+  );
+  post = (
+    await app.inject({
+      method: "PUT",
+      url: `/api/admin/blog/${post.id}`,
+      headers,
+      payload: {
+        version: post.version,
+        post: { ...post.draft, category: categories[1].name },
+      },
+    })
+  ).json().post;
+  const renamed = await app.inject({
+    method: "PUT",
+    url: `/api/admin/blog-categories/${categories[0].id}`,
+    headers,
+    payload: { name: "Notícias institucionais", version: 1 },
+  });
+  assert.equal(renamed.statusCode, 200);
+  let current = (
+    await app.inject({ url: `/api/admin/blog/${post.id}`, headers })
+  ).json().post;
+  assert.equal(current.draft.category, categories[1].name);
+  assert.equal(current.published.category, "Notícias institucionais");
+  categories = await categoryList(app, headers);
+  const target = categories[0];
+  for (const item of categories.slice(1)) {
+    const response = await app.inject({
+      method: "DELETE",
+      url: `/api/admin/blog-categories/${item.id}`,
+      headers,
+      payload: { version: item.version, replacementId: target.id },
+    });
+    assert.equal(response.statusCode, 200, response.body);
+  }
+  const rejected = await app.inject({
+    method: "DELETE",
+    url: `/api/admin/blog-categories/${target.id}`,
+    headers,
+    payload: { version: target.version, replacementId: null },
+  });
+  assert.equal(rejected.json().code, "LAST_CATEGORY");
+  assert.deepEqual((await app.inject("/api/blog")).json().categories, [
+    target.name,
+  ]);
+});

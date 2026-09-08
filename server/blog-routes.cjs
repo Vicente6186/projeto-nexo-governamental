@@ -16,7 +16,6 @@ const escape = (value = "") =>
   );
 
 const { articleSchema, jsonLd } = require("./blog-seo.cjs");
-const { CATEGORIES } = require("../shared/blog.cjs");
 
 function registerBlogPages(app, { blog, images, config, requireAuth, record }) {
   const origin = [...config.origins][0] || "http://127.0.0.1:3001";
@@ -120,7 +119,8 @@ function registerBlogPages(app, { blog, images, config, requireAuth, record }) {
     });
     if (
       !preview &&
-      ((category && !CATEGORIES.includes(category)) || page > result.pages)
+      ((category && !result.categories.includes(category)) ||
+        page > result.pages)
     )
       return sendPage(reply, renderBlogNotFound({ site: siteInfo() }), {
         status: 404,

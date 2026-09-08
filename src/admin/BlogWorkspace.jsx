@@ -28,6 +28,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { api } from "./api";
+import CategoryManager from "./CategoryManager";
 import { CATEGORIES, validatePost } from "../../shared/blog.cjs";
 import { useDraftRecovery } from "./useDraftRecovery";
 import {
@@ -135,7 +136,11 @@ function errorField(error) {
     "Crédito da imagem": "coverCredit",
   }[label];
 }
-function validationErrors(content, publishing = false) {
+function validationErrors(
+  content,
+  publishing = false,
+  categories = CATEGORIES,
+) {
   const result = {};
   if (!content) return result;
   if (publishing) {
@@ -154,7 +159,10 @@ function validationErrors(content, publishing = false) {
     });
   }
   try {
-    validatePost(content, { publishing });
+    validatePost(content, {
+      publishing,
+      categories: categories.map(categoryValue),
+    });
   } catch (error) {
     result[errorField(error) || "body"] = error.message;
   }
@@ -293,6 +301,7 @@ export default function BlogWorkspace({
   const postId = route.startsWith("blog/") ? route.slice(5) : null;
   const [posts, setPosts] = useState([]),
     [categories, setCategories] = useState(CATEGORIES);
+  const [categoryRevision, setCategoryRevision] = useState(0);
   const [record, setRecord] = useState(null),
     [draft, setDraft] = useState(null);
   const [tagsText, setTagsText] = useState(""),
@@ -449,6 +458,7 @@ export default function BlogWorkspace({
             `/api/admin/blog/${encodeURIComponent(postId)}`,
           );
           if (!active) return;
+          setCategories(detail.categories || CATEGORIES);
           accept(detail.post);
           requestAnimationFrame(() =>
             document.querySelector(".blog-editor-title")?.focus(),
@@ -511,7 +521,7 @@ export default function BlogWorkspace({
     return () => {
       active = false;
     };
-  }, [postId, retry, page, search, status, category]);
+  }, [postId, retry, page, search, status, category, categoryRevision]);
   useEffect(() => {
     const online = () => {
       setConnectionOnline(true);
@@ -536,7 +546,7 @@ export default function BlogWorkspace({
       recovery.recovery ||
       modal ||
       !connectionOnline ||
-      Object.keys(validationErrors(draft)).length
+      Object.keys(validationErrors(draft, false, categories)).length
     )
       return;
     const timer = setTimeout(() => save(true), 1500);
@@ -623,7 +633,7 @@ export default function BlogWorkspace({
       content = draftRef.current;
     if (!current || !content || current.archived) return current;
     if (equivalent(content, current.draft)) return current;
-    const invalid = validationErrors(content);
+    const invalid = validationErrors(content, false, categories);
     if (Object.keys(invalid).length) {
       const field = Object.keys(invalid)[0];
       setErrors(invalid);
@@ -653,6 +663,7 @@ export default function BlogWorkspace({
   async function save(automatic = false) {
     if (
       operationRef.current ||
+      modal?.type === "categories" ||
       uploadRef.current ||
       !dirty ||
       recordRef.current?.archived
@@ -672,6 +683,55 @@ export default function BlogWorkspace({
     }
   }
   saveRef.current = () => save(false);
+  async function openCategories() {
+    if (operationRef.current || uploadRef.current) return;
+    operationRef.current = true;
+    setBusy("categories");
+    try {
+      if (postId && !recordRef.current?.archived) {
+        await saveCurrent();
+        if (!equivalent(draftRef.current, recordRef.current.draft))
+          await saveCurrent();
+      }
+      setModal({ type: "categories" });
+    } catch (error) {
+      fail(error);
+    } finally {
+      setBusy("");
+      operationRef.current = false;
+    }
+  }
+  function categoriesChanged(result) {
+    setCategories(result.categories.map((item) => item.name));
+    if (result.change)
+      setCategory((value) =>
+        value === result.change.from ? result.change.to || "" : value,
+      );
+    setCategoryRevision((value) => value + 1);
+  }
+  async function closeCategories() {
+    if (operationRef.current) return;
+    operationRef.current = true;
+    setBusy("categories");
+    try {
+      if (postId) {
+        const result = await api(
+          `/api/admin/blog/${encodeURIComponent(postId)}`,
+        );
+        setCategories(result.categories || CATEGORIES);
+        accept(result.post);
+        setErrors({});
+        setAutosaveFailed(false);
+      }
+      setModal(null);
+    } catch (error) {
+      notify?.(error.message, true);
+      if (error.status === 401) onSessionExpired?.();
+    } finally {
+      setBusy("");
+      operationRef.current = false;
+    }
+  }
   async function create() {
     if (operationRef.current || uploadRef.current) return;
     operationRef.current = true;
@@ -711,7 +771,7 @@ export default function BlogWorkspace({
   async function runAction(action) {
     if (operationRef.current || uploadRef.current || !record) return;
     if (action === "publish") {
-      const invalid = validationErrors(draftRef.current, true);
+      const invalid = validationErrors(draftRef.current, true, categories);
       if (Object.keys(invalid).length) {
         setErrors(invalid);
         setModal(null);
@@ -891,7 +951,10 @@ export default function BlogWorkspace({
     }
   }
   const filtered = posts;
-  const publicationErrors = { ...validationErrors(draft, true), ...errors };
+  const publicationErrors = {
+    ...validationErrors(draft, true, categories),
+    ...errors,
+  };
   const requirements = Object.entries(publicationErrors).map(
     ([field, message]) => ({
       field,
@@ -946,11 +1009,26 @@ export default function BlogWorkspace({
 
   return (
     <div className="blog-workspace">
+      {modal?.type === "categories" && (
+        <CategoryManager
+          onChange={categoriesChanged}
+          onClose={closeCategories}
+          onSessionExpired={onSessionExpired}
+          closing={busy === "categories"}
+        />
+      )}
       {!postId ? (
         <>
           <div className="blog-list-intro">
             <h1>Blog do Nexo</h1>
             <div className="blog-inline-actions">
+              <Button
+                icon={Settings2}
+                onClick={openCategories}
+                disabled={!!busy}
+              >
+                Gerenciar categorias
+              </Button>
               <a
                 href="/blog/"
                 target="_blank"
@@ -1385,8 +1463,15 @@ export default function BlogWorkspace({
                   />
                   <div className="blog-essential-fields">
                     <div className="field">
-                      <div className="field-label">
+                      <div className="field-label blog-category-label">
                         <label htmlFor="blog-category">Categoria</label>
+                        <Button
+                          onClick={openCategories}
+                          disabled={!!busy || !!recovery.recovery}
+                          aria-label="Gerenciar categorias"
+                        >
+                          Gerenciar
+                        </Button>
                       </div>
                       <select
                         id="blog-category"
@@ -2324,6 +2409,14 @@ export default function BlogWorkspace({
             )}
             <pre>{modal.revision.post.body}</pre>
           </div>
+          {!categories
+            .map(categoryValue)
+            .includes(modal.revision.post.category) && (
+            <p className="blog-dialog-note">
+              A categoria desta versão não existe mais. A categoria atual do
+              artigo será mantida.
+            </p>
+          )}
           {record.archived && (
             <p className="blog-dialog-note">
               Recupere o artigo arquivado para restaurar esta versão.
