@@ -8,12 +8,15 @@
 #instagram {
     --instagram-ink: var(--primary);
     --instagram-muted: #565f77;
+    --instagram-transition-height: clamp(12rem, 14vw, 18rem);
+    --instagram-transition-space: clamp(2.4rem, 3vw, 4rem);
     position: relative;
-    padding: clamp(7.2rem, 8vw, 10.4rem) 3.2rem clamp(5.6rem, 6vw, 8rem);
+    padding: clamp(7.2rem, 8vw, 10.4rem) 3.2rem
+        calc(var(--instagram-transition-height) + var(--instagram-transition-space));
     color: #fff;
     background:
-        linear-gradient(180deg, transparent, #191f5159 35%, #191f51c7 72%, var(--primary))
-            bottom / 100% clamp(20rem, 26vw, 34rem) no-repeat,
+        linear-gradient(180deg, transparent calc(100% - var(--instagram-transition-height)),
+            var(--primary) calc(100% - 2px)),
         linear-gradient(rgb(0 0 0 / 30%), rgb(0 0 0 / 30%)),
         linear-gradient(125deg, #8134af 0%, #dd2a7b 50%, #f58529 100%);
     scroll-margin-top: 2.4rem;
@@ -252,7 +255,8 @@
     }
 
     #instagram {
-        padding: 6.4rem 2.4rem 4.8rem;
+        padding: 6.4rem 2.4rem
+            calc(var(--instagram-transition-height) + var(--instagram-transition-space));
     }
 
     #instagram .instagram-layout {
