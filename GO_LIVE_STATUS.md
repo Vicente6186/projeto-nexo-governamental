@@ -4,6 +4,17 @@ Revisão: 7 de setembro de 2026.
 
 O site, o blog e o painel estão publicados em **https://nexo-governamental.netlify.app/**. O Netlify encaminha a aplicação ao Fastify no Railway. Login, proteção dos rascunhos, conteúdo público, imagens e descoberta para mecanismos de busca foram verificados pelo endereço HTTPS real. A recuperação por e-mail ainda depende do Resend; esta entrega não declara todos os critérios operacionais encerrados.
 
+## Refinamento do painel publicado
+
+O Nexo Studio recebeu navegação mais enxuta, cores mais sóbrias nos temas claro e escuro, tipografia consistente, contatos com prévia lateral e menos títulos, subtítulos e instruções repetidas. Blog, processo seletivo, login, contas e recuperação de acesso seguem os mesmos fluxos. Avisos de publicação, erros e orientações de acessibilidade foram preservados.
+
+- Fonte da aplicação: `36f60f5e7222ed42735c215b3381dfdb41405297`.
+- Railway: deploy `bbe54252-4fa3-484b-a0dd-eeae8b56244f`, estado `SUCCESS`, em 8 de setembro de 2026 UTC (7 de setembro em Brasília).
+- Validação local: 151 testes de lógica aprovados. Dos 49 cenários de navegador, 44 passaram inicialmente; os cinco afetados pelos novos textos e descrições acessíveis passaram depois dos ajustes. Os cenários incluem teclado, temas, telas estreitas, contas, rascunhos, publicação e recuperação.
+- Build final aprovado, com os dois avisos de tamanho de mídia/pacotes já conhecidos. O HTML de `/admin/` e os arquivos `admin.dc91dcc9.js` e `admin.0a3ec00b.css` publicados foram conferidos byte a byte contra o build local.
+- `/api/health` respondeu 200. O conteúdo retornado por `/api/content` permaneceu idêntico ao registro anterior à publicação; o acesso da equipe no rodapé também foi preservado. A verificação de SEO pelo domínio público passou, ainda sem artigos publicados para amostragem.
+- Backup anterior à atualização: `/app/data/studio-design-backups/nexo-backup-2026-09-08T01-41-12-980Z-9f3c4968-0109-4770-8434-e44e256e1c8f`, verificado pelo procedimento da aplicação, sem remoção de cópias anteriores.
+
 ## Revisão de código posterior à publicação registrada
 
 A revisão do checkout corrigiu concorrência no limite de login, validação de credenciais e conteúdo, troca indevida de identidade ao renovar CSRF, recuperação de rascunhos, preservação do endereço e das palavras-chave durante o salvamento e histórico de desfazer após recuperar uma revisão. Também corrigiu sumário e RSS do blog, manutenção da navegação nas prévias, limpeza após falhas de backup/restauração e geração do template do blog no desenvolvimento.
@@ -16,7 +27,7 @@ No site, foram ajustados links de e-mail, imagem e rótulos do CMS, contraste do
 - `npm audit`: nenhuma vulnerabilidade reportada, incluindo dependências de desenvolvimento.
 - SEO e readiness locais aprovados em servidor isolado. Site, blog e login conferidos em 320, 375, 768 e 1.440 px, sem transbordamento horizontal ou erros de JavaScript; cinco imagens de reconhecimento carregadas e decodificadas.
 
-Esta revisão entrega código para commit e push no GitHub. As evidências de hospedagem abaixo registram a publicação anterior e não comprovam o deploy destas correções. As pendências operacionais continuam válidas.
+Estas correções estão incluídas na publicação do refinamento do painel registrada acima. As evidências de hospedagem abaixo descrevem a instalação anterior. As pendências operacionais continuam válidas.
 
 ## Validação da publicação anterior
 
