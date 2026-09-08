@@ -208,11 +208,13 @@ async function createBackup({
       );
     throw error;
   }
-  const directory = `nexo-backup-${now.toISOString().replaceAll(":", "-").replace(".", "-")}-${crypto.randomUUID()}`;
-  const temp = fs.mkdtempSync(path.join(root, ".nexo-backup-"));
-  fs.chmodSync(temp, 0o700);
+  let temp;
   let db;
   try {
+    const createdAt = now.toISOString();
+    const directory = `nexo-backup-${createdAt.replaceAll(":", "-").replace(".", "-")}-${crypto.randomUUID()}`;
+    temp = fs.mkdtempSync(path.join(root, ".nexo-backup-"));
+    fs.chmodSync(temp, 0o700);
     fs.writeFileSync(lock, `${process.pid}\n`, { encoding: "utf8" });
     db = new DatabaseSync(sourceDatabase, { readOnly: true });
     await backup(db, path.join(temp, "nexo.sqlite"));
@@ -244,7 +246,7 @@ async function createBackup({
     const manifest = {
       format: FORMAT,
       directory,
-      createdAt: now.toISOString(),
+      createdAt,
       files: names.sort().map((name) => describeFile(temp, name)),
     };
     fs.writeFileSync(
@@ -264,10 +266,20 @@ async function createBackup({
       removed,
     };
   } finally {
-    db?.close();
-    if (fs.existsSync(temp)) fs.rmSync(temp, { recursive: true });
-    fs.closeSync(lock);
-    fs.unlinkSync(lockFile);
+    // Each cleanup must run even if another resource cannot be released.
+    try {
+      db?.close();
+    } finally {
+      try {
+        if (temp && fs.existsSync(temp)) fs.rmSync(temp, { recursive: true });
+      } finally {
+        try {
+          fs.closeSync(lock);
+        } finally {
+          fs.unlinkSync(lockFile);
+        }
+      }
+    }
   }
 }
 function restoreBackup({ backupDir, destination, apply = false }) {
@@ -298,8 +310,8 @@ function restoreBackup({ backupDir, destination, apply = false }) {
   const staging = fs.mkdtempSync(
     path.join(path.dirname(target), ".nexo-restore-"),
   );
-  fs.chmodSync(staging, 0o700);
   try {
+    fs.chmodSync(staging, 0o700);
     for (const file of manifest.files) {
       const output = inside(staging, file.path);
       fs.mkdirSync(path.dirname(output), { recursive: true, mode: 0o700 });

@@ -413,10 +413,14 @@ export default function BlogWorkspace({
         : structuredClone(post.draft);
       setRecord(post);
       setDraft(nextDraft);
-      setTagsText((nextDraft.tags || []).join(", "));
-      setSlugManual(
-        !!post.published || post.draft.slug !== slugify(post.draft.title),
-      );
+      // Autosave responses must not replace a newer local URL choice or a
+      // trailing comma the author is using to enter the next tag.
+      if (!equivalent(nextDraft.tags, draftRef.current?.tags))
+        setTagsText((nextDraft.tags || []).join(", "));
+      if (!keepEditing)
+        setSlugManual(
+          !!post.published || post.draft.slug !== slugify(post.draft.title),
+        );
       recordRef.current = post;
       draftRef.current = nextDraft;
     }

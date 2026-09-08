@@ -191,6 +191,91 @@ test("backup aborts on missing registered files and never prunes a prior good ba
   );
 });
 
+test("backup releases its lock after temporary-directory setup failures and permits retry", async (t) => {
+  for (const method of ["mkdtempSync", "chmodSync"]) {
+    await t.test(method, async (t) => {
+      const f = fixture(t);
+      const original = fs[method];
+      t.mock.method(fs, method, (...args) => {
+        if (
+          String(args[0]).startsWith(path.join(f.outputRoot, ".nexo-backup-"))
+        )
+          throw Object.assign(new Error("temporary directory unavailable"), {
+            code: "EACCES",
+          });
+        return original(...args);
+      });
+      await assert.rejects(createBackup(f), /temporary directory unavailable/);
+      assert.deepEqual(fs.readdirSync(f.outputRoot), []);
+      t.mock.restoreAll();
+      const saved = await createBackup(f);
+      assert.equal(verifyBackup(saved.directory).files.length, 3);
+    });
+  }
+});
+
+test("backup releases its lock even when removal of an incomplete copy fails", async (t) => {
+  const f = fixture(t);
+  fs.unlinkSync(path.join(f.dataDir, "uploads", "cover.webp"));
+  const original = fs.rmSync;
+  t.mock.method(fs, "rmSync", (...args) => {
+    if (String(args[0]).startsWith(path.join(f.outputRoot, ".nexo-backup-")))
+      throw Object.assign(new Error("temporary directory cleanup failed"), {
+        code: "EACCES",
+      });
+    return original(...args);
+  });
+  await assert.rejects(createBackup(f), /temporary directory cleanup failed/);
+  assert.equal(
+    fs.existsSync(path.join(f.outputRoot, ".nexo-backup.lock")),
+    false,
+  );
+  t.mock.restoreAll();
+  fs.writeFileSync(
+    path.join(f.dataDir, "uploads", "cover.webp"),
+    "public-image",
+  );
+  const saved = await createBackup(f);
+  assert.equal(verifyBackup(saved.directory).files.length, 3);
+});
+
+test("backup releases its lock after an invalid timestamp", async (t) => {
+  const f = fixture(t);
+  await assert.rejects(createBackup({ ...f, now: new Date(NaN) }), RangeError);
+  assert.deepEqual(fs.readdirSync(f.outputRoot), []);
+  assert.equal((await createBackup(f)).files, 3);
+});
+
+test("restore removes its staging directory after a permissions failure and permits retry", async (t) => {
+  const f = fixture(t);
+  const saved = await createBackup(f);
+  const destination = path.join(f.root, "restored");
+  const original = fs.chmodSync;
+  t.mock.method(fs, "chmodSync", (...args) => {
+    if (String(args[0]).startsWith(path.join(f.root, ".nexo-restore-")))
+      throw Object.assign(new Error("restoration directory unavailable"), {
+        code: "EACCES",
+      });
+    return original(...args);
+  });
+  assert.throws(
+    () =>
+      restoreBackup({ backupDir: saved.directory, destination, apply: true }),
+    /restoration directory unavailable/,
+  );
+  assert.equal(fs.existsSync(destination), false);
+  assert.equal(
+    fs.readdirSync(f.root).some((entry) => entry.startsWith(".nexo-restore-")),
+    false,
+  );
+  t.mock.restoreAll();
+  assert.equal(
+    restoreBackup({ backupDir: saved.directory, destination, apply: true })
+      .applied,
+    true,
+  );
+});
+
 test("backup rejects symlinks and restore rejects traversal in a modified manifest", async (t) => {
   const f = fixture(t);
   const saved = await createBackup(f);
@@ -266,6 +351,10 @@ test("readiness distinguishes local HTTP success from production and never print
     if (url.pathname === "/api/health") return Response.json({ ok: true });
     if (url.pathname === "/api/content")
       return Response.json({ content: DEFAULT_CONTENT });
+    if (url.pathname === "/blog/")
+      return new Response("<!doctype html><h1>Blog do <em>Nexo.</em></h1>", {
+        headers: { "content-type": "text/html" },
+      });
     return new Response("<!doctype html><title>Nexo Governamental</title>", {
       headers: { "content-type": "text/html", "x-robots-tag": "noindex" },
     });
@@ -337,6 +426,10 @@ test("production readiness requires the configured origin, valid proxy networks 
     if (url.pathname === "/api/health") return Response.json({ ok: true });
     if (url.pathname === "/api/content")
       return Response.json({ content: DEFAULT_CONTENT });
+    if (url.pathname === "/blog/")
+      return new Response("<!doctype html><h1>Blog do <em>Nexo.</em></h1>", {
+        headers: { "content-type": "text/html" },
+      });
     return new Response("<!doctype html><title>Nexo Governamental</title>", {
       headers: { "content-type": "text/html", "x-robots-tag": "noindex" },
     });
@@ -346,6 +439,17 @@ test("production readiness requires the configured origin, valid proxy networks 
   const correct = await inspect();
   assert.equal(correct.ok, true);
   assert.equal(correct.publicGoLiveConfirmed, false);
+  for (const credentials of [
+    { ADMIN_EMAIL: "admin\u0000@example.org" },
+    { ADMIN_EMAIL: "admin@-invalid.org" },
+    { ADMIN_PASSWORD: "x".repeat(1025) },
+  ]) {
+    const report = await inspect({ env: { ...env, ...credentials } });
+    assert.equal(
+      report.checks.find((check) => check.name === "Acesso inicial").state,
+      "fail",
+    );
+  }
   assert(
     correct.checks.some(
       (check) => check.name === "Acesso autenticado" && check.state === "pass",
@@ -450,4 +554,29 @@ test("restoration accepts historical backups created before password recovery ex
   assert.equal(result.sessionsRevoked, true);
   assert.equal(result.resetTokensRevoked, true);
   assert.equal(f.db.prepare("SELECT version FROM content").get().version, 1);
+});
+
+test("readiness rejects a homepage fallback and an unrendered blog template", async (t) => {
+  const f = fixture(t);
+  for (const html of [
+    "<!doctype html><title>Nexo Governamental</title><h1>Seja Nexo.</h1>",
+    "<!doctype html><title>Blog do Nexo</title><!--BLOG_CONTENT-->",
+  ]) {
+    const report = await readiness({
+      env: {},
+      distDir: f.root,
+      fetchFn: async (url) => {
+        if (url.pathname === "/api/health") return Response.json({ ok: true });
+        if (url.pathname === "/api/content")
+          return Response.json({ content: DEFAULT_CONTENT });
+        return new Response(html, {
+          headers: { "content-type": "text/html", "x-robots-tag": "noindex" },
+        });
+      },
+    });
+    assert.equal(
+      report.checks.find((check) => check.name === "Blog").state,
+      "fail",
+    );
+  }
 });

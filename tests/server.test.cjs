@@ -520,6 +520,9 @@ test("content validation rejects script URLs, invalid shapes, duplicate sections
       draft.sections[1].id = draft.sections[0].id;
     },
     (draft) => {
+      draft.sections[0] = null;
+    },
+    (draft) => {
       draft.sections[0].visible = "true";
     },
     (draft) => {
@@ -854,6 +857,68 @@ test("login rate limit applies to repeated failed credentials", async (t) => {
   );
 });
 
+test("concurrent login guesses reserve the persistent rate limit before password hashing", async (t) => {
+  const env = {
+    NODE_ENV: "test",
+    ADMIN_EMAIL: "admin@nexo.example.com",
+    ADMIN_PASSWORD: "a-long-private-passphrase",
+  };
+  const { app, open } = await fixture(t, env);
+  const attempt = (target, password = "incorrect") =>
+    target.inject({
+      method: "POST",
+      url: "/api/login",
+      headers: { origin: ORIGIN },
+      payload: { email: env.ADMIN_EMAIL, password },
+    });
+  const results = await Promise.all(
+    Array.from({ length: 12 }, () => attempt(app)),
+  );
+  assert.equal(
+    results.filter((response) => response.statusCode === 401).length,
+    8,
+  );
+  assert.equal(
+    results.filter((response) => response.statusCode === 429).length,
+    4,
+  );
+  await app.close();
+  const restarted = await open();
+  assert.equal((await attempt(restarted, env.ADMIN_PASSWORD)).statusCode, 429);
+});
+
+test("account emails must also be valid for password recovery", async (t) => {
+  const { app } = await fixture(t);
+  const headers = await localLogin(app);
+  const before = (
+    await app.inject({ url: "/api/admin/users", headers })
+  ).json();
+  for (const email of [
+    "person\u0000@example.org",
+    "person@-example.org",
+    "person@exa_mple.org",
+    "<person>@example.org",
+  ]) {
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/admin/users",
+      headers,
+      payload: {
+        name: "Editor",
+        email,
+        password: "valid-private-password",
+        role: "editor",
+      },
+    });
+    assert.equal(response.statusCode, 400, email);
+    assert.equal(response.json().field, "email");
+  }
+  assert.deepEqual(
+    (await app.inject({ url: "/api/admin/users", headers })).json(),
+    before,
+  );
+});
+
 test("sessions expire after twelve hours", async (t) => {
   let timestamp = new Date("2026-09-07T15:00:00Z").getTime();
   const { app } = await fixture(t, previewEnv, {
@@ -875,6 +940,18 @@ test("production refuses missing or weak credentials, HTTP origins and local pre
       NODE_ENV: "production",
       ADMIN_EMAIL: "admin@nexo.example.com",
       ADMIN_PASSWORD: "short",
+      CMS_ORIGIN: "https://nexo.example.com",
+    },
+    {
+      NODE_ENV: "production",
+      ADMIN_EMAIL: "admin@nexo.example.com",
+      ADMIN_PASSWORD: "x".repeat(1025),
+      CMS_ORIGIN: "https://nexo.example.com",
+    },
+    {
+      NODE_ENV: "production",
+      ADMIN_EMAIL: "admin@-nexo.example.com",
+      ADMIN_PASSWORD: "a-long-private-passphrase",
       CMS_ORIGIN: "https://nexo.example.com",
     },
     {

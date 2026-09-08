@@ -101,6 +101,7 @@ test("password changes stay tucked away until requested and return to a clear co
   browser,
 }) => {
   const { loginPreview } = require("./auth.cjs");
+
   await loginPreview(page);
   const session = await (await page.request.get("/api/session")).json();
   const email = `qa-access-password-${Date.now()}@example.org`;
@@ -166,5 +167,40 @@ test("password changes stay tucked away until requested and return to a clear co
     await expect(disclosure).toBeFocused();
   } finally {
     await context.close();
+  }
+});
+
+test("the sign-in form fits small phones without clipping its controls", async ({
+  page,
+}) => {
+  await page.route("**/api/session", (route) =>
+    route.fulfill({
+      json: {
+        authenticated: false,
+        user: null,
+        localPreview: false,
+        passwordResetAvailable: false,
+      },
+    }),
+  );
+  for (const width of [320, 375, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/admin/");
+    await expect(
+      page.getByRole("button", { name: "Entrar no painel" }),
+    ).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(width);
+    for (const control of [
+      page.getByLabel("E-mail", { exact: true }),
+      page.getByLabel("Senha", { exact: true }),
+      page.getByRole("button", { name: "Entrar no painel" }),
+    ]) {
+      const bounds = await control.boundingBox();
+      expect(bounds.x).toBeGreaterThanOrEqual(0);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+    }
   }
 });

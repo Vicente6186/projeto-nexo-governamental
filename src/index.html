@@ -88,7 +88,7 @@
                         <li>✅ Democratização da informação</li>
                     </ul>
                     <div id="about-video-explication-container">
-                        <video autoplay loop muted playsinline width="120" height="120">
+                        <video autoplay loop muted playsinline width="120" height="120" aria-hidden="true">
                             <source src="assets/about/talk.webm" type="video/webm" />
                             <source src="assets/about/talk.mp4" type="video/mp4" />
                         </video>
@@ -101,9 +101,9 @@
                 </div>
                 <div>
                     <div id="about-video-container">
-                        <img src="assets/speech-ballon.webp" alt="Balão decorativo" width="106" height="106" loading="lazy"
+                        <img src="assets/speech-ballon.webp" alt="" width="106" height="106" loading="lazy"
                             decoding="async">
-                        <video controls preload="metadata">
+                        <video controls preload="metadata" aria-labelledby="about-video-title" aria-describedby="about-video-description">
                             <source src="assets/about/about.webm" type="video/webm">
                             <source src="assets/about/about.mp4" type="video/mp4">
                         </video>
@@ -415,7 +415,7 @@
             </nav>
             <div class="footer-others">
                 <p>Site desenvolvido por Vicente Chemin Schmidt</p>
-                <p>E-mail: <a href="mailto:vicentechemin@gmail.com">vicentechemin@gmail</a></p>
+                <p>E-mail: <a href="mailto:vicentechemin@gmail.com">vicentechemin@gmail.com</a></p>
                 <a href="https://www.flaticon.com/free-animated-icons/speak" title="speak animated icons">Speak animated
                     icons created by Freepik - Flaticon</a>
                 <a href="https://gifer.com/en/8vlr">Alguns gif são do site Gifer</a>

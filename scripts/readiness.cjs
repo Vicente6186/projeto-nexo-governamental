@@ -3,6 +3,7 @@ const path = require("node:path");
 const { isIP } = require("node:net");
 const { args, loadEnv } = require("./cli.cjs");
 const { resetEmailConfigured } = require("../server/reset-email.cjs");
+const { isValidEmail } = require("../server/users.cjs");
 
 async function readiness({
   env = process.env,
@@ -46,10 +47,11 @@ async function readiness({
     );
     check(
       "Acesso inicial",
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(env.ADMIN_EMAIL || "") &&
-        (env.ADMIN_PASSWORD || "").length >= 12,
+      isValidEmail((env.ADMIN_EMAIL || "").trim()) &&
+        (env.ADMIN_PASSWORD || "").length >= 12 &&
+        (env.ADMIN_PASSWORD || "").length <= 1024,
       "Credenciais iniciais presentes, sem exposição de valores.",
-      "Configure ADMIN_EMAIL e ADMIN_PASSWORD de pelo menos 12 caracteres.",
+      "Configure ADMIN_EMAIL válido e ADMIN_PASSWORD com 12 a 1.024 caracteres.",
     );
     let validOrigin = false;
     try {
@@ -215,9 +217,8 @@ async function readiness({
           else
             valid =
               valid &&
-              /Blog do Nexo|blog-page|blog-main|blog-shell|Nexo Governamental/.test(
-                html,
-              );
+              /<h1\b[^>]*>\s*Blog do\s+(?:<[^>]+>\s*)*Nexo\b/i.test(html) &&
+              !/<!--BLOG_(?:META|CONTENT)-->/i.test(html);
         }
         check(
           name,

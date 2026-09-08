@@ -160,6 +160,14 @@ test("editorial previews require authentication and remain private, unindexed an
   assert.equal(missing.statusCode, 404, missing.body);
   assert.match(missing.headers["cache-control"], /no-store/);
   assert.match(missing.headers["x-robots-tag"], /noindex/);
+  const missingPage = document(missing);
+  assert.ok(missingPage.querySelector(".preview-banner"));
+  assert.equal(
+    missingPage
+      .querySelector(".not-found-page .button-primary")
+      .getAttribute("href"),
+    "/blog/?preview=1",
+  );
 });
 
 test("published articles render complete HTML and metadata without JavaScript, escaping editorial input", async (t) => {
@@ -551,4 +559,35 @@ test("production CSP authorizes only the exact inert structured-data block", () 
     scriptPolicy.trim(),
     `script-src 'self' 'sha256-${createHash("sha256").update(encoded).digest("base64")}'`,
   );
+});
+
+test("table of contents resolves every heading after repeated and already numbered titles", async (t) => {
+  const { app, create, action } = await fixture(t);
+  const titles = [
+    "Diálogo",
+    "Diálogo",
+    "Diálogo-2",
+    "Diálogo",
+    "Diálogo-3",
+    "Diálogo-2",
+  ];
+  const post = await action(
+    await create({
+      body: titles
+        .map((title, index) => `## ${title}\n\nPerspectiva ${index + 1}.`)
+        .join("\n\n"),
+    }),
+    "publish",
+  );
+  const page = document(await app.inject(`/blog/${post.published.slug}`));
+  const headings = [...page.querySelectorAll(".article-body h2")];
+  assert.equal(
+    new Set(headings.map((heading) => heading.id)).size,
+    titles.length,
+  );
+  const links = [...page.querySelectorAll(".table-of-contents a")];
+  assert.equal(links.length, titles.length);
+  links.forEach((link, index) => {
+    assert.equal(page.getElementById(link.hash.slice(1)), headings[index]);
+  });
 });

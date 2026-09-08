@@ -92,6 +92,11 @@ module.exports = {
   ],
   devServer: {
     static: "./dist",
+    // Fastify renders blog pages from this template while bundles stay in memory.
+    devMiddleware: {
+      writeToDisk: (filename) =>
+        filename.endsWith(`${path.sep}blog${path.sep}template.html`),
+    },
     host: "127.0.0.1",
     port: 8080,
     open: false,

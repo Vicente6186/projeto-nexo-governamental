@@ -4,7 +4,21 @@ Revisão: 7 de setembro de 2026.
 
 O site, o blog e o painel estão publicados em **https://nexo-governamental.netlify.app/**. O Netlify encaminha a aplicação ao Fastify no Railway. Login, proteção dos rascunhos, conteúdo público, imagens e descoberta para mecanismos de busca foram verificados pelo endereço HTTPS real. A recuperação por e-mail ainda depende do Resend; esta entrega não declara todos os critérios operacionais encerrados.
 
-## Validação da versão
+## Revisão de código posterior à publicação registrada
+
+A revisão do checkout corrigiu concorrência no limite de login, validação de credenciais e conteúdo, troca indevida de identidade ao renovar CSRF, recuperação de rascunhos, preservação do endereço e das palavras-chave durante o salvamento e histórico de desfazer após recuperar uma revisão. Também corrigiu sumário e RSS do blog, manutenção da navegação nas prévias, limpeza após falhas de backup/restauração e geração do template do blog no desenvolvimento.
+
+No site, foram ajustados links de e-mail, imagem e rótulos do CMS, contraste do processo seletivo e respeito à preferência por movimento reduzido. A tela de login agora cabe em celulares pequenos.
+
+- `npm test`: **151 testes passaram**, incluindo regressões reproduzidas antes das correções.
+- Chromium: **49 cenários passaram**, incluindo isolamento entre contas em abas diferentes e login em telas de 320, 375 e 390 px. Escritas somente em bancos temporários.
+- Build de produção concluído; permanecem os dois avisos de tamanho de mídia/pacotes.
+- `npm audit`: nenhuma vulnerabilidade reportada, incluindo dependências de desenvolvimento.
+- SEO e readiness locais aprovados em servidor isolado. Site, blog e login conferidos em 320, 375, 768 e 1.440 px, sem transbordamento horizontal ou erros de JavaScript; cinco imagens de reconhecimento carregadas e decodificadas.
+
+Esta revisão entrega código para commit e push no GitHub. As evidências de hospedagem abaixo registram a publicação anterior e não comprovam o deploy destas correções. As pendências operacionais continuam válidas.
+
+## Validação da publicação anterior
 
 - `npm test`: **120 testes passaram**. Cobrem API, usuários, conteúdo, blog, upload, versões, temas, recuperação, redefinição de senha, sitemaps, canonical, dados estruturados, imagens responsivas e proteção das prévias.
 - `npm run test:e2e`: **47 cenários passaram** no Chromium. Incluem publicação e prévias, capas, versões, recuperação entre abas, renovação de sessão, etapas dos formulários, Desfazer, teclado, temas e telas estreitas. Os testes de escrita usaram bancos temporários isolados.

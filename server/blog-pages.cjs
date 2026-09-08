@@ -249,6 +249,7 @@ function renderBlogIndex({
 function withHeadingIds(html) {
   const entries = [];
   const counts = new Map();
+  const usedIds = new Set();
   const content = String(html).replace(
     /<h([23])(?:\s[^>]*)?>([\s\S]*?)<\/h\1>/g,
     (_, level, text) => {
@@ -271,9 +272,14 @@ function withHeadingIds(html) {
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/^-|-$/g, "")
           .slice(0, 90) || "secao";
-      const count = (counts.get(base) || 0) + 1;
+      let count = (counts.get(base) || 0) + 1;
+      let id = `leitura-${base}${count > 1 ? `-${count}` : ""}`;
+      while (usedIds.has(id)) {
+        count++;
+        id = `leitura-${base}-${count}`;
+      }
       counts.set(base, count);
-      const id = `leitura-${base}${count > 1 ? `-${count}` : ""}`;
+      usedIds.add(id);
       entries.push({ level, title: plain, id });
       return `<h${level} id="${id}">${text}</h${level}>`;
     },

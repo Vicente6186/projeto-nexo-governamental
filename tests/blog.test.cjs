@@ -124,6 +124,61 @@ test("normal configuration starts an empty blog without demonstration drafts", a
   });
 });
 
+test("RSS keeps the newest publication visible when older featured posts fill the first page", async (t) => {
+  const { app, headers, tick } = await fixture(t);
+  for (let index = 0; index < 12; index++) {
+    tick();
+    await action(
+      app,
+      headers,
+      await create(
+        app,
+        headers,
+        article({ slug: `featured-${index}`, featured: true }),
+      ),
+      "publish",
+    );
+  }
+  tick();
+  const newest = await action(
+    app,
+    headers,
+    await create(
+      app,
+      headers,
+      article({ slug: "latest-publication", title: "Publicação mais recente" }),
+    ),
+    "publish",
+  );
+  assert.equal(
+    (await app.inject("/api/blog"))
+      .json()
+      .posts.some((post) => post.id === newest.id),
+    false,
+  );
+  const rss = await app.inject("/blog/feed.xml");
+  assert.equal(rss.statusCode, 200);
+  const { JSDOM } = require("jsdom");
+  const feed = new JSDOM(rss.body, { contentType: "text/xml" });
+  try {
+    const items = [...feed.window.document.querySelectorAll("item")];
+    assert.equal(items.length, 12);
+    assert.equal(
+      items[0].querySelector("title").textContent,
+      newest.published.title,
+    );
+    const dates = items.map((item) =>
+      Date.parse(item.querySelector("pubDate").textContent),
+    );
+    assert.deepEqual(
+      dates,
+      [...dates].sort((a, b) => b - a),
+    );
+  } finally {
+    feed.window.close();
+  }
+});
+
 test("all blog admin reads and mutations require a session, origin and CSRF", async (t) => {
   const { app, headers } = await fixture(t);
   const post = await create(app, headers);

@@ -1,6 +1,8 @@
 let csrfToken = "";
+let sessionUserId = null;
 export function setCsrf(value) {
   csrfToken = value || "";
+  if (!csrfToken) sessionUserId = null;
 }
 
 function sessionExpired() {
@@ -44,6 +46,7 @@ export async function api(
   path,
   { method = "GET", body, form, signal, timeout = 30000 } = {},
 ) {
+  const requestUserId = sessionUserId;
   const controller = new AbortController();
   const abort = () => controller.abort();
   if (signal?.aborted) abort();
@@ -67,6 +70,8 @@ export async function api(
     if (response.status === 403 && data.code === "CSRF_EXPIRED") {
       // This rejection happens before mutation. Another tab may have renewed the
       // shared cookie, so refresh its token and retry this rejected request once.
+      // The account must still match the one that started the mutation, including
+      // when a parallel login/session response has changed this module's state.
       const refreshed = await fetch("/api/session", {
         credentials: "same-origin",
         signal: controller.signal,
@@ -76,7 +81,10 @@ export async function api(
       if (
         !session.authenticated ||
         typeof session.csrfToken !== "string" ||
-        !session.csrfToken
+        !session.csrfToken ||
+        !requestUserId ||
+        sessionUserId !== requestUserId ||
+        session.user?.id !== requestUserId
       )
         throw sessionExpired();
       setCsrf(session.csrfToken);
@@ -86,6 +94,9 @@ export async function api(
         throw sessionExpired();
     }
     if (!response.ok) throw responseError(response, data);
+    if (data.authenticated === false) setCsrf("");
+    if (data.authenticated === true && typeof data.user?.id === "string")
+      sessionUserId = data.user.id;
     if (data.csrfToken) setCsrf(data.csrfToken);
     return data;
   } catch (cause) {

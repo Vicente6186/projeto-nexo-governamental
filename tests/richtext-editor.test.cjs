@@ -68,8 +68,10 @@ test("loading an existing article is not undoable; the first user edit undoes to
     const original =
       "## Pesquisa e participação\n\nUm artigo **já escrito**, com informações que precisam ser preservadas.";
     const changes = [];
+    let replaceBody;
     function Harness() {
       const [body, setBody] = useState(original);
+      replaceBody = setBody;
       return createElement(RichTextEditor, {
         value: body,
         onChange: (value) => {
@@ -125,6 +127,38 @@ test("loading an existing article is not undoable; the first user edit undoes to
       changes.some((value) => !value.trim()),
       false,
       "no undo emits an empty body for autosave",
+    );
+    await act(async () => {
+      editor.commands.insertContentAt(
+        editor.state.doc.content.size - 1,
+        " Edição anterior à recuperação.",
+      );
+    });
+    await act(async () => {
+      replaceBody("## Versão recuperada\n\nConteúdo de outra revisão.");
+    });
+    assert.equal(
+      editor.can().undo(),
+      false,
+      "loading another revision must clear history belonging to the old body",
+    );
+    assert.equal(
+      editor.can().redo(),
+      false,
+      "previous undo steps cannot reintroduce text into a restored revision",
+    );
+    const restoredDocument = editor.getJSON();
+    await act(async () => {
+      editor.commands.insertContentAt(
+        editor.state.doc.content.size - 1,
+        " Uma nova edição.",
+      );
+      editor.commands.undo();
+    });
+    assert.deepEqual(
+      editor.getJSON(),
+      restoredDocument,
+      "the new revision still supports undo for subsequent user edits",
     );
   } finally {
     if (root) await act(async () => root.unmount());

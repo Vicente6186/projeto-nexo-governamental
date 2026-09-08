@@ -2,6 +2,7 @@ import React, { useEffect, useId, useRef, useState } from "react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "@tiptap/markdown";
+import { EditorState } from "@tiptap/pm/state";
 import {
   Bold,
   Italic,
@@ -113,6 +114,16 @@ export default function RichTextEditor({
     if (!reason) {
       const { from, to } = editor.state.selection;
       const focused = editor.isFocused;
+      // A recovered revision starts its own undo history. Retaining the old
+      // plugin state would let Undo/Redo apply edits from the replaced body.
+      editor.view.updateState(
+        EditorState.create({
+          schema: editor.schema,
+          doc: editor.state.doc,
+          selection: editor.state.selection,
+          plugins: editor.state.plugins,
+        }),
+      );
       // Hydration is not a user edit: Undo must never remove the loaded article.
       editor
         .chain()

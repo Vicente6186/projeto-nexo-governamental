@@ -16,9 +16,8 @@ export default function SessionRecovery({
   onClose,
   notify,
 }) {
-  const [email, setEmail] = useState(
-    session?.user?.id === "local-preview" ? "" : session?.user?.email || "",
-  );
+  const localSession = session?.user?.id === "local-preview";
+  const email = session?.user?.email || "";
   const [password, setPassword] = useState("");
   const [visible, setVisible] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -43,7 +42,7 @@ export default function SessionRecovery({
 
   async function login(event, local = false) {
     event?.preventDefault();
-    if (requestRef.current) return;
+    if (requestRef.current || local !== localSession) return;
     const invalid = {};
     if (!local) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
@@ -66,6 +65,18 @@ export default function SessionRecovery({
       if (!mountedRef.current || requestRef.current !== controller) return;
       if (!payload.authenticated) {
         throw new Error("Não foi possível renovar a sessão. Tente novamente.");
+      }
+      if (!session?.user?.id || payload.user?.id !== session.user.id) {
+        // Pending content belongs to the original account. Never transfer its
+        // editor state or local recovery namespace to another authenticated user.
+        await api("/api/logout", {
+          method: "POST",
+          body: {},
+          signal: controller.signal,
+        });
+        throw new Error(
+          "Entre com a mesma conta para recuperar esta edição. Para trocar de conta, saia do painel primeiro.",
+        );
       }
       setPassword("");
       await onSession(payload);
@@ -105,62 +116,57 @@ export default function SessionRecovery({
             {error}
           </div>
         )}
-        <fieldset disabled={busy} aria-busy={busy}>
-          <Field
-            label="E-mail"
-            type="email"
-            value={email}
-            onChange={(value) => {
-              setEmail(value);
-              setErrors((current) => ({
-                ...current,
-                email: undefined,
-                password: undefined,
-              }));
-              setError("");
-            }}
-            error={errors.email}
-            autoComplete="username"
-            maxLength={254}
-            required
-          />
-          <div className="session-recovery-password">
+        {!localSession && (
+          <fieldset disabled={busy} aria-busy={busy}>
             <Field
-              id={passwordId}
-              label="Senha"
-              type={visible ? "text" : "password"}
-              value={password}
-              onChange={(value) => {
-                setPassword(value);
-                setErrors((current) => ({ ...current, password: undefined }));
-                setError("");
-              }}
-              error={errors.password}
-              autoComplete="current-password"
-              autoFocus={Boolean(email)}
-              maxLength={1024}
+              label="E-mail"
+              type="email"
+              value={email}
+              readOnly
+              hint="Renove o acesso com a mesma conta para preservar esta edição."
+              error={errors.email}
+              autoComplete="username"
+              maxLength={254}
               required
             />
-            <button
-              type="button"
-              className="session-recovery-password-toggle"
-              aria-label={visible ? "Ocultar senha" : "Mostrar senha"}
-              aria-controls={passwordId}
-              aria-pressed={visible}
-              onClick={() => setVisible((current) => !current)}
+            <div className="session-recovery-password">
+              <Field
+                id={passwordId}
+                label="Senha"
+                type={visible ? "text" : "password"}
+                value={password}
+                onChange={(value) => {
+                  setPassword(value);
+                  setErrors((current) => ({ ...current, password: undefined }));
+                  setError("");
+                }}
+                error={errors.password}
+                autoComplete="current-password"
+                autoFocus={Boolean(email)}
+                maxLength={1024}
+                required
+              />
+              <button
+                type="button"
+                className="session-recovery-password-toggle"
+                aria-label={visible ? "Ocultar senha" : "Mostrar senha"}
+                aria-controls={passwordId}
+                aria-pressed={visible}
+                onClick={() => setVisible((current) => !current)}
+              >
+                {visible ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+            <Button
+              type="submit"
+              variant="primary"
+              icon={busy ? LoaderCircle : ArrowRight}
             >
-              {visible ? <EyeOff size={18} /> : <Eye size={18} />}
-            </button>
-          </div>
-          <Button
-            type="submit"
-            variant="primary"
-            icon={busy ? LoaderCircle : ArrowRight}
-          >
-            {busy ? "Renovando acesso…" : "Entrar e continuar"}
-          </Button>
-        </fieldset>
-        {session?.localPreview && (
+              {busy ? "Renovando acesso…" : "Entrar e continuar"}
+            </Button>
+          </fieldset>
+        )}
+        {localSession && session?.localPreview && (
           <div className="session-recovery-local">
             <span className="eyebrow">PRÉVIA NESTE COMPUTADOR</span>
             <Button

@@ -1,7 +1,7 @@
 const { randomBytes, randomUUID, createHash } = require("node:crypto");
 const { setTimeout: delay } = require("node:timers/promises");
 const { ValidationError } = require("./validation.cjs");
-const { validatePassword } = require("./users.cjs");
+const { validatePassword, isValidEmail } = require("./users.cjs");
 
 const TTL_MS = 30 * 60 * 1000;
 const REQUEST_MESSAGE =
@@ -165,9 +165,7 @@ function registerPasswordReset(
       if (
         typeof value !== "string" ||
         value.length > 254 ||
-        !/^[^\s@<>"\\\u0000-\u001f]+@[^\s@<>"\\\u0000-\u001f]+\.[^\s@<>"\\\u0000-\u001f]+$/.test(
-          value.trim(),
-        )
+        !isValidEmail(value.trim())
       )
         throw new ValidationError("Informe um e-mail válido.", "email");
       const email = value.trim().toLowerCase();

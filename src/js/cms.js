@@ -198,7 +198,7 @@
   function renderIntroduction(document, extra) {
     const image = document.querySelector("#introduction-image img");
     if (!image) return;
-    if (extra.image) {
+    if (typeof extra.image === "string") {
       setImage(
         document,
         image,
@@ -405,11 +405,25 @@
     );
     if (section.id === "objective") {
       const diagram = document.querySelector(".objective-map");
-      if (diagram)
+      if (diagram) {
+        const label = (selector) =>
+          normalizeText(document.querySelector(selector)?.textContent);
+        const powers = Array.from(
+          document.querySelectorAll(".objective-powers span"),
+          (element) => normalizeText(element.textContent),
+        ).filter(Boolean);
         diagram.setAttribute(
           "aria-label",
-          `${extra.civilLabel}: ${extra.executiveLabel}, ${extra.legislativeLabel}, ${extra.judiciaryLabel}. ${extra.republicLabel}.`,
+          [
+            [label(".objective-civil"), powers.join(", ")]
+              .filter(Boolean)
+              .join(": "),
+            label(".objective-republic"),
+          ]
+            .filter(Boolean)
+            .join(". "),
         );
+      }
     }
     if (section.id === "recognize") {
       titleText(
@@ -590,15 +604,16 @@
       typeof email === "string" &&
       /^[^\s@?&\r\n]+@[^\s@?&\r\n]+\.[^\s@?&\r\n]+$/.test(email)
     ) {
+      const mailto = `mailto:${encodeURIComponent(email).replace(/%40/g, "@")}`;
       const anchor = document.querySelector(".contact-address a");
       if (anchor) {
-        anchor.href = `mailto:${email}`;
+        anchor.href = mailto;
         anchor.textContent = email;
       }
       const form = document.querySelector("#contact-form");
       if (form) {
         form.dataset.recipient = email;
-        form.action = `mailto:${email}`;
+        form.action = mailto;
       }
     }
     const instagram = document.querySelector(".instagram-profile");

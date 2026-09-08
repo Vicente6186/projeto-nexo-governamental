@@ -163,10 +163,11 @@ function registerBlogPages(app, { blog, images, config, requireAuth, record }) {
     async (request, reply) => {
       let post = blog.readPreview(request.params.id);
       if (!post)
-        return sendPage(reply, renderBlogNotFound({ site: siteInfo(true) }), {
-          status: 404,
-          preview: true,
-        });
+        return sendPage(
+          reply,
+          renderBlogNotFound({ site: siteInfo(true), preview: true }),
+          { status: 404, preview: true },
+        );
       post = await images.enrich(post);
       const related = blog
         .readPreviewList()
@@ -263,7 +264,7 @@ function registerBlogPages(app, { blog, images, config, requireAuth, record }) {
       );
   });
   app.get("/blog/feed.xml", async (_, reply) => {
-    const posts = blog.readList().posts;
+    const posts = blog.readList({ sort: "latest" }).posts;
     const items = posts.map(
       (post) =>
         `<item><title>${escape(post.title)}</title><link>${escape(origin)}/blog/${escape(post.slug)}</link><guid isPermaLink="true">${escape(origin)}/blog/${escape(post.slug)}</guid><description>${escape(post.excerpt)}</description><category>${escape(post.category)}</category><pubDate>${escape(new Date(post.publishedAt).toUTCString())}</pubDate></item>`,

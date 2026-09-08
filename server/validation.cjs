@@ -131,7 +131,7 @@ function validateContent(content, { publishing = false } = {}) {
   const expectedIds = DEFAULT_CONTENT.sections.map((section) => section.id);
   if (
     content.sections.length !== expectedIds.length ||
-    content.sections.some((section) => !expectedIds.includes(section.id))
+    content.sections.some((section) => !expectedIds.includes(section?.id))
   )
     fail("Seções", "mantenha as seções originais do site.");
   for (const section of content.sections) {

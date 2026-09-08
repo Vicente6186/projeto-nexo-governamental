@@ -28,3 +28,18 @@ html {
         opacity: .5;
     }
 }
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
+    .parallax {
+        background-attachment: scroll;
+    }
+
+    .thinking-animation,
+    #about-video-explication-container > video {
+        display: none;
+    }
+}

@@ -91,6 +91,23 @@ test("published content updates sections, metadata, navigation and contact recip
   assert.deepEqual(structured.sameAs, [content.site.instagramUrl]);
 });
 
+test("contact links preserve valid reserved characters in the mailbox", (t) => {
+  const { window } = setup();
+  t.after(() => window.close());
+  const content = copy();
+  content.site.email = "equipe#nexo%contato@example.org";
+  renderContent(window.document, content);
+  const anchor = window.document.querySelector(".contact-address a");
+  const form = window.document.querySelector("#contact-form");
+  const destination = new URL(anchor.href);
+  assert.equal(decodeURIComponent(destination.pathname), content.site.email);
+  assert.equal(destination.hash, "");
+  assert.equal(destination.search, "");
+  assert.equal(anchor.textContent, content.site.email);
+  assert.equal(form.action, anchor.href);
+  assert.equal(form.dataset.recipient, content.site.email);
+});
+
 test("content strings stay literal and unsafe URLs cannot become executable links or images", () => {
   const { window } = setup();
   const content = copy();
@@ -166,6 +183,51 @@ test("hero photo can change without losing default responsive sources or legacy 
   assert.equal(
     window.document.querySelector("#introduction-image source"),
     null,
+  );
+});
+
+test("clearing the hero image removes the published photo and can be reversed", (t) => {
+  const { window } = setup();
+  t.after(() => window.close());
+  const content = copy();
+  const introduction = content.sections.find(
+    (section) => section.id === "introduction",
+  );
+  introduction.extra.image = "";
+  renderContent(window.document, content);
+  const image = window.document.querySelector("#introduction-image img");
+  assert.equal(image.hidden, true);
+  assert.equal(image.getAttribute("src"), null);
+  assert.equal(window.document.querySelector("#introduction-image source"), null);
+
+  introduction.extra.image = "/uploads/replacement.webp";
+  introduction.extra.imageAlt = "Nova fachada";
+  renderContent(window.document, content);
+  assert.equal(image.hidden, false);
+  assert.equal(image.getAttribute("src"), introduction.extra.image);
+  assert.equal(image.alt, "Nova fachada");
+});
+
+test("objective diagram describes its visible labels when optional fields are absent", (t) => {
+  const { window } = setup();
+  t.after(() => window.close());
+  const content = copy();
+  const objective = content.sections.find(
+    (section) => section.id === "objective",
+  );
+  objective.extra = { civilLabel: "Nossa comunidade" };
+  renderContent(window.document, content);
+  assert.equal(
+    window.document.querySelector(".objective-map").getAttribute("aria-label"),
+    "Nossa comunidade: Executivo, Legislativo, Judiciário. República Federativa do Brasil",
+  );
+
+  objective.extra.executiveLabel = "";
+  objective.extra.republicLabel = "";
+  renderContent(window.document, content);
+  assert.equal(
+    window.document.querySelector(".objective-map").getAttribute("aria-label"),
+    "Nossa comunidade: Legislativo, Judiciário",
   );
 });
 

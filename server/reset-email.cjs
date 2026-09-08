@@ -1,8 +1,5 @@
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
-const EMAIL_PATTERN =
-  /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+$/;
-const safeEmail = (value) =>
-  typeof value === "string" && value.length <= 254 && EMAIL_PATTERN.test(value);
+const { isValidEmail: safeEmail } = require("./users.cjs");
 const escapeHtml = (value) =>
   String(value).replace(
     /[&<>"']/g,

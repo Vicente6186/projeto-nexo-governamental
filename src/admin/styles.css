@@ -2586,7 +2586,14 @@ fieldset {
   position: relative;
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.login-main,
+.login-visual,
+.login-main form,
+.login-main fieldset {
+  min-width: 0;
+  min-inline-size: 0;
 }
 .login-visual {
   position: relative;
@@ -2928,7 +2935,7 @@ fieldset {
     right: 0;
   }
   .login-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .login-visual {
     min-height: 295px;

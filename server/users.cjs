@@ -11,6 +11,10 @@ const { ValidationError } = require("./validation.cjs");
 const deriveAsync = promisify(scrypt);
 const options = { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 const hash = (value) => createHash("sha256").update(value).digest("hex");
+const EMAIL_PATTERN =
+  /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+$/;
+const isValidEmail = (value) =>
+  typeof value === "string" && value.length <= 254 && EMAIL_PATTERN.test(value);
 const columns =
   "id, name, email, role, active, created_at AS createdAt, bootstrap";
 const publicUser = (user) => ({
@@ -131,38 +135,54 @@ function initializeUsers(db, config, now, bootstrapFingerprint) {
   };
   const login = async (email, password, ip) => {
     const timestamp = now().getTime();
-    db.prepare("DELETE FROM login_attempts WHERE expires_at <= ?").run(
-      timestamp,
-    );
     const keys = [
       { key: hash(`pair\0${ip}\0${email}`), limit: 8 },
       { key: hash(`ip\0${ip}`), limit: 80 },
     ];
-    for (const { key, limit } of keys)
-      if (
-        (db.prepare("SELECT count FROM login_attempts WHERE key = ?").get(key)
-          ?.count || 0) >= limit
-      )
-        deny(
-          "Muitas tentativas de acesso. Aguarde 15 minutos antes de tentar novamente.",
-          "LOGIN_RATE_LIMIT",
-          429,
-        );
+    // Count pending hashes as attempts too: concurrent requests must not all
+    // pass an empty budget while the first password check is still running.
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      db.prepare("DELETE FROM login_attempts WHERE expires_at <= ?").run(
+        timestamp,
+      );
+      for (const { key, limit } of keys)
+        if (
+          (db.prepare("SELECT count FROM login_attempts WHERE key = ?").get(key)
+            ?.count || 0) >= limit
+        )
+          deny(
+            "Muitas tentativas de acesso. Aguarde 15 minutos antes de tentar novamente.",
+            "LOGIN_RATE_LIMIT",
+            429,
+          );
+      for (const entry of keys) {
+        entry.expiresAt = db
+          .prepare(
+            "INSERT INTO login_attempts VALUES (?, 1, ?) ON CONFLICT(key) DO UPDATE SET count = count + 1 RETURNING expires_at",
+          )
+          .get(entry.key, timestamp + 15 * 60 * 1000).expires_at;
+      }
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
     const user = db
       .prepare("SELECT * FROM users WHERE email = ? COLLATE NOCASE")
       .get(email);
     const matches = await check(password, user);
-    if (!user?.active || !matches) {
-      for (const { key } of keys)
-        db.prepare(
-          "INSERT INTO login_attempts VALUES (?, 1, ?) ON CONFLICT(key) DO UPDATE SET count = count + 1",
-        ).run(key, timestamp + 15 * 60 * 1000);
+    if (!user?.active || !matches)
       deny("E-mail ou senha incorretos.", "INVALID_CREDENTIALS", 401);
-    }
     const latest = get(user.id);
     if (!latest?.active || fingerprint(latest) !== fingerprint(user))
       deny("E-mail ou senha incorretos.", "INVALID_CREDENTIALS", 401);
-    db.prepare("DELETE FROM login_attempts WHERE key = ?").run(keys[0].key);
+    db.prepare(
+      "DELETE FROM login_attempts WHERE key = ? AND expires_at = ?",
+    ).run(keys[0].key, keys[0].expiresAt);
+    db.prepare(
+      "UPDATE login_attempts SET count = MAX(0, count - 1) WHERE key = ? AND expires_at = ?",
+    ).run(keys[1].key, keys[1].expiresAt);
     return latest;
   };
   function register(app, { requireAuth, requireMutation, issueSession }) {
@@ -208,7 +228,7 @@ function initializeUsers(db, config, now, bootstrapFingerprint) {
         if (
           typeof body.email !== "string" ||
           body.email.length > 254 ||
-          !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email.trim())
+          !isValidEmail(body.email.trim())
         )
           throw new ValidationError("Informe um e-mail válido.", "email");
         validatePassword(body.password);
@@ -386,4 +406,4 @@ function initializeUsers(db, config, now, bootstrapFingerprint) {
   }
   return { get, fingerprint, login, register, hashPassword };
 }
-module.exports = { initializeUsers, validatePassword };
+module.exports = { initializeUsers, validatePassword, isValidEmail };

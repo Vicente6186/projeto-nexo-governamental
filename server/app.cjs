@@ -32,7 +32,7 @@ const { registerBlogPages } = require("./blog-routes.cjs");
 const { registerBlogImages } = require("./blog-images.cjs");
 const { htmlCsp } = require("./blog-seo.cjs");
 
-const { initializeUsers } = require("./users.cjs");
+const { initializeUsers, isValidEmail } = require("./users.cjs");
 const { registerPasswordReset } = require("./password-reset.cjs");
 const { createResetEmailSender } = require("./reset-email.cjs");
 const {
@@ -66,10 +66,10 @@ function configuration(env, options) {
     throw new Error("A prévia local exige HOST de loopback.");
   if (
     (email || password) &&
-    (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || password.length < 12)
+    (!isValidEmail(email) || password.length < 12 || password.length > 1024)
   )
     throw new Error(
-      "Configure ADMIN_EMAIL válido e ADMIN_PASSWORD com pelo menos 12 caracteres.",
+      "Configure ADMIN_EMAIL válido e ADMIN_PASSWORD com 12 a 1.024 caracteres.",
     );
   if (origin) {
     let parsed;
