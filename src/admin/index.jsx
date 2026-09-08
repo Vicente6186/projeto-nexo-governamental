@@ -11,6 +11,7 @@ import "./styles.css";
 import App from "./App";
 import { ThemeProvider } from "./ThemeMenu";
 import "./studio.css";
+import "./motion.css";
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>

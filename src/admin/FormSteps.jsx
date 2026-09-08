@@ -73,6 +73,11 @@ export function focusStep(id) {
   requestAnimationFrame(() => {
     const heading = document.getElementById(id);
     heading?.focus({ preventScroll: true });
-    heading?.scrollIntoView({ block: "start", behavior: "smooth" });
+    heading?.scrollIntoView({
+      block: "start",
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+    });
   });
 }

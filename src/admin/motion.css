@@ -1,0 +1,221 @@
+/* Motion belongs to controls and newly revealed surfaces, never the editor shell. */
+:root {
+  --motion-quick: 150ms;
+  --motion-control: 200ms;
+  --motion-enter: 280ms;
+  --motion-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.nav-item {
+  position: relative;
+}
+.nav-item.active::before {
+  content: "";
+  position: absolute;
+  inset: 13px auto 13px 0;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+.tabs > button[aria-selected="true"] {
+  color: var(--accent);
+}
+.tabs > button[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .button,
+  .icon-button,
+  .essentials-action {
+    transition:
+      transform var(--motion-quick) var(--motion-ease),
+      background-color var(--motion-control) ease,
+      border-color var(--motion-control) ease,
+      color var(--motion-control) ease,
+      box-shadow var(--motion-control) ease;
+  }
+  .nav-item,
+  .form-steps button,
+  .form-step-number,
+  .essentials-status-option {
+    transition:
+      background-color var(--motion-control) ease,
+      border-color var(--motion-control) ease,
+      color var(--motion-control) ease,
+      box-shadow var(--motion-control) ease;
+  }
+  .nav-item > svg,
+  .essentials-action-arrow {
+    transition: transform var(--motion-control) var(--motion-ease);
+  }
+  .button:active:not(:disabled),
+  .essentials-action:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+  .icon-button:active:not(:disabled) {
+    transform: scale(0.94);
+  }
+  .nav-item.active::before {
+    animation: nexo-mark-in 220ms var(--motion-ease);
+  }
+  .tabs > button[aria-selected="true"]::after {
+    transform-origin: left;
+    animation: nexo-underline-in 220ms var(--motion-ease);
+  }
+  .form-steps button[aria-current="step"] .form-step-number {
+    animation: nexo-selection-in 220ms var(--motion-ease);
+  }
+
+  /* No retained transforms: fixed/sticky bars and text selection keep their geometry. */
+  .essentials-actions > .essentials-action,
+  .essentials-summary-grid > section,
+  .essentials-contact-layout,
+  .blog-list-intro,
+  .blog-collection,
+  .blog-editor-heading,
+  .login-main > form,
+  .login-visual > .login-copy {
+    animation: nexo-surface-in var(--motion-enter) var(--motion-ease) backwards;
+  }
+  .essentials-actions > .essentials-action:nth-child(2) {
+    animation-delay: 35ms;
+  }
+  .essentials-actions > .essentials-action:nth-child(3) {
+    animation-delay: 70ms;
+  }
+  .essentials-summary-grid > section {
+    animation-delay: 80ms;
+  }
+  .essentials-summary-grid > section:nth-child(2) {
+    animation-delay: 110ms;
+  }
+  .form-step-panel:not([hidden]),
+  .blog-writing-card:not([hidden]),
+  .blog-cover-card:not([hidden]),
+  .blog-settings-column:not([hidden]) {
+    animation: nexo-surface-in 240ms var(--motion-ease);
+  }
+  .form-steps {
+    animation: nexo-fade-in 200ms ease-out;
+  }
+
+  .modal-backdrop,
+  .sidebar-overlay {
+    animation: nexo-fade-in 180ms ease-out;
+  }
+  .modal {
+    animation: nexo-dialog-in var(--motion-enter) var(--motion-ease);
+  }
+  .theme-popover {
+    transform-origin: top right;
+    animation: nexo-popover-in 180ms var(--motion-ease);
+  }
+  .toast,
+  .save-bar,
+  .recovery-banner,
+  .essentials-undo {
+    animation: nexo-surface-in 220ms var(--motion-ease);
+  }
+  .toast:not(.toast-error) > svg {
+    animation: nexo-selection-in 320ms var(--motion-ease);
+  }
+
+  @media (max-width: 900px) {
+    .sidebar {
+      transition: transform var(--motion-enter) var(--motion-ease);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
+  .button:hover:not(:disabled):not(:active) {
+    transform: translateY(-1px);
+  }
+  .button-primary:hover:not(:disabled) {
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--accent), transparent 83%);
+  }
+  .essentials-action:hover:not(:disabled):not(:active) {
+    transform: translateY(-2px);
+    box-shadow: 0 7px 20px color-mix(in srgb, var(--accent), transparent 91%);
+    border-color: color-mix(in srgb, var(--accent) 30%, var(--line));
+  }
+  .essentials-action:hover .essentials-action-arrow {
+    transform: translateX(3px);
+  }
+  .nav-item:hover > svg {
+    transform: translateX(2px);
+  }
+}
+
+@keyframes nexo-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes nexo-surface-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes nexo-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes nexo-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes nexo-mark-in {
+  from {
+    opacity: 0;
+    transform: scaleY(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+@keyframes nexo-underline-in {
+  from {
+    opacity: 0;
+    transform: scaleX(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+@keyframes nexo-selection-in {
+  from {
+    transform: scale(0.9);
+  }
+  to {
+    transform: scale(1);
+  }
+}
