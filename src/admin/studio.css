@@ -16,8 +16,8 @@
   margin-bottom: 6px;
 }
 .nav-item.active {
-  color: var(--text);
-  background: var(--surface-hover);
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 .topbar {
   background: var(--background);
@@ -82,12 +82,12 @@
   width: 40px;
   height: 40px;
   margin: 0;
-  color: var(--muted);
-  background: var(--surface-muted);
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 .essentials-action:first-child .essentials-action-icon {
-  color: var(--muted);
-  background: var(--surface-muted);
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 .essentials-action-title {
   font-size: 15px;
