@@ -166,7 +166,14 @@ function restoreBehindModal(element) {
   modalBackground.delete(element);
 }
 
-export function Modal({ title, description, children, onClose, wide = false }) {
+export function Modal({
+  title,
+  description,
+  children,
+  onClose,
+  wide = false,
+  className = "",
+}) {
   const ref = useRef(null),
     backdropRef = useRef(null),
     previous = useRef(document.activeElement),
@@ -289,7 +296,18 @@ export function Modal({ title, description, children, onClose, wide = false }) {
     document.addEventListener("focusin", refreshFocusedFrame);
     window.addEventListener("blur", refreshFocusedFrame);
     connectFrames(dialog);
-    const frameObserver = new MutationObserver(() => connectFrames(dialog));
+    const frameObserver = new MutationObserver(() => {
+      connectFrames(dialog);
+      // Disabling the focused submit button can move focus to the page body.
+      // Keep keyboard controls available while the dialog updates or retries.
+      if (
+        active &&
+        dialog.isConnected &&
+        !dialog.closest("[inert]") &&
+        !dialog.contains(document.activeElement)
+      )
+        dialog.focus({ preventScroll: true });
+    });
     frameObserver.observe(dialog, { childList: true, subtree: true });
 
     if (!dialog.contains(document.activeElement)) {
@@ -344,7 +362,7 @@ export function Modal({ title, description, children, onClose, wide = false }) {
     >
       <section
         ref={ref}
-        className={`modal ${wide ? "modal-wide" : ""}`}
+        className={`modal ${wide ? "modal-wide" : ""} ${className}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -394,6 +412,13 @@ export function Loading({ label = "Preparando seu espaço…", compact = false }
       className={`loading${compact ? " loading-compact" : ""}`}
       role="status"
     >
+      {compact && (
+        <div className="loading-skeleton" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </div>
+      )}
       <LoaderCircle className="spin" size={24} aria-hidden="true" />
       <span>{label}</span>
     </div>

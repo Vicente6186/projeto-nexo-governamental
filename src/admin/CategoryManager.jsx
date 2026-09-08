@@ -36,6 +36,23 @@ export default function CategoryManager({
       });
       if (!mounted.current || controller.signal.aborted) return;
       setCategories(result.categories);
+      if (editing) {
+        const latest = result.categories.find((item) => item.id === editing.id);
+        setEditing(
+          latest
+            ? { ...latest, type: editing.type }
+            : { ...editing, missing: true },
+        );
+        if (!latest)
+          setError(
+            "Esta categoria foi removida por outra pessoa. Seu texto foi preservado abaixo; volte à lista para escolher como continuar.",
+          );
+      }
+      if (
+        replacementId &&
+        !result.categories.some((item) => item.id === replacementId)
+      )
+        setReplacementId("");
       onChange(result);
     } catch (cause) {
       if (!mounted.current || controller.signal.aborted) return;
@@ -71,7 +88,7 @@ export default function CategoryManager({
   }
   async function submit(event) {
     event.preventDefault();
-    if (operation.current || closing) return;
+    if (operation.current || closing || editing?.missing) return;
     operation.current = true;
     setBusy(true);
     setError("");
@@ -123,7 +140,6 @@ export default function CategoryManager({
             <Button
               disabled={locked}
               onClick={() => {
-                back();
                 load();
               }}
             >
@@ -133,7 +149,7 @@ export default function CategoryManager({
         )}
         {message && (
           <p className="category-success" role="status">
-            {message}
+            <span aria-hidden="true">✓</span> {message}
           </p>
         )}
         {loading ? (
@@ -194,7 +210,9 @@ export default function CategoryManager({
                       variant="danger"
                       icon={busy ? LoaderCircle : Trash2}
                       disabled={
-                        locked || (editing.articleCount > 0 && !replacementId)
+                        locked ||
+                        editing.missing ||
+                        (editing.articleCount > 0 && !replacementId)
                       }
                     >
                       Excluir categoria
@@ -220,7 +238,7 @@ export default function CategoryManager({
                       type="submit"
                       variant="primary"
                       icon={busy ? LoaderCircle : editing ? Pencil : Plus}
-                      disabled={locked || !name.trim()}
+                      disabled={locked || editing?.missing || !name.trim()}
                     >
                       {editing ? "Salvar nome" : "Criar categoria"}
                     </Button>

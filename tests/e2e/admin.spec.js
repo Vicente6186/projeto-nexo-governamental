@@ -116,6 +116,14 @@ async function publish(page) {
     .getByRole("button", { name: "Confirmar publicação", exact: true })
     .click();
   expect((await response).ok()).toBeTruthy();
+  const success = page.getByRole("dialog", {
+    name: "Publicado na prévia local!",
+    exact: true,
+  });
+  await expect(success).toBeVisible();
+  await success
+    .getByRole("button", { name: "Continuar no painel", exact: true })
+    .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 }
 

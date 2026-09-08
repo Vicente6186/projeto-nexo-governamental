@@ -254,21 +254,24 @@ export default function RichTextEditor({
   return (
     <div className={`richtext-editor ${disabled ? "richtext-disabled" : ""}`}>
       <div className="richtext-heading">
-        <button
-          type="button"
-          className="richtext-mode"
-          onClick={() => setAdvanced(!markdownMode)}
-          disabled={disabled || !!unsupported}
-          aria-pressed={markdownMode}
-          title={
-            unsupported
-              ? "Este conteúdo precisa do modo Markdown para manter toda a formatação."
-              : undefined
-          }
-        >
-          {markdownMode ? <Type size={15} /> : <Code2 size={15} />}
-          {markdownMode ? "Editor visual" : "Editar Markdown"}
-        </button>
+        <details className="richtext-advanced" open={markdownMode || undefined}>
+          <summary>Opções do editor</summary>
+          <button
+            type="button"
+            className="richtext-mode"
+            onClick={() => setAdvanced(!markdownMode)}
+            disabled={disabled || !!unsupported}
+            aria-pressed={markdownMode}
+            title={
+              unsupported
+                ? "Este conteúdo precisa do modo Markdown para manter toda a formatação."
+                : undefined
+            }
+          >
+            {markdownMode ? <Type size={15} /> : <Code2 size={15} />}
+            {markdownMode ? "Editor visual" : "Editar Markdown"}
+          </button>
+        </details>
       </div>
       {unsupported && (
         <div className="richtext-preserve" role="status">
@@ -293,7 +296,13 @@ export default function RichTextEditor({
                   key={key}
                   type="button"
                   aria-label={label}
-                  title={label}
+                  title={
+                    key === "bold"
+                      ? `${label} · Ctrl/⌘ B`
+                      : key === "italic"
+                        ? `${label} · Ctrl/⌘ I`
+                        : label
+                  }
                   aria-pressed={!!active[key]}
                   disabled={disabled || !editor}
                   onMouseDown={(event) => event.preventDefault()}

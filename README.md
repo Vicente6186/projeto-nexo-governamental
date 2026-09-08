@@ -50,6 +50,12 @@ Os botões **Continuar** e **Voltar** apenas navegam entre as etapas; os dados p
 
 O edital pode ser enviado diretamente na página do processo seletivo. A biblioteca de capas fica dentro do editor do blog, sem uma área separada de gerenciamento do site. Os uploads aceitam imagens PNG, JPEG, WebP e AVIF, além de PDFs, com limite de 8 MB por arquivo. As imagens são decodificadas e verificadas antes de salvar; imagens corrompidas ou animadas, maiores que 40 megapixels ou com dimensão acima de 16.000 pixels são recusadas. A versão pública é convertida para WebP com dimensão máxima de 2.400 pixels; o original permanece privado em `originals/`. Os arquivos enviados recebem uma URL pública; envie apenas materiais destinados ao site. O registro interno das alterações permanece no banco, sem oferecer restauração de versões do site no painel simplificado.
 
+O painel destaca a publicação concluída com uma tela verde em tela cheia, exibida somente depois da confirmação do servidor. Ela permite abrir a publicação, copiar o link e continuar no painel, sem tempo de espera obrigatório. Na prévia local, o texto e o link identificam esse ambiente. Salvar rascunhos continua sendo uma ação discreta, sem interromper a escrita.
+
+No blog, **Modo foco** amplia o espaço de escrita; a barra de formatação acompanha textos longos e **Opções do editor** reúne o acesso ao Markdown. A capa pode ser arrastada para a área de envio ou escolhida na biblioteca, com confirmação em **Aplicar capa**. Os indicadores das etapas refletem as pendências atuais; dispensar a capa opcional também permite concluir essa etapa. A revisão final pode expandir os detalhes, e o histórico apresenta o texto formatado.
+
+No processo seletivo, é possível recolher etapas do cronograma e concluir com **Revisar publicação**, preservando a confirmação antes de atualizar o site. O atalho **Equipe**, visível para administradores, oferece busca por nome ou e-mail e filtros de perfil e situação. As animações respeitam a preferência de movimento reduzido do dispositivo.
+
 O menu de aparência, no topo do painel e na tela de acesso, oferece os temas Claro, Escuro e Sistema. O tema Escuro é o padrão para novos acessos; as escolhas salvas de Claro ou Sistema são respeitadas. A escolha fica salva neste navegador e acompanha as outras abas abertas. O modo Sistema segue a preferência do dispositivo. Essa escolha altera apenas o painel; o site público mantém a própria identidade visual. A busca do painel também pode ser aberta com `⌘ K` ou `Ctrl K`.
 
 ## Blog

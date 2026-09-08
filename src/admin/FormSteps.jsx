@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useId } from "react";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { Button } from "./components";
 import "./form-steps.css";
 
 export function FormSteps({ label, steps, value, onChange, disabled = false }) {
+  const id = useId();
   return (
     <nav
       className="form-steps"
@@ -16,6 +17,11 @@ export function FormSteps({ label, steps, value, onChange, disabled = false }) {
             <button
               type="button"
               aria-current={value === index ? "step" : undefined}
+              aria-describedby={
+                step.complete || step.pending ? `${id}-${step.id}` : undefined
+              }
+              data-complete={step.complete || undefined}
+              data-pending={step.pending || undefined}
               onClick={() => onChange(index)}
               disabled={disabled}
             >
@@ -24,6 +30,13 @@ export function FormSteps({ label, steps, value, onChange, disabled = false }) {
               </span>
               <span>{step.label}</span>
             </button>
+            {(step.complete || step.pending) && (
+              <span id={`${id}-${step.id}`} className="sr-only">
+                {step.complete
+                  ? "Pronta para revisão"
+                  : "Há campos para revisar"}
+              </span>
+            )}
           </li>
         ))}
       </ol>

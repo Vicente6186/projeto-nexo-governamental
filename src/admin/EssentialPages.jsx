@@ -22,6 +22,7 @@ import {
 import { Badge, Button, Field, dateLabel, effectiveStatus } from "./components";
 import "./essentials.css";
 import { FormSteps, StepActions, focusStep } from "./FormSteps";
+import { validateSite } from "./site-editing.cjs";
 
 const STATUS_OPTIONS = [
   {
@@ -168,7 +169,7 @@ export function Overview({
   return (
     <div className="essentials-overview">
       <div className="essentials-actions" aria-label="Áreas do painel">
-        {WORKSPACES.map(({ route, title, Icon }) => (
+        {WORKSPACES.map(({ route, title, action, Icon }) => (
           <button
             type="button"
             className="essentials-action"
@@ -179,7 +180,10 @@ export function Overview({
             <span className="essentials-action-icon">
               <Icon size={22} strokeWidth={1.6} />
             </span>
-            <span className="essentials-action-title">{title}</span>
+            <span className="essentials-action-copy">
+              <span className="essentials-action-title">{title}</span>
+              <small>{action}</small>
+            </span>
             <ArrowUpRight
               size={18}
               className="essentials-action-arrow"
@@ -295,13 +299,41 @@ export function SelectionEditor({
   uploading,
   assets = [],
   errors = {},
+  onReviewPublication,
+  reviewDisabled = false,
 }) {
   const [step, setStep] = useState(0);
+  const [collapsedStages, setCollapsedStages] = useState(new Set());
   const steps = [
     { id: "dates", label: "Inscrições" },
     { id: "documents", label: "Documentos" },
     { id: "schedule", label: "Cronograma" },
   ];
+  const publicationErrors = {
+    ...validateSite({ selection, site: {} }, { publishing: true }),
+    ...errors,
+  };
+  const stepErrors = (index) =>
+    Object.keys(publicationErrors).filter(
+      (field) =>
+        field.startsWith("selection.") &&
+        (field.startsWith("selection.stages")
+          ? index === 2
+          : ["selection.noticeUrl", "selection.applicationUrl"].includes(field)
+            ? index === 1
+            : index === 0),
+    );
+  const completedSteps = steps.map((item, index) => ({
+    ...item,
+    complete:
+      !stepErrors(index).length &&
+      (index === 0
+        ? Boolean(selection.edition || selection.opensAt || selection.closesAt)
+        : index === 1
+          ? Boolean(selection.applicationUrl || selection.noticeUrl)
+          : Boolean(selection.stages?.length)),
+    pending: stepErrors(index).length > 0,
+  }));
   const goStep = (next) => {
     setStep(next);
     focusStep(`selection-step-${next}`);
@@ -329,6 +361,22 @@ export function SelectionEditor({
   const [removedStage, setRemovedStage] = useState(null);
   const [uploadName, setUploadName] = useState("");
   const stages = selection.stages || [];
+  useEffect(() => {
+    const invalidIds = stages
+      .filter((stage, index) =>
+        Object.keys(errors).some((key) =>
+          key.startsWith(`selection.stages.${index}.`),
+        ),
+      )
+      .map((stage) => stage.id);
+    if (!invalidIds.length) return;
+    setCollapsedStages((current) => {
+      if (!invalidIds.some((id) => current.has(id))) return current;
+      const next = new Set(current);
+      invalidIds.forEach((id) => next.delete(id));
+      return next;
+    });
+  }, [errors, selection.stages]);
   const status = effectiveStatus(selection);
   const noticeLink = safeLink(selection.noticeUrl);
   const applicationLink = safeLink(selection.applicationUrl);
@@ -371,6 +419,11 @@ export function SelectionEditor({
   }
   function undoRemoveStage() {
     if (!removedStage || stages.length >= 30) return;
+    setCollapsedStages((current) => {
+      const next = new Set(current);
+      next.delete(removedStage.stage.id);
+      return next;
+    });
     const restored = [...stages];
     restored.splice(
       Math.min(removedStage.index, restored.length),
@@ -393,7 +446,7 @@ export function SelectionEditor({
     <div className="essentials-editor">
       <FormSteps
         label="Etapas do processo seletivo"
-        steps={steps}
+        steps={completedSteps}
         value={step}
         onChange={goStep}
       />
@@ -471,6 +524,12 @@ export function SelectionEditor({
               label="Abertura das inscrições"
               type="date"
               value={selection.opensAt}
+              lang="pt-BR"
+              hint={
+                selection.opensAt
+                  ? fullDate(selection.opensAt)
+                  : "Dia / mês / ano"
+              }
               onChange={(opensAt) => onChange({ opensAt })}
               data-field="selection.opensAt"
               error={errorFor("opensAt")}
@@ -479,6 +538,12 @@ export function SelectionEditor({
               label="Encerramento das inscrições"
               type="date"
               value={selection.closesAt}
+              lang="pt-BR"
+              hint={
+                selection.closesAt
+                  ? fullDate(selection.closesAt)
+                  : "Dia / mês / ano"
+              }
               onChange={(closesAt) => onChange({ closesAt })}
               min={selection.opensAt || undefined}
               data-field="selection.closesAt"
@@ -594,7 +659,22 @@ export function SelectionEditor({
               </div>
             </div>
           )}
-          <div className="essentials-upload-row">
+          <div
+            className="essentials-upload-row"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={async (event) => {
+              event.preventDefault();
+              if (disabled || uploading) return;
+              const file = event.dataTransfer.files?.[0];
+              if (!file) return;
+              setUploadName(file.name);
+              try {
+                await onUploadNotice(file);
+              } finally {
+                setUploadName("");
+              }
+            }}
+          >
             <input
               ref={uploadRef}
               className="sr-only"
@@ -629,7 +709,7 @@ export function SelectionEditor({
             <p role="status">
               {uploading
                 ? `Enviando ${uploadName || "o edital"}. Aguarde para publicar.`
-                : "Publique para atualizar o edital no site."}
+                : "Arraste um PDF aqui ou use o botão. Publique para atualizar o edital no site."}
             </p>
           </div>
         </fieldset>
@@ -682,8 +762,28 @@ export function SelectionEditor({
               >
                 <div className="essentials-stage-heading">
                   <h3>
-                    <span>{String(index + 1).padStart(2, "0")}</span>Etapa{" "}
-                    {index + 1}
+                    <button
+                      type="button"
+                      className="stage-collapse-toggle"
+                      aria-expanded={!collapsedStages.has(stage.id)}
+                      aria-controls={`stage-fields-${stage.id}`}
+                      onClick={() =>
+                        setCollapsedStages((current) => {
+                          const next = new Set(current);
+                          next.has(stage.id)
+                            ? next.delete(stage.id)
+                            : next.add(stage.id);
+                          return next;
+                        })
+                      }
+                    >
+                      <span>{String(index + 1).padStart(2, "0")}</span>Etapa{" "}
+                      {index + 1}
+                      <small>
+                        {stage.title || "Nova etapa"}
+                        {stage.date ? ` · ${fullDate(stage.date)}` : ""}
+                      </small>
+                    </button>
                   </h3>
                   <div className="essentials-stage-actions">
                     <button
@@ -717,7 +817,11 @@ export function SelectionEditor({
                     </button>
                   </div>
                 </div>
-                <div className="essentials-stage-fields">
+                <div
+                  className="essentials-stage-fields"
+                  id={`stage-fields-${stage.id}`}
+                  hidden={collapsedStages.has(stage.id)}
+                >
                   <div className="essentials-field-row essentials-stage-main-fields">
                     <Field
                       label={`Nome da etapa ${index + 1}`}
@@ -791,7 +895,21 @@ export function SelectionEditor({
           )}
         </fieldset>
       </section>
-      <StepActions value={step} steps={steps} onChange={goStep} />
+      <StepActions
+        value={step}
+        steps={steps}
+        onChange={goStep}
+        disabled={disabled}
+      >
+        <Button
+          variant="primary"
+          icon={Send}
+          onClick={onReviewPublication}
+          disabled={reviewDisabled}
+        >
+          Revisar publicação
+        </Button>
+      </StepActions>
     </div>
   );
 }

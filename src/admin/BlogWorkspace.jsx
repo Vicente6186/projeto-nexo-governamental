@@ -26,10 +26,18 @@ import {
   Globe2,
   Save,
   AlertCircle,
+  Maximize2,
+  Minimize2,
+  Pencil,
 } from "lucide-react";
 import { api } from "./api";
 import CategoryManager from "./CategoryManager";
-import { CATEGORIES, validatePost } from "../../shared/blog.cjs";
+import PublicationSuccess from "./PublicationSuccess";
+import {
+  CATEGORIES,
+  validatePost,
+  renderMarkdown,
+} from "../../shared/blog.cjs";
 import { useDraftRecovery } from "./useDraftRecovery";
 import {
   Badge,
@@ -215,7 +223,12 @@ function focusField(field) {
   }
   if (!element?.getClientRects().length) return false;
   element.focus();
-  element.scrollIntoView({ block: "center", behavior: "smooth" });
+  element.scrollIntoView({
+    block: "center",
+    behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? "auto"
+      : "smooth",
+  });
   return true;
 }
 
@@ -227,6 +240,12 @@ export default function BlogWorkspace({
   onSessionExpired,
   onDirtyChange,
 }) {
+  const [publication, setPublication] = useState(null);
+  const [publicationError, setPublicationError] = useState("");
+  const [coverSkipped, setCoverSkipped] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+  const [draggingCover, setDraggingCover] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState(null);
   const [step, setStep] = useState(0);
   const steps = [
     {
@@ -258,6 +277,9 @@ export default function BlogWorkspace({
     },
   ];
   function goStep(next) {
+    if (step === 2 && next === 3 && !draftRef.current?.coverImage)
+      setCoverSkipped(true);
+    if (next !== 1) setFocusMode(false);
     setFocusRequest(null);
     setStep(next);
     focusStep("blog-step-title");
@@ -459,6 +481,10 @@ export default function BlogWorkspace({
     let active = true;
     setLoading(true);
     setStep(0);
+    setPublication(null);
+    setPublicationError("");
+    setCoverSkipped(false);
+    setFocusMode(false);
     setFocusRequest(null);
     setLoadError("");
     setModal(null);
@@ -588,6 +614,11 @@ export default function BlogWorkspace({
 
   useEffect(() => {
     function keyDown(event) {
+      if (
+        event.target instanceof Element &&
+        event.target.closest('[role="dialog"]')
+      )
+        return;
       if (
         (event.ctrlKey || event.metaKey) &&
         event.key.toLowerCase() === "s" &&
@@ -796,6 +827,7 @@ export default function BlogWorkspace({
     }
   }
   async function runAction(action) {
+    setPublicationError("");
     if (operationRef.current || uploadRef.current || !record) return;
     if (action === "publish") {
       const invalid = validationErrors(draftRef.current, true, categories);
@@ -823,22 +855,46 @@ export default function BlogWorkspace({
       if (!isCurrentView()) return;
       accept(result.post, { preserve: preserve && dirty });
       setModal(null);
-      notify?.(
-        {
-          publish: "Artigo publicado. Ele já está disponível no blog.",
-          unpublish: "Artigo retirado do ar. O rascunho foi preservado.",
-          archive: "Artigo arquivado.",
-          restore: "Artigo recuperado como rascunho.",
-        }[action],
-      );
+      if (action === "publish") {
+        notify?.("");
+        setPublication({
+          kind: "article",
+          updated: Boolean(current.published),
+          local: session?.localPreview,
+          title: result.post.published.title,
+          cover: result.post.published.coverImage,
+          href: `/blog/${encodeURIComponent(result.post.published.slug)}`,
+        });
+      } else
+        notify?.(
+          {
+            publish: "Artigo publicado. Ele já está disponível no blog.",
+            unpublish: "Artigo retirado do ar. O rascunho foi preservado.",
+            archive: "Artigo arquivado.",
+            restore: "Artigo recuperado como rascunho.",
+          }[action],
+        );
     } catch (error) {
-      fail(error);
+      if (!isCurrentView()) return;
+      if (
+        action === "publish" &&
+        !errorField(error) &&
+        ![401, 409].includes(error.status)
+      ) {
+        setPublicationError(
+          error.message || "Não foi possível concluir a publicação.",
+        );
+      } else {
+        if (errorField(error)) setModal(null);
+        fail(error);
+      }
     } finally {
       setBusy("");
       operationRef.current = false;
     }
   }
   async function openAssets() {
+    setSelectedAsset(null);
     setModal({ type: "assets" });
     setAssetLoading(true);
     setAssetQuery("");
@@ -991,6 +1047,17 @@ export default function BlogWorkspace({
     }
   }
   const filtered = posts;
+  useEffect(() => {
+    function fitTitle() {
+      const input = document.getElementById("blog-title");
+      if (!input || step !== 0) return;
+      input.style.height = "auto";
+      input.style.height = `${input.scrollHeight}px`;
+    }
+    fitTitle();
+    window.addEventListener("resize", fitTitle);
+    return () => window.removeEventListener("resize", fitTitle);
+  }, [draft?.title, step, loading]);
   const publicationErrors = {
     ...validationErrors(draft, true, categories),
     ...errors,
@@ -1004,6 +1071,34 @@ export default function BlogWorkspace({
     }),
   );
   const ready = requirements.length === 0 && !coverError;
+  const completedSteps = steps.map((item, index) => {
+    const fields =
+      index === 0
+        ? ["title", "excerpt", "author", "authorRole", "category"]
+        : index === 1
+          ? ["body"]
+          : index === 2
+            ? ["coverImage", "coverAlt", "coverCredit"]
+            : Object.keys(publicationErrors);
+    const pending =
+      fields.some((field) => publicationErrors[field]) ||
+      (index === 2 && coverError);
+    return {
+      ...item,
+      complete:
+        Boolean(draft) &&
+        !pending &&
+        (index !== 2 || Boolean(draft.coverImage) || coverSkipped) &&
+        (index !== 3 || ready),
+      pending,
+    };
+  });
+  function clearFilters() {
+    setQuery("");
+    setCategory("");
+    setStatus("all");
+    setPage(1);
+  }
   const changedFields = draft
     ? Object.keys(FIELD_LABELS).filter(
         (field) => !equivalent(draft[field], record?.published?.[field]),
@@ -1048,7 +1143,9 @@ export default function BlogWorkspace({
     );
 
   return (
-    <div className="blog-workspace">
+    <div
+      className={`blog-workspace ${focusMode && postId && step === 1 ? "blog-focus-mode" : ""}`}
+    >
       {modal?.type === "categories" && (
         <CategoryManager
           onChange={categoriesChanged}
@@ -1157,6 +1254,14 @@ export default function BlogWorkspace({
                 ))}
               </select>
               {status === "pending" && <p>Alterações ainda não publicadas.</p>}
+              {(query || category || status !== "all") && (
+                <button
+                  className="text-button blog-clear-filters"
+                  onClick={clearFilters}
+                >
+                  <X size={14} /> Limpar filtros
+                </button>
+              )}
               {listLoading && (
                 <span role="status" className="blog-list-updating">
                   <LoaderCircle size={15} /> Atualizando…
@@ -1200,6 +1305,9 @@ export default function BlogWorkspace({
                                   src={content.coverImage}
                                   alt=""
                                   loading="lazy"
+                                  onError={(event) => {
+                                    event.currentTarget.hidden = true;
+                                  }}
                                 />
                               ) : (
                                 <FileText size={23} strokeWidth={1.4} />
@@ -1233,6 +1341,9 @@ export default function BlogWorkspace({
                                   minutes(content.body)}{" "}
                                 min de leitura
                               </p>
+                              <span className="blog-mobile-edited">
+                                Editado em {dateLabel(post.updatedAt)}
+                              </span>
                             </div>
                           </a>
                           <time
@@ -1263,9 +1374,9 @@ export default function BlogWorkspace({
                 </>
               ) : (
                 <Empty
-                  icon={query ? Search : BookOpen}
+                  icon={query || category ? Search : BookOpen}
                   title={
-                    query
+                    query || category
                       ? "Nenhum artigo encontrado"
                       : status === "archived"
                         ? "Nenhum artigo arquivado"
@@ -1276,19 +1387,23 @@ export default function BlogWorkspace({
                             : "Um espaço para boas ideias"
                   }
                   description={
-                    query
-                      ? "Tente outro título, autor ou tema."
-                      : status === "archived"
-                        ? "Artigos arquivados ficam guardados aqui e podem ser recuperados."
-                        : status === "pending"
-                          ? "Nenhum artigo publicado tem alterações de rascunho aguardando publicação."
-                          : status === "published"
-                            ? "Os artigos aparecem no blog depois que você os publica."
-                            : "Crie o primeiro rascunho e transforme o conhecimento do Nexo em leitura."
+                    category
+                      ? "Nenhum artigo corresponde a esta categoria e aos filtros selecionados."
+                      : query
+                        ? "Tente outro título, autor ou tema."
+                        : status === "archived"
+                          ? "Artigos arquivados ficam guardados aqui e podem ser recuperados."
+                          : status === "pending"
+                            ? "Nenhum artigo publicado tem alterações de rascunho aguardando publicação."
+                            : status === "published"
+                              ? "Os artigos aparecem no blog depois que você os publica."
+                              : "Crie o primeiro rascunho e transforme o conhecimento do Nexo em leitura."
                   }
                 >
-                  {query ? (
-                    <Button onClick={() => setQuery("")}>Limpar busca</Button>
+                  {query || category ? (
+                    <Button onClick={clearFilters}>
+                      {category ? "Limpar filtros" : "Limpar busca"}
+                    </Button>
                   ) : (
                     !["archived", "pending"].includes(status) && (
                       <Button
@@ -1446,7 +1561,7 @@ export default function BlogWorkspace({
           )}
           <FormSteps
             label="Etapas do artigo"
-            steps={steps}
+            steps={completedSteps}
             value={step}
             onChange={goStep}
           />
@@ -1454,6 +1569,16 @@ export default function BlogWorkspace({
             <h2 id="blog-step-title" tabIndex={-1}>
               {steps[step].title}
             </h2>
+            {step === 1 && (
+              <Button
+                className="blog-focus-toggle"
+                icon={focusMode ? Minimize2 : Maximize2}
+                aria-pressed={focusMode}
+                onClick={() => setFocusMode(!focusMode)}
+              >
+                {focusMode ? "Sair do modo foco" : "Modo foco"}
+              </Button>
+            )}
           </header>
           <div className="blog-editor-layout blog-wizard-layout">
             <div className="blog-writing-column">
@@ -1621,7 +1746,18 @@ export default function BlogWorkspace({
                 </div>
                 <fieldset disabled={locked || uploading}>
                   <div
-                    className={`blog-cover-upload ${draft.coverImage ? "has-image" : ""}`}
+                    className={`blog-cover-upload ${draft.coverImage ? "has-image" : ""} ${draggingCover ? "is-dragging" : ""}`}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      if (!locked && !uploading) setDraggingCover(true);
+                    }}
+                    onDragLeave={() => setDraggingCover(false)}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      setDraggingCover(false);
+                      if (!locked && !uploading)
+                        uploadCover(event.dataTransfer.files?.[0]);
+                    }}
                   >
                     {draft.coverImage ? (
                       <>
@@ -1642,11 +1778,17 @@ export default function BlogWorkspace({
                         </button>
                       </>
                     ) : (
-                      <div className="blog-cover-placeholder">
+                      <button
+                        type="button"
+                        className="blog-cover-placeholder"
+                        onClick={() => fileRef.current?.click()}
+                        disabled={locked || uploading}
+                      >
                         <ImageIcon size={27} strokeWidth={1.3} />
                         <strong>Adicionar capa</strong>
+                        <span>Arraste uma imagem ou clique para escolher</span>
                         <span>JPG, PNG, WebP ou AVIF · até 8 MB</span>
-                      </div>
+                      </button>
                     )}
                   </div>
                   {draft.coverImage && (
@@ -1995,7 +2137,10 @@ export default function BlogWorkspace({
                       variant="primary"
                       icon={Send}
                       onClick={() => {
-                        if (!uploadRef.current) setModal({ type: "publish" });
+                        if (!uploadRef.current) {
+                          setPublicationError("");
+                          setModal({ type: "publish" });
+                        }
                       }}
                       disabled={!!busy || uploading || !hasPublicationChanges}
                     >
@@ -2055,6 +2200,19 @@ export default function BlogWorkspace({
           </div>
         </Modal>
       )}
+      {publication && (
+        <PublicationSuccess
+          publication={publication}
+          onClose={() => {
+            setPublication(null);
+            requestAnimationFrame(() =>
+              document
+                .getElementById("blog-step-title")
+                ?.focus({ preventScroll: true }),
+            );
+          }}
+        />
+      )}
       {modal?.type === "publish" && (
         <Modal
           title={
@@ -2067,6 +2225,11 @@ export default function BlogWorkspace({
             if (!busy) setModal(null);
           }}
         >
+          {publicationError && (
+            <p className="notice notice-error" role="alert">
+              {publicationError} Seu rascunho está preservado.
+            </p>
+          )}
           <div className="blog-publish-summary">
             {draft.coverImage && (
               <img
@@ -2083,12 +2246,15 @@ export default function BlogWorkspace({
               {minutes(draft.body)} min de leitura
             </div>
           </div>
-          <div className="blog-change-review">
-            <strong>
+          <details
+            className="blog-change-review"
+            open={record.published ? true : undefined}
+          >
+            <summary>
               {record.published
                 ? "O que será atualizado"
                 : "Confira os dados da publicação"}
-            </strong>
+            </summary>
             <dl>
               {changedFields.map((field) => (
                 <div key={field}>
@@ -2116,7 +2282,7 @@ export default function BlogWorkspace({
                 </div>
               ))}
             </dl>
-          </div>
+          </details>
           {!ready && (
             <div className="blog-publish-requirements">
               <strong>Complete antes de publicar</strong>
@@ -2452,7 +2618,32 @@ export default function BlogWorkspace({
                 alt={modal.revision.post.coverAlt || "Capa desta versão"}
               />
             )}
-            <pre>{modal.revision.post.body}</pre>
+            <div
+              className="revision-rendered"
+              onClick={(event) => {
+                const link = event.target.closest("a[href]");
+                if (!link) return;
+                event.preventDefault();
+                const destination = new URL(
+                  link.getAttribute("href"),
+                  new URL(
+                    `/blog/${modal.revision.post.slug}`,
+                    window.location.origin,
+                  ),
+                );
+                if (
+                  ["http:", "https:", "mailto:"].includes(destination.protocol)
+                )
+                  window.open(
+                    destination.href,
+                    "_blank",
+                    "noopener,noreferrer",
+                  );
+              }}
+              dangerouslySetInnerHTML={{
+                __html: renderMarkdown(modal.revision.post.body),
+              }}
+            />
           </div>
           {!categories
             .map(categoryValue)
@@ -2521,12 +2712,15 @@ export default function BlogWorkspace({
                   type="button"
                   key={asset.id || asset.url}
                   className={
-                    asset.url === draft.coverImage ? "is-selected" : ""
+                    asset.url === (selectedAsset?.url || draft.coverImage)
+                      ? "is-selected"
+                      : ""
                   }
-                  aria-pressed={asset.url === draft.coverImage}
+                  aria-pressed={
+                    asset.url === (selectedAsset?.url || draft.coverImage)
+                  }
                   onClick={() => {
-                    selectCover(asset.url);
-                    setModal(null);
+                    setSelectedAsset(asset);
                   }}
                 >
                   <img src={asset.url} alt="" loading="lazy" />
@@ -2559,6 +2753,29 @@ export default function BlogWorkspace({
                   : "Envie uma imagem na área de capa para adicioná-la ao artigo."
               }
             />
+          )}
+          {selectedAsset && (
+            <div className="asset-selection">
+              <img src={selectedAsset.url} alt="Prévia da imagem selecionada" />
+              <div>
+                <strong>
+                  {selectedAsset.name ||
+                    selectedAsset.filename ||
+                    "Imagem selecionada"}
+                </strong>
+                <span>Confira a imagem antes de aplicar.</span>
+              </div>
+              <Button
+                variant="primary"
+                icon={CheckCircle2}
+                onClick={() => {
+                  selectCover(selectedAsset.url);
+                  setModal(null);
+                }}
+              >
+                Aplicar capa
+              </Button>
+            </div>
           )}
         </Modal>
       )}

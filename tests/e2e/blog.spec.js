@@ -128,6 +128,7 @@ async function openOptional(page, text) {
 
 async function fillMarkdown(page, body) {
   await goBlogStep(page, "Texto");
+  await openOptional(page, "Opções do editor");
   await page
     .getByRole("button", { name: "Editar Markdown", exact: true })
     .click();
@@ -144,7 +145,9 @@ async function publish(page) {
   await page
     .getByRole("button", { name: /^Publicar (artigo|alterações)$/ })
     .click();
-  const dialog = page.getByRole("dialog");
+  const dialog = page.getByRole("dialog", {
+    name: /^Publicar (este artigo|as alterações)\?$/,
+  });
   await expect(dialog).toBeVisible();
   const response = page.waitForResponse(
     (result) =>
@@ -155,6 +158,15 @@ async function publish(page) {
     .click();
   expect((await response).ok()).toBeTruthy();
   await expect(dialog).toHaveCount(0);
+  const success = page.getByRole("dialog", {
+    name: "Publicado na prévia local!",
+    exact: true,
+  });
+  await expect(success).toBeVisible();
+  await success
+    .getByRole("button", { name: "Continuar no painel", exact: true })
+    .click();
+  await expect(success).toHaveCount(0);
 }
 
 async function noOverflow(page) {
@@ -697,6 +709,10 @@ test("replacing a cover URL or choosing a library image clears metadata belongin
     .first();
   const selectedUrl = await choice.locator("img").getAttribute("src");
   await choice.click();
+  await expect(picker).toBeVisible();
+  await picker
+    .getByRole("button", { name: "Aplicar capa", exact: true })
+    .click();
   await expect(picker).toHaveCount(0);
   await expect(alt).toHaveValue("");
   await expect(credit).toHaveValue("");
@@ -953,6 +969,7 @@ test("visual article formatting round trips to Markdown and unsupported source r
   await expect(editor.locator("strong")).toHaveText(
     "Ideias que aproximam pessoas.",
   );
+  await openOptional(page, "Opções do editor");
   await page
     .getByRole("button", { name: "Editar Markdown", exact: true })
     .click();

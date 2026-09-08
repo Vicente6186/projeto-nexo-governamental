@@ -31,6 +31,8 @@ import {
   LoaderCircle,
   Monitor,
   Smartphone,
+  EyeOff,
+  Users,
 } from "lucide-react";
 import {
   Button,
@@ -50,6 +52,7 @@ import { changes, editableCopy, validateSite } from "./site-editing.cjs";
 import "./workflow.css";
 import { Overview, SelectionEditor, ContactEditor } from "./EssentialPages";
 import PasswordReset, { passwordResetRoute } from "./PasswordReset";
+import PublicationSuccess from "./PublicationSuccess";
 
 const BlogWorkspace = lazy(() => import("./BlogWorkspace"));
 
@@ -225,7 +228,7 @@ function App() {
       }
     } catch (e) {
       setError(
-        "Não foi possível conectar ao painel. Verifique se a API está em execução e tente novamente.",
+        "Não conseguimos conectar ao seu espaço. Confira sua conexão e tente novamente em instantes.",
       );
     }
   }
@@ -315,6 +318,7 @@ function AuthLayout({ children, recovery = false }) {
   );
 }
 function Login({ session, onLogin, onForgot }) {
+  const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
     [busy, setBusy] = useState(false),
@@ -355,15 +359,26 @@ function Login({ session, onLogin, onForgot }) {
             autoComplete="username"
             required
           />
-          <Field
-            label="Senha"
-            type="password"
-            value={password}
-            onChange={setPassword}
-            placeholder="Sua senha"
-            autoComplete="current-password"
-            required
-          />
+          <div className="login-password-field">
+            <Field
+              label="Senha"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={setPassword}
+              placeholder="Sua senha"
+              autoComplete="current-password"
+              required
+            />
+            <button
+              type="button"
+              className="password-reveal"
+              aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+              aria-pressed={showPassword}
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
           <a
             href="#esqueci-senha"
             className="login-forgot-password"
@@ -406,6 +421,10 @@ function Login({ session, onLogin, onForgot }) {
   );
 }
 function Workspace({ session, initialState, onLogout, onSession }) {
+  const [publication, setPublication] = useState(null);
+  const [publicationError, setPublicationError] = useState("");
+  const [previewLoading, setPreviewLoading] = useState(true);
+  const [previewFailed, setPreviewFailed] = useState(false);
   const [state, setState] = useState(initialState),
     [content, setContent] = useState(initialState.draft),
     [route, setRoute] = useState(routeFromHash),
@@ -569,7 +588,7 @@ function Workspace({ session, initialState, onLogout, onSession }) {
     return () => window.removeEventListener("hashchange", listener);
   }, []);
   useEffect(() => {
-    if (!toast) return;
+    if (!toast || toast.error) return;
     const timer = setTimeout(() => setToast(null), 6500);
     return () => clearTimeout(timer);
   }, [toast]);
@@ -585,6 +604,15 @@ function Workspace({ session, initialState, onLogout, onSession }) {
   }, [dirty, blogDirty]);
   useEffect(() => {
     const handle = (e) => {
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        ["s", "k"].includes(e.key.toLowerCase()) &&
+        e.target instanceof Element &&
+        e.target.closest('[role="dialog"]')
+      ) {
+        e.preventDefault();
+        return;
+      }
       if (
         (e.metaKey || e.ctrlKey) &&
         e.key.toLowerCase() === "s" &&
@@ -606,10 +634,15 @@ function Workspace({ session, initialState, onLogout, onSession }) {
   function navigate(id) {
     window.location.hash = id;
     setMobileNav(false);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({
+      top: 0,
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+    });
   }
   function notify(text, error = false) {
-    setToast({ text, error });
+    setToast(text ? { text, error } : null);
   }
   function focusError(field) {
     navigate(field.startsWith("site.") ? "contato" : "processo");
@@ -705,6 +738,7 @@ function Workspace({ session, initialState, onLogout, onSession }) {
   }
   saveActionRef.current = save;
   function reviewPublication() {
+    setPublicationError("");
     if (busy || uploadRef.current || recovery.recovery || !checkContent(true))
       return;
     if (!changes(contentRef.current, stateRef.current.published).length)
@@ -712,6 +746,7 @@ function Workspace({ session, initialState, onLogout, onSession }) {
     setModal("publish");
   }
   async function publish() {
+    setPublicationError("");
     if (uploadRef.current || !checkContent(true)) return;
     setBusy(true);
     try {
@@ -722,9 +757,30 @@ function Workspace({ session, initialState, onLogout, onSession }) {
       });
       accept(next);
       setModal(null);
-      notify("Conteúdo publicado com sucesso. O site já usa esta versão.");
+      setToast(null);
+      setPublication({
+        kind: "site",
+        updated: true,
+        local: session.localPreview,
+        title:
+          publicationChanges
+            .map((item) => item.label)
+            .slice(0, 3)
+            .join(" · ") || "Processo seletivo e contatos",
+        href:
+          route === "processo"
+            ? "/#selective-process"
+            : route === "contato"
+              ? "/#contact"
+              : "/",
+      });
     } catch (e) {
-      fail(e);
+      if (!e.field && ![401, 409].includes(e.status))
+        setPublicationError(
+          e.message ||
+            "Não foi possível publicar. Seu rascunho está preservado.",
+        );
+      else fail(e);
     } finally {
       setBusy(false);
     }
@@ -734,6 +790,8 @@ function Workspace({ session, initialState, onLogout, onSession }) {
     setBusy(true);
     try {
       await saveDraft();
+      setPreviewLoading(true);
+      setPreviewFailed(false);
       setPreviewAnchor(
         route === "processo"
           ? "#selective-process"
@@ -827,7 +885,7 @@ function Workspace({ session, initialState, onLogout, onSession }) {
     setContent((c) => ({ ...c, site: { ...c.site, ...patch } }));
   }
   async function uploadNotice(file) {
-    if (!file || uploadRef.current) return;
+    if (!file || uploadRef.current || busy || recovery.recovery) return;
     uploadRef.current = true;
     setUploading(true);
     try {
@@ -928,6 +986,17 @@ function Workspace({ session, initialState, onLogout, onSession }) {
           ))}
         </nav>
         <div className="sidebar-bottom">
+          {session.user?.role === "admin" && (
+            <button
+              className="sidebar-team-link"
+              onClick={() => {
+                setMobileNav(false);
+                setModal("team");
+              }}
+            >
+              <Users size={17} /> Equipe <ChevronRight size={14} />
+            </button>
+          )}
           <div className="user-block">
             <button
               className="user-access"
@@ -937,7 +1006,16 @@ function Workspace({ session, initialState, onLogout, onSession }) {
                 setModal("access");
               }}
             >
-              <span className="avatar">NG</span>
+              <span className="avatar">
+                {(session.user?.name || "Nexo Governamental")
+                  .trim()
+                  .split(/\s+/)
+                  .map((part) => part[0])
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .join("")
+                  .toLocaleUpperCase("pt-BR")}
+              </span>
               <span>
                 <strong>{session.user?.name || "Equipe Nexo"}</strong>
                 <small>
@@ -1072,11 +1150,15 @@ function Workspace({ session, initialState, onLogout, onSession }) {
               <SelectionEditor
                 selection={content.selection}
                 onChange={updateSelection}
-                disabled={busy}
+                disabled={busy || Boolean(recovery.recovery)}
                 onUploadNotice={uploadNotice}
                 uploading={uploading}
                 assets={state.assets || []}
                 errors={errors}
+                onReviewPublication={reviewPublication}
+                reviewDisabled={
+                  busy || uploading || autosaving || Boolean(recovery.recovery)
+                }
               />
             )}
             {navId === "contato" && (
@@ -1154,6 +1236,19 @@ function Workspace({ session, initialState, onLogout, onSession }) {
           </div>
         )}
       </div>
+      {publication && (
+        <PublicationSuccess
+          publication={publication}
+          onClose={() => {
+            setPublication(null);
+            requestAnimationFrame(() =>
+              document
+                .getElementById("workspace-main")
+                ?.focus({ preventScroll: true }),
+            );
+          }}
+        />
+      )}
       {toast && (
         <div
           className={`toast ${toast.error ? "toast-error" : ""}`}
@@ -1172,6 +1267,11 @@ function Workspace({ session, initialState, onLogout, onSession }) {
           description="Confira as informações que serão atualizadas no site."
           onClose={() => !busy && setModal(null)}
         >
+          {publicationError && (
+            <p className="notice notice-error" role="alert">
+              {publicationError}
+            </p>
+          )}
           <div className="publication-diff">
             {publicationChanges.map((item) => (
               <div className="diff-item" key={item.path}>
@@ -1262,7 +1362,35 @@ function Workspace({ session, initialState, onLogout, onSession }) {
               key={previewKey}
               title="Prévia do site Nexo Governamental"
               src={`/?preview=1${previewAnchor}`}
+              onLoad={() => setPreviewLoading(false)}
+              onError={() => {
+                setPreviewLoading(false);
+                setPreviewFailed(true);
+              }}
             />
+            {previewLoading && (
+              <div className="preview-loading">
+                <Loading compact label="Preparando a prévia…" />
+              </div>
+            )}
+            {previewFailed && (
+              <div className="preview-loading">
+                <Empty
+                  title="A prévia não abriu"
+                  description="Tente carregar novamente ou use Abrir para conferir em outra aba."
+                >
+                  <Button
+                    onClick={() => {
+                      setPreviewFailed(false);
+                      setPreviewLoading(true);
+                      setPreviewKey((value) => value + 1);
+                    }}
+                  >
+                    Tentar novamente
+                  </Button>
+                </Empty>
+              </div>
+            )}
           </div>
         </Modal>
       )}
@@ -1334,8 +1462,9 @@ function Workspace({ session, initialState, onLogout, onSession }) {
           </div>
         </Modal>
       )}
-      {modal === "access" && (
+      {(modal === "access" || modal === "team") && (
         <AccessPanel
+          initialView={modal === "team" ? "team" : "account"}
           session={session}
           onClose={() => setModal(null)}
           onSession={onSession}

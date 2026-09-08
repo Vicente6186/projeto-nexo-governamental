@@ -73,14 +73,17 @@ export default function AccessPanel({
   onSession,
   notify,
   onExpired,
+  initialView = "account",
 }) {
-  const [view, setView] = useState("account");
+  const [view, setView] = useState(
+    initialView === "team" && session.user?.role === "admin"
+      ? "team"
+      : "account",
+  );
   const [memberStep, setMemberStep] = useState(0);
   const [passwordOpen, setPasswordOpen] = useState(false);
-  const memberSteps = [
-    { id: "person", label: "Pessoa" },
-    { id: "permissions", label: "Permissões e senha" },
-  ];
+  const [teamQuery, setTeamQuery] = useState("");
+  const [teamFilter, setTeamFilter] = useState("all");
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -100,9 +103,57 @@ export default function AccessPanel({
   const user = session.user || {};
   const isPreview = user.id === "local-preview";
   const isAdmin = user.role === "admin";
+  const personComplete =
+    Boolean(member.name.trim()) &&
+    member.name.length <= 120 &&
+    member.email.length <= 254 &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(member.email.trim()) &&
+    !errors.name &&
+    !errors.email;
+  const permissionComplete =
+    ["editor", "admin"].includes(member.role) &&
+    member.password.length >= 12 &&
+    member.password.length <= 1024 &&
+    !errors.role &&
+    !errors.password;
+  const memberSteps = [
+    {
+      id: "person",
+      label: "Pessoa",
+      complete: personComplete,
+      pending: Boolean(errors.name || errors.email),
+    },
+    {
+      id: "permissions",
+      label: "Permissões e senha",
+      complete: permissionComplete,
+      pending: Boolean(errors.role || errors.password),
+    },
+  ];
+  const normalizeQuery = (value) =>
+    value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+  const visibleUsers = users.filter(
+    (item) =>
+      normalizeQuery(`${item.name || ""} ${item.email || ""}`).includes(
+        normalizeQuery(teamQuery.trim()),
+      ) &&
+      (teamFilter === "all" ||
+        (teamFilter === "active"
+          ? item.active
+          : teamFilter === "inactive"
+            ? !item.active
+            : item.role === teamFilter)),
+  );
   const activeAdmins = users.filter(
     (item) => item.active && item.role === "admin",
   ).length;
+
+  useEffect(() => {
+    if (initialView === "team" && isAdmin) loadTeam();
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -297,6 +348,8 @@ export default function AccessPanel({
           ),
         );
         setMember(blankMember());
+        setTeamQuery("");
+        setTeamFilter("all");
         setView("team");
       }
       notify?.(
@@ -353,7 +406,12 @@ export default function AccessPanel({
         : undefined;
 
   return (
-    <Modal title={title} description={description} onClose={onClose}>
+    <Modal
+      title={title}
+      description={description}
+      onClose={onClose}
+      className={view === "team" ? "access-team-modal" : ""}
+    >
       <div
         className="access-panel"
         ref={contentRef}
@@ -486,6 +544,46 @@ export default function AccessPanel({
                 Adicionar integrante
               </Button>
             </div>
+            <div className="team-filters">
+              <Field
+                label="Buscar integrante"
+                value={teamQuery}
+                onChange={setTeamQuery}
+                placeholder="Nome ou e-mail"
+              />
+              <label className="team-filter-label">
+                Mostrar
+                <select
+                  value={teamFilter}
+                  onChange={(event) => setTeamFilter(event.target.value)}
+                >
+                  <option value="all">Toda a equipe</option>
+                  <option value="active">Ativos</option>
+                  <option value="inactive">Desativados</option>
+                  <option value="admin">Administradores</option>
+                  <option value="editor">Editores</option>
+                </select>
+              </label>
+            </div>
+            {!loading && users.length > 0 && (
+              <p className="team-result-count" role="status">
+                {visibleUsers.length} de {users.length} integrantes
+              </p>
+            )}
+            {!loading && users.length > 0 && !visibleUsers.length && (
+              <div className="access-empty">
+                <h3>Nenhum integrante encontrado</h3>
+                <p>Tente outro nome ou ajuste o filtro.</p>
+                <Button
+                  onClick={() => {
+                    setTeamQuery("");
+                    setTeamFilter("all");
+                  }}
+                >
+                  Limpar filtros
+                </Button>
+              </div>
+            )}
             {loading ? (
               <div className="access-loading" role="status">
                 <LoaderCircle size={22} />
@@ -507,7 +605,7 @@ export default function AccessPanel({
                     className="access-users"
                     aria-label="Integrantes da equipe"
                   >
-                    {users.map((item) => {
+                    {visibleUsers.map((item) => {
                       const self = item.id === user.id;
                       const lastAdmin =
                         item.active &&
