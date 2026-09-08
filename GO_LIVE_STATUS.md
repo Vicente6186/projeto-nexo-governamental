@@ -4,6 +4,21 @@ Revisão: 8 de setembro de 2026.
 
 O site, o blog e o painel estão publicados em **https://nexo-governamental.netlify.app/**. O Netlify encaminha a aplicação ao Fastify no Railway. Login, proteção dos rascunhos, conteúdo público, imagens e descoberta para mecanismos de busca foram verificados pelo endereço HTTPS real. A recuperação por e-mail ainda depende do Resend; esta entrega não declara todos os critérios operacionais encerrados.
 
+## Auditoria da experiência premium
+
+A revisão das mudanças do painel corrigiu cinco falhas reproduzidas em testes: prévia bloqueada por uma imagem lenta, ausência de recuperação após falha de navegação da prévia, botão fechar deslocado durante a animação de sucesso, indicação incorreta de link copiado após uma segunda tentativa falhar e perda de foco ao excluir uma etapa com a vizinha recolhida.
+
+A prévia agora aguarda o rascunho ficar pronto, independentemente do carregamento da mídia; permite tentar novamente após falha e aceita uma resposta válida que chegue depois do aviso de demora. Cada tentativa de copiar reinicia o estado e impede solicitações simultâneas. A exclusão de etapas mantém o foco em um controle visível, e a animação do título não desloca mais o botão fechar.
+
+- Fonte da aplicação: `c28f9a991d1ea121ccc3a92f3774f47458fb975f`.
+- Validação: **171 testes de lógica e 62 cenários no Chromium aprovados**, incluindo seis novos cenários de regressão. As escritas de teste ocorreram em bancos temporários. Build aprovado, com os dois avisos de tamanho já existentes.
+- Railway: deploy `e306933f-c5bf-4996-9696-37f2b252805b`, estado `SUCCESS`, confirmado pelo domínio Netlify em 8 de setembro de 2026.
+- HTML administrativo, sete arquivos JavaScript e cinco arquivos CSS conferidos byte a byte contra o build local. Os arquivos atualizados incluem `admin.651665e7.js`, `admin.736db9c1.css` e `main.5736b933.js`.
+- Site, blog e saúde da API responderam 200; conteúdo administrativo, blog e categorias responderam 401 sem sessão. O acesso demonstrativo permaneceu desabilitado. `/api/content` e `/api/blog` permaneceram idênticos ao registro anterior à atualização.
+- Backup anterior à publicação: `/app/data/premium-audit-deploy-backups/nexo-backup-2026-09-08T20-53-29-403Z-bbc1e0a2-9c59-4085-8a33-45a27be14097`, verificado e sem remoção de cópias anteriores.
+
+As pendências operacionais ao final continuam válidas.
+
 ## Experiência premium do painel publicada
 
 O painel recebeu uma confirmação verde em tela cheia após a publicação, com acesso à página e cópia do link. O blog ganhou modo foco, barra de formatação fixa, seleção explícita de capas, envio por arrastar e soltar, etapas com pendências e histórico formatado. Processo seletivo, equipe, avisos, carregamentos e ações em telas pequenas seguem a mesma linguagem visual; o controle por teclado e a preferência por movimento reduzido foram preservados.
