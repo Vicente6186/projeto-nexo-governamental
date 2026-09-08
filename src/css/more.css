@@ -1,7 +1,7 @@
 #more {
     --more-accent: #83ead8;
     --more-muted: #c5cfdf;
-    --more-surface: #202b4d;
+    --more-surface: #f0f8f8;
     padding: clamp(7.2rem, 8vw, 11.2rem) 3.2rem;
     color: #fff;
     background:
@@ -74,8 +74,9 @@
 #more .more-project {
     min-width: 0;
     overflow: hidden;
-    border: 1px solid #ffffff20;
+    border: 1px solid #d8e9e9;
     border-radius: 2.8rem;
+    color: #191f51;
     background: var(--more-surface);
 }
 
@@ -110,7 +111,7 @@
     align-items: center;
     gap: 1.2rem;
     margin-bottom: 1.6rem;
-    color: var(--more-accent);
+    color: #24685f;
     font-size: 1.4rem;
     font-weight: 800;
     letter-spacing: .08em;
@@ -120,13 +121,13 @@
 
 #more .more-category span {
     padding-right: 1.2rem;
-    border-right: 1px solid #83ead866;
+    border-right: 1px solid #24685f66;
     font-variant-numeric: tabular-nums;
 }
 
 #more .more-copy h3 {
     margin-bottom: 1.6rem;
-    color: #fff;
+    color: #191f51;
     font-size: clamp(3rem, 3vw, 3.8rem);
     font-weight: 800;
     line-height: 1.15;
@@ -145,7 +146,7 @@
 #more .more-detail {
     max-width: 46rem;
     margin-top: 1.6rem;
-    color: var(--more-muted);
+    color: #4a5c6e;
     font-size: 1.7rem;
     font-weight: 500;
     line-height: 1.75;
@@ -156,9 +157,6 @@
     grid-column: 1 / -1;
     display: grid;
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-    color: #191f51;
-    background: #f0f8f8;
-    border-color: #d8e9e9;
 }
 
 #more .more-project--featured .more-visual {
@@ -176,21 +174,8 @@
     padding: clamp(3.2rem, 4vw, 5.6rem);
 }
 
-#more .more-project--featured .more-category {
-    color: #24685f;
-}
-
-#more .more-project--featured .more-category span {
-    border-color: #24685f66;
-}
-
 #more .more-project--featured h3 {
-    color: #191f51;
     font-size: clamp(3.6rem, 3.8vw, 4.8rem);
-}
-
-#more .more-project--featured .more-detail {
-    color: #4a5c6e;
 }
 
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
