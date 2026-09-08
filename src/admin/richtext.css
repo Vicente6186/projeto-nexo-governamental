@@ -1,13 +1,13 @@
 .richtext-editor {
   min-width: 0;
-  margin-top: 22px;
+  margin-top: 8px;
 }
 .richtext-heading {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
-  margin-bottom: 9px;
+  margin-bottom: 4px;
 }
 
 .richtext-mode {
@@ -20,7 +20,7 @@
   border-radius: 8px;
   background: transparent;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 13px;
 }
 .richtext-mode:hover:not(:disabled) {
   background: var(--surface-muted);
@@ -226,7 +226,7 @@
 .richtext-hint {
   margin-top: 10px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.75;
 }
 .richtext-preserve {

@@ -7,7 +7,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 24px;
-  margin: 4px 0 26px;
+  margin: 0 0 32px;
 }
 .blog-section-eyebrow {
   display: block;
@@ -16,10 +16,12 @@
   font-weight: 700;
   letter-spacing: 0.15em;
 }
-.blog-list-intro h2 {
-  font: 400 clamp(29px, 3vw, 40px)/1.15 var(--serif);
-  letter-spacing: -0.02em;
-  margin: 8px 0 8px;
+.blog-list-intro h1 {
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -1px;
+  margin: 0;
 }
 .blog-list-intro p {
   color: var(--muted);
@@ -71,7 +73,7 @@
   gap: 22px;
 }
 .blog-collection-toolbar .tabs button {
-  min-height: 66px;
+  min-height: 54px;
   padding: 0 1px;
   white-space: nowrap;
   font-size: 12px;
@@ -121,7 +123,7 @@
   letter-spacing: 0.04em;
 }
 .blog-post-row {
-  padding: 21px 22px;
+  padding: 20px 22px;
   border-top: 1px solid var(--line);
   transition: background 0.15s;
 }
@@ -138,8 +140,8 @@
   gap: 16px;
 }
 .blog-post-thumb {
-  width: 100px;
-  height: 74px;
+  width: 72px;
+  height: 56px;
   border-radius: 6px;
   background: var(--surface-muted);
   display: grid;
@@ -176,7 +178,7 @@
   font-size: 12px;
 }
 .blog-post-copy h3 {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   line-height: 1.45;
   margin: 6px 0;
@@ -273,7 +275,9 @@
   color: var(--text);
   margin: 14px 0 26px;
   padding: 0;
-  font: 400 clamp(27px, 2.6vw, 37px)/1.2 var(--serif);
+  font:
+    500 clamp(24px, 2.6vw, 30px)/1.3 "DM Sans",
+    sans-serif;
   letter-spacing: -0.018em;
   min-height: 92px;
   outline: none;
@@ -301,7 +305,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding: 24px 34px 18px;
+  padding: 18px 28px 0;
 }
 .blog-body-heading > div {
   display: flex;
@@ -1573,4 +1577,31 @@
   min-height: 480px;
   display: grid;
   place-items: center;
+}
+
+/* Keep regular controls readable across collection and editor breakpoints. */
+.blog-workspace .form-steps {
+  margin-bottom: 24px;
+}
+.blog-workspace .blog-collection-toolbar .tabs button,
+.blog-workspace .blog-search input,
+.blog-workspace .blog-list-filters label,
+.blog-workspace .blog-list-filters select,
+.blog-workspace .blog-savebar .button {
+  font-size: 14px;
+}
+.blog-workspace .blog-savebar-actions .button {
+  min-height: 44px;
+}
+.blog-workspace .blog-post-copy h3 {
+  font-size: 16px;
+}
+.blog-workspace .blog-post-thumb {
+  width: 72px;
+  height: 56px;
+}
+@media (max-width: 600px) {
+  .blog-list-intro h1 {
+    font-size: 26px;
+  }
 }

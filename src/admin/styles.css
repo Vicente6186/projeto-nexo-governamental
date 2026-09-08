@@ -11,15 +11,15 @@
   /* Brand colors from the institutional site's global.css and objective.css. */
   --brand-primary: #191f51;
   --brand-highlight: #83ead8;
-  --background: #f5f6fa;
+  --background: #f4f5f7;
   --surface: #ffffff;
-  --surface-muted: #f1f3f9;
+  --surface-muted: #f1f3f5;
   --surface-hover: #e9edf7;
-  --surface-inset: #fafbfe;
-  --text: #202642;
+  --surface-inset: #fafbfc;
+  --text: #222936;
   --muted: #626b83;
   --subtle: #626b83;
-  --line: #e0e4ef;
+  --line: #e3e6eb;
   --line-strong: #c8cfe1;
   --control-border: #8590a9;
   --accent: var(--brand-primary);
@@ -42,7 +42,7 @@
   --serif: "Instrument Serif", Georgia, serif;
   --navy: var(--text);
   --green: var(--accent);
-  --sidebar-width: 232px;
+  --sidebar-width: 236px;
   font-family: "DM Sans", sans-serif;
   font-size: 14px;
   font-synthesis: none;
@@ -53,21 +53,21 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --background: #0e1124;
-  --surface: #171c36;
-  --surface-muted: #1c2340;
-  --surface-hover: #242d4e;
-  --surface-inset: #13182f;
-  --text: #eef1fa;
-  --muted: #a8b2cc;
-  --subtle: #99a5c1;
-  --line: #2c3553;
-  --line-strong: #435174;
-  --control-border: #657699;
-  --accent: #a9b6f5;
-  --accent-hover: #c0cafb;
-  --accent-soft: #252e56;
-  --accent-on: #141b40;
+  --background: #111419;
+  --surface: #191d24;
+  --surface-muted: #20252d;
+  --surface-hover: #292f39;
+  --surface-inset: #15191f;
+  --text: #eef1f5;
+  --muted: #a9b1bd;
+  --subtle: #a0aab8;
+  --line: #2d333e;
+  --line-strong: #444e5e;
+  --control-border: #657083;
+  --accent: #b4c4ec;
+  --accent-hover: #d0dcf5;
+  --accent-soft: #273044;
+  --accent-on: #182238;
   --amber: #dfbe7f;
   --amber-soft: #383126;
   --danger: #eea5a0;

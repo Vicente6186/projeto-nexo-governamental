@@ -712,7 +712,7 @@ test("the overview distinguishes a saved selection draft from the information cu
   await expect(summary).toContainText("Publicado no site");
   await expect(summary).toContainText("Encerrado");
   await expect(summary).not.toContainText("Nova edição ainda em revisão");
-  await expect(summary).toContainText("Há alterações no rascunho");
+  await expect(summary).toContainText("Rascunho com alterações");
   const state = await stateOf(page);
   expect(state.draft.selection.edition).toBe("Nova edição ainda em revisão");
   expect(state.published.selection.edition).toBe(

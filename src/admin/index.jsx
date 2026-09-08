@@ -10,6 +10,7 @@ import "@fontsource/instrument-serif/400-italic.css";
 import "./styles.css";
 import App from "./App";
 import { ThemeProvider } from "./ThemeMenu";
+import "./studio.css";
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>

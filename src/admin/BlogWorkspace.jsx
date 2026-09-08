@@ -224,27 +224,27 @@ export default function BlogWorkspace({
     {
       id: "info",
       label: "Informações",
-      title: "Apresente o artigo",
+      title: "Dados do artigo",
       description: "Título, resumo e quem assina o texto.",
     },
     {
       id: "text",
       label: "Texto",
-      title: "Escreva o artigo",
+      title: "Texto",
       description:
         "Concentre-se no texto. Você pode voltar às outras etapas quando precisar.",
     },
     {
       id: "cover",
       label: "Capa",
-      title: "Escolha uma capa",
+      title: "Capa",
       description:
         "A imagem é opcional. Se usar uma, inclua uma descrição acessível.",
     },
     {
       id: "review",
       label: "Revisão",
-      title: "Revise antes de publicar",
+      title: "Revisão",
       description:
         "Confira os dados e abra a prévia para ver como o artigo ficará.",
     },
@@ -949,11 +949,7 @@ export default function BlogWorkspace({
       {!postId ? (
         <>
           <div className="blog-list-intro">
-            <div>
-              <span className="blog-section-eyebrow">ESPAÇO EDITORIAL</span>
-              <h2>Conhecimento que circula.</h2>
-              <p>Artigos, encontros e perspectivas do Nexo Governamental.</p>
-            </div>
+            <h1>Blog do Nexo</h1>
             <div className="blog-inline-actions">
               <a
                 href="/blog/"
@@ -975,7 +971,7 @@ export default function BlogWorkspace({
           </div>
           {session?.localPreview && (
             <div className="blog-preview-note">
-              <span>Conheça o blog com os rascunhos antes de publicar.</span>
+              <span>Prévia local · rascunhos</span>
               <a href="/blog/?preview=1" target="_blank" rel="noreferrer">
                 Abrir prévia editorial <ArrowUpRight size={14} />
               </a>
@@ -1010,7 +1006,7 @@ export default function BlogWorkspace({
                 <Search size={17} />
                 <span className="sr-only">Buscar artigos</span>
                 <input
-                  placeholder="Buscar artigo, autor ou tema…"
+                  placeholder="Buscar artigos…"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                 />
@@ -1042,13 +1038,7 @@ export default function BlogWorkspace({
                   </option>
                 ))}
               </select>
-              <p>
-                {status === "pending"
-                  ? "Artigos no ar com alterações salvas que ainda precisam ser publicadas."
-                  : status === "draft"
-                    ? "Artigos que ainda não estão disponíveis no blog."
-                    : "A publicação é sempre uma escolha da equipe."}
-              </p>
+              {status === "pending" && <p>Alterações ainda não publicadas.</p>}
               {listLoading && (
                 <span role="status" className="blog-list-updating">
                   <LoaderCircle size={15} /> Atualizando…
@@ -1219,13 +1209,6 @@ export default function BlogWorkspace({
               </nav>
             )}
           </section>
-          <div className="blog-editorial-note">
-            <BookOpen size={17} />
-            <p>
-              <strong>Rascunhos salvos automaticamente.</strong> Confira a
-              prévia e publique quando o artigo estiver pronto.
-            </p>
-          </div>
         </>
       ) : (
         <>
@@ -1353,7 +1336,6 @@ export default function BlogWorkspace({
             <h2 id="blog-step-title" tabIndex={-1}>
               {steps[step].title}
             </h2>
-            <p>{steps[step].description}</p>
           </header>
           <div className="blog-editor-layout blog-wizard-layout">
             <div className="blog-writing-column">
@@ -1372,7 +1354,7 @@ export default function BlogWorkspace({
                     className="blog-title-input"
                     value={draft.title}
                     onChange={(event) => changeTitle(event.target.value)}
-                    placeholder="Dê um título à sua ideia"
+                    placeholder="Título do artigo"
                     rows={2}
                     maxLength={180}
                     data-blog-field="title"
@@ -1399,7 +1381,7 @@ export default function BlogWorkspace({
                     multiline
                     maxLength={360}
                     placeholder="Apresente a ideia central em poucas linhas."
-                    hint="Aparece na lista do blog e nas prévias de compartilhamento."
+                    hint="Usado no blog e no compartilhamento."
                   />
                   <div className="blog-essential-fields">
                     <div className="field">
@@ -1450,7 +1432,7 @@ export default function BlogWorkspace({
                   </div>
                   <details className="form-optional">
                     <summary>
-                      Mais sobre a autoria <span>Opcional</span>
+                      Sobre a autoria <span>Opcional</span>
                     </summary>
                     <Field
                       label="Descrição da autoria"
@@ -1460,7 +1442,6 @@ export default function BlogWorkspace({
                       onChange={(authorRole) => patch({ authorRole })}
                       maxLength={180}
                       placeholder="Vínculo, área ou breve apresentação"
-                      hint="Opcional. Use apenas informações confirmadas."
                     />
                   </details>
                 </fieldset>
@@ -1472,7 +1453,6 @@ export default function BlogWorkspace({
               >
                 <div className="blog-body-heading">
                   <div>
-                    <h2>Texto do artigo</h2>
                     <span>{minutes(draft.body)} min de leitura</span>
                   </div>
                 </div>
@@ -1511,7 +1491,6 @@ export default function BlogWorkspace({
                 <div className="blog-card-heading">
                   <div>
                     <h2>Imagem de capa</h2>
-                    <p>Uma imagem que contextualize o artigo.</p>
                   </div>
                   <Badge>Opcional</Badge>
                 </div>
@@ -1540,15 +1519,14 @@ export default function BlogWorkspace({
                     ) : (
                       <div className="blog-cover-placeholder">
                         <ImageIcon size={27} strokeWidth={1.3} />
-                        <strong>Escolha a capa do artigo</strong>
+                        <strong>Adicionar capa</strong>
                         <span>JPG, PNG, WebP ou AVIF · até 8 MB</span>
                       </div>
                     )}
                   </div>
                   {draft.coverImage && (
                     <p className="field-hint blog-cover-crop-note">
-                      Prévia do recorte da capa. Prefira uma imagem horizontal e
-                      mantenha o assunto principal no centro.
+                      Imagem horizontal, com o assunto centralizado.
                     </p>
                   )}
                   {coverError && (
@@ -1624,7 +1602,7 @@ export default function BlogWorkspace({
                         value={draft.coverAlt}
                         onChange={(coverAlt) => patch({ coverAlt })}
                         maxLength={300}
-                        hint="Descreva o que aparece na imagem para quem usa leitor de tela."
+                        hint="Descrição para leitores de tela."
                         placeholder="Descreva a cena de forma objetiva."
                       />
                       <Field
@@ -1693,9 +1671,10 @@ export default function BlogWorkspace({
                   </div>
                 </div>
                 <div className="blog-review-checks">
-                  <strong>
+                  <strong className={ready ? "blog-review-ready" : undefined}>
+                    {ready && <CheckCircle2 size={17} aria-hidden="true" />}
                     {ready
-                      ? "Tudo pronto para a revisão final"
+                      ? "Pronto para publicar"
                       : "Confira antes de publicar"}
                   </strong>
                   {requirements.map((item) => (
@@ -1717,24 +1696,12 @@ export default function BlogWorkspace({
                       <ArrowRight size={15} />
                     </button>
                   )}
-                  {ready && (
-                    <p>
-                      <CheckCircle2 size={17} /> Os campos necessários estão
-                      preenchidos. A publicação só acontece após sua
-                      confirmação.
-                    </p>
-                  )}
                 </div>
               </section>
               <details className="card blog-settings-card blog-review-options">
                 <summary>
                   Ajustes de publicação <ChevronDown size={17} />
                 </summary>
-                <div className="blog-card-heading">
-                  <h2>
-                    <Settings2 size={17} /> Organização e destaque
-                  </h2>
-                </div>
                 <fieldset disabled={locked}>
                   <Field
                     label="Temas"
@@ -1751,7 +1718,7 @@ export default function BlogWorkspace({
                       });
                     }}
                     placeholder="Políticas públicas, extensão…"
-                    hint="Separe os temas por vírgulas. Até 8 temas."
+                    hint="Até 8 temas, separados por vírgulas."
                     maxLength={300}
                   />
                   <div className="blog-featured-control">
@@ -1808,7 +1775,7 @@ export default function BlogWorkspace({
               <div className="blog-publication-info">
                 <Clock3 size={16} />
                 <div>
-                  <span>Último rascunho salvo</span>
+                  <span>Salvo em</span>
                   <strong>{dateLabel(record.updatedAt, true)}</strong>
                   {record.publishedAt && (
                     <p>Publicado em {dateLabel(record.publishedAt)}</p>

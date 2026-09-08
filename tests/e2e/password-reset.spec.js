@@ -41,13 +41,13 @@ async function openRequest(page) {
     .getByRole("link", { name: "Esqueci minha senha", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Recupere seu acesso.", exact: true }),
+    page.getByRole("heading", { name: "Recuperar acesso", exact: true }),
   ).toBeVisible();
 }
 async function openConfirm(page, token = TOKEN) {
   await page.goto(`/admin/#redefinir-senha?token=${token}`);
   await expect(
-    page.getByRole("heading", { name: "Crie sua nova senha.", exact: true }),
+    page.getByRole("heading", { name: "Redefinir senha", exact: true }),
   ).toBeVisible();
   await expect(page).toHaveURL(/\/admin\/#redefinir-senha$/);
 }
@@ -100,7 +100,7 @@ test("request validates email, prevents duplicate submissions and shows the same
   await expect.poll(() => requests.length).toBe(1);
   release();
   await expect(
-    page.getByRole("heading", { name: "Confira seu e-mail.", exact: true }),
+    page.getByRole("heading", { name: "Confira seu e-mail", exact: true }),
   ).toBeVisible();
   await expect(page.getByText(SENT, { exact: true })).toBeVisible();
   await expect(
@@ -120,7 +120,7 @@ test("request validates email, prevents duplicate submissions and shows the same
     .click();
   await expect(
     page.getByRole("heading", {
-      name: "Bem-vindo ao Nexo Studio.",
+      name: "Entrar no Nexo Studio",
       exact: true,
     }),
   ).toBeVisible();
@@ -152,7 +152,7 @@ test("missing email configuration is explicit and never simulates sending", asyn
     .click();
   await expect(
     page.getByRole("heading", {
-      name: "Bem-vindo ao Nexo Studio.",
+      name: "Entrar no Nexo Studio",
       exact: true,
     }),
   ).toBeVisible();
@@ -242,7 +242,7 @@ test("a valid link is captured privately, validates both passwords, supports vis
     .click();
   await expect(
     page.getByRole("heading", {
-      name: "Sua senha foi atualizada.",
+      name: "Senha atualizada",
       exact: true,
     }),
   ).toBeVisible();
@@ -253,7 +253,7 @@ test("a valid link is captured privately, validates both passwords, supports vis
     .click();
   await expect(
     page.getByRole("heading", {
-      name: "Bem-vindo ao Nexo Studio.",
+      name: "Entrar no Nexo Studio",
       exact: true,
     }),
   ).toBeVisible();
@@ -281,7 +281,7 @@ test("malformed, expired and already used links lead to an honest request for a 
   await page.goto("/admin/#redefinir-senha?token=invalid-token");
   await expect(
     page.getByRole("heading", {
-      name: "Vamos renovar seu acesso.",
+      name: "Link indisponível",
       exact: true,
     }),
   ).toBeVisible();
@@ -291,7 +291,7 @@ test("malformed, expired and already used links lead to an honest request for a 
     .getByRole("button", { name: "Solicitar novo link", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "Recupere seu acesso.", exact: true }),
+    page.getByRole("heading", { name: "Recuperar acesso", exact: true }),
   ).toBeVisible();
   await openConfirm(page);
   await fillPasswords(page);
@@ -300,7 +300,7 @@ test("malformed, expired and already used links lead to an honest request for a 
     .click();
   await expect(
     page.getByRole("heading", {
-      name: "Vamos renovar seu acesso.",
+      name: "Link indisponível",
       exact: true,
     }),
   ).toBeVisible();
@@ -366,14 +366,14 @@ test("links open from an already authenticated workspace and preserve token hand
     window.location.hash = `redefinir-senha?token=${token}`;
   }, TOKEN);
   await expect(
-    page.getByRole("heading", { name: "Crie sua nova senha.", exact: true }),
+    page.getByRole("heading", { name: "Redefinir senha", exact: true }),
   ).toBeVisible();
   await expect(page).toHaveURL(/#redefinir-senha$/);
   await expect(page.locator("#workspace-main")).toHaveCount(0);
   await page.reload();
   await expect(
     page.getByRole("heading", {
-      name: "Vamos renovar seu acesso.",
+      name: "Link indisponível",
       exact: true,
     }),
   ).toBeVisible();
@@ -382,7 +382,7 @@ test("links open from an already authenticated workspace and preserve token hand
     .click();
   await expect(
     page.getByRole("heading", {
-      name: "Bem-vindo ao Nexo Studio.",
+      name: "Entrar no Nexo Studio",
       exact: true,
     }),
   ).toBeVisible();
@@ -395,7 +395,7 @@ test("password recovery is usable with keyboard, light and dark themes, and a na
   await page.setViewportSize({ width: 390, height: 844 });
   await openConfirm(page);
   await expect(
-    page.getByRole("heading", { name: "Crie sua nova senha.", exact: true }),
+    page.getByRole("heading", { name: "Redefinir senha", exact: true }),
   ).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(page.getByLabel("Nova senha", { exact: true })).toBeFocused();

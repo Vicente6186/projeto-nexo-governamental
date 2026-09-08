@@ -300,16 +300,11 @@ function AuthLayout({ children, recovery = false }) {
       <div className="login-visual">
         <Brand />
         <div className="login-copy">
-          <span className="eyebrow">CONEXÕES QUE TRANSFORMAM</span>
           <h1>
-            Grandes ideias.
+            O espaço da
             <br />
-            Novos <em>capítulos.</em>
+            <em>equipe Nexo.</em>
           </h1>
-          <p>
-            Um espaço para cuidar da presença do Nexo e aproximar ainda mais
-            pessoas da vida pública.
-          </p>
         </div>
         <span className="login-credit">
           Faculdade de Direito · Universidade de São Paulo
@@ -343,9 +338,8 @@ function Login({ session, onLogin, onForgot }) {
   return (
     <AuthLayout>
       <form onSubmit={login}>
-        <span className="eyebrow">SEU ESPAÇO EDITORIAL</span>
-        <h2>Bem-vindo ao Nexo Studio.</h2>
-        <p>Entre para gerenciar os conteúdos do site.</p>
+        <h2>Entrar no Nexo Studio</h2>
+        <p>Use seu acesso da equipe.</p>
         {error && (
           <div className="notice notice-error" role="alert">
             {error}
@@ -401,12 +395,11 @@ function Login({ session, onLogin, onForgot }) {
             >
               Entrar na prévia local
             </Button>
-            <p>Explore o painel e teste a edição neste computador.</p>
+            <p>Alterações apenas neste computador.</p>
           </div>
         )}
         <div className="login-foot">
-          <ShieldCheck size={15} /> Acesso exclusivo à equipe responsável pelo
-          site.
+          <ShieldCheck size={15} /> Acesso da equipe
         </div>
       </form>
     </AuthLayout>
@@ -921,14 +914,6 @@ function Workspace({ session, initialState, onLogout, onSession }) {
         >
           <Brand />
         </a>
-        <div className="workspace-identity">
-          <span className="workspace-avatar">N</span>
-          <div>
-            <strong>Nexo Governamental</strong>
-            <small>Faculdade de Direito · USP</small>
-          </div>
-        </div>
-        <div className="nav-label">GERENCIAR</div>
         <nav aria-label="Menu principal">
           {NAV.map(({ id, label, icon: Icon }) => (
             <a
@@ -1002,7 +987,7 @@ function Workspace({ session, initialState, onLogout, onSession }) {
               }}
             >
               <Search size={16} />
-              <span>Buscar no painel</span>
+              <span>Buscar</span>
               <kbd>⌘ K</kbd>
             </button>
             <span className="topbar-separator" />
@@ -1013,11 +998,10 @@ function Workspace({ session, initialState, onLogout, onSession }) {
           </div>
         </header>
         <main id="workspace-main" className="main-content" tabIndex={-1}>
-          {!route.startsWith("blog/") && (
+          {navId !== "blog" && (
             <div className="page-heading">
               <div>
                 <h1>{pageTitle}</h1>
-                <p>{NAV.find((item) => item.id === navId)?.description}</p>
               </div>
               <div className="heading-actions">
                 {navId === "inicio" ? (
@@ -1120,12 +1104,6 @@ function Workspace({ session, initialState, onLogout, onSession }) {
               </Suspense>
             )}
           </fieldset>
-          <footer className="workspace-footer">
-            <span>
-              Nexo Studio <i /> Painel editorial
-            </span>
-            <span>Faculdade de Direito · USP</span>
-          </footer>
         </main>
         {navId !== "blog" && (dirty || pending) && (
           <div className="save-bar">
@@ -1144,8 +1122,8 @@ function Workspace({ session, initialState, onLogout, onSession }) {
                 {dirty
                   ? savePaused
                     ? "Sua edição foi preservada. Revise e salve novamente."
-                    : "Salvamento automático após a edição."
-                  : "Revise e publique quando estiver pronto."}
+                    : "Salvamento automático."
+                  : "Ainda não publicado."}
               </span>
             </div>
             <div>

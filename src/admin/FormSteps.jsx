@@ -27,7 +27,7 @@ export function FormSteps({ label, steps, value, onChange, disabled = false }) {
           </li>
         ))}
       </ol>
-      <p className="form-step-position">
+      <p className="sr-only" aria-live="polite">
         Etapa {value + 1} de {steps.length}
       </p>
     </nav>

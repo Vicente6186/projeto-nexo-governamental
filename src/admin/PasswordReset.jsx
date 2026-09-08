@@ -243,17 +243,17 @@ export default function PasswordReset({
     }
   }
   const headings = {
-    request: "Recupere seu acesso.",
-    sent: "Confira seu e-mail.",
-    confirm: "Crie sua nova senha.",
-    complete: "Sua senha foi atualizada.",
-    invalid: "Vamos renovar seu acesso.",
+    request: "Recuperar acesso",
+    sent: "Confira seu e-mail",
+    confirm: "Redefinir senha",
+    complete: "Senha atualizada",
+    invalid: "Link indisponível",
   };
   const descriptions = {
-    request: "Informe o e-mail que você usa para entrar no Nexo Studio.",
+    request: "Use o e-mail da sua conta.",
     sent: GENERIC_SENT,
-    confirm: "Escolha uma senha para continuar cuidando dos conteúdos do Nexo.",
-    complete: "Tudo certo. Entre no painel com sua nova senha.",
+    confirm: "",
+    complete: "Entre com sua nova senha.",
     invalid:
       "Este link não é válido, expirou ou já foi utilizado. Solicite um novo link para continuar.",
   };
@@ -285,11 +285,13 @@ export default function PasswordReset({
       >
         <Icon size={24} strokeWidth={1.5} />
       </div>
-      <span className="eyebrow">ACESSO AO NEXO STUDIO</span>
+
       <h2 id="password-reset-title" ref={title} tabIndex={-1}>
         {headings[phase]}
       </h2>
-      <p className="reset-description">{descriptions[phase]}</p>
+      {descriptions[phase] && (
+        <p className="reset-description">{descriptions[phase]}</p>
+      )}
       {message && (
         <div className="notice notice-error" role="alert">
           {message}
@@ -353,8 +355,7 @@ export default function PasswordReset({
       {phase === "sent" && (
         <div className="reset-sent-content">
           <p className="reset-inbox-note">
-            O e-mail pode levar alguns minutos. Confira também as pastas de spam
-            e lixo eletrônico.
+            Pode levar alguns minutos. Confira também o spam.
           </p>
           <Button variant="primary" className="w-full" onClick={onBack}>
             Voltar para entrar
@@ -406,7 +407,7 @@ export default function PasswordReset({
                 setMessage("");
               }}
               error={errors.password}
-              placeholder="Crie uma senha de pelo menos 12 caracteres"
+              placeholder="Pelo menos 12 caracteres"
               toggleLabel="nova senha"
             />
             <PasswordField
@@ -439,10 +440,7 @@ export default function PasswordReset({
                   : "Salvar nova senha"}
             </Button>
           </fieldset>
-          <p className="reset-note">
-            Depois de salvar, entre novamente no painel. Seus conteúdos
-            permanecem preservados.
-          </p>
+          <p className="reset-note">Entre novamente após salvar.</p>
         </form>
       )}
       {phase === "invalid" && (
@@ -457,8 +455,7 @@ export default function PasswordReset({
             Solicitar novo link
           </Button>
           <p className="reset-note">
-            Se você recarregou esta página antes de concluir, abra novamente o
-            link recebido por e-mail.
+            Recarregou a página? Abra novamente o link do e-mail.
           </p>
         </div>
       )}
@@ -475,8 +472,7 @@ export default function PasswordReset({
         </div>
       )}
       <div className="login-foot">
-        <ShieldCheck size={15} /> Acesso exclusivo à equipe responsável pelo
-        site.
+        <ShieldCheck size={15} /> Acesso da equipe
       </div>
     </section>
   );

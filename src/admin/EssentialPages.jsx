@@ -167,21 +167,8 @@ export function Overview({
     JSON.stringify(content.selection) !== JSON.stringify(selection);
   return (
     <div className="essentials-overview">
-      <section className="essentials-welcome">
-        <div>
-          <h2>O Nexo, sempre em dia.</h2>
-          <p>O essencial para cuidar da presença do Nexo.</p>
-        </div>
-        <div className="essentials-welcome-mark" aria-hidden="true">
-          <img
-            src="/assets/introduction/brand-without-background.webp"
-            alt=""
-          />
-        </div>
-      </section>
-
       <div className="essentials-actions" aria-label="Áreas do painel">
-        {WORKSPACES.map(({ route, title, description, action, Icon }) => (
+        {WORKSPACES.map(({ route, title, Icon }) => (
           <button
             type="button"
             className="essentials-action"
@@ -192,12 +179,12 @@ export function Overview({
             <span className="essentials-action-icon">
               <Icon size={22} strokeWidth={1.6} />
             </span>
-            <h3>{title}</h3>
-            <p>{description}</p>
-            <span className="essentials-action-link">
-              {action}
-              <ArrowUpRight size={16} />
-            </span>
+            <span className="essentials-action-title">{title}</span>
+            <ArrowUpRight
+              size={18}
+              className="essentials-action-arrow"
+              aria-hidden="true"
+            />
           </button>
         ))}
       </div>
@@ -230,8 +217,8 @@ export function Overview({
           </dl>
           {selectionChanged && (
             <p className="essentials-draft-note">
-              <Clock3 size={15} /> Há alterações no rascunho. A situação acima
-              só muda após publicar.
+              <Clock3 size={15} /> Rascunho com alterações. O site muda após
+              publicar.
             </p>
           )}
           <button
@@ -245,7 +232,7 @@ export function Overview({
 
         <section className="essentials-card essentials-publication-summary">
           <div className="essentials-card-heading">
-            <h2>Atualizações do site</h2>
+            <h2>Publicação do site</h2>
             <span
               className={`essentials-publication-dot ${hasChanges ? "is-pending" : ""}`}
               aria-hidden="true"
@@ -253,15 +240,15 @@ export function Overview({
           </div>
           <h3>
             {dirty
-              ? "Alterações em edição"
+              ? "Alterações não salvas"
               : pending
-                ? "Rascunho pronto para revisar"
-                : "Dados do site publicados"}
+                ? "Rascunho salvo"
+                : "Site atualizado"}
           </h3>
           <p>
             {hasChanges
-              ? "Confira os dados do processo seletivo e do contato antes de publicar."
-              : "Os dados salvos estão publicados. Os artigos são gerenciados no blog."}
+              ? "Revise o processo seletivo e os contatos antes de publicar."
+              : "Processo seletivo e contatos publicados."}
           </p>
           <span className="essentials-publication-date">
             Última publicação: {dateLabel(state.publishedAt, true)}
@@ -423,14 +410,13 @@ export function SelectionEditor({
             <h2 id="selection-step-0" tabIndex={-1}>
               Inscrições
             </h2>
-            <p>Os dados que os candidatos precisam para participar.</p>
           </div>
         </header>
         <fieldset className="essentials-form" disabled={disabled}>
           <fieldset className="essentials-status-fieldset">
             <legend>Situação do processo</legend>
             <div className="essentials-status-options">
-              {STATUS_OPTIONS.map(({ value, label, description, Icon }) => (
+              {STATUS_OPTIONS.map(({ value, label, Icon }) => (
                 <label
                   key={value}
                   className={`essentials-status-option ${selection.status === value ? "is-selected" : ""}`}
@@ -457,7 +443,6 @@ export function SelectionEditor({
                     </span>
                   </span>
                   <strong>{label}</strong>
-                  <span>{description}</span>
                 </label>
               ))}
             </div>
@@ -507,11 +492,11 @@ export function SelectionEditor({
                 {selection.status === "upcoming"
                   ? "“Em breve” mantém as inscrições fechadas até você mudar a situação. Para abrir automaticamente na data definida, selecione “Inscrições abertas”."
                   : selection.status === "closed"
-                    ? "“Encerrado” mantém as inscrições fechadas, independentemente das datas."
-                    : "As inscrições abrem na data inicial e encerram ao final da data limite. Sem datas, ficam abertas até você encerrar o processo."}
+                    ? "Inscrições fechadas, independentemente das datas."
+                    : "As inscrições seguem as datas. Sem datas, ficam abertas até você encerrar."}
               </p>
               <p>
-                Se publicar agora:{" "}
+                Ao publicar:{" "}
                 <strong>{status.label.toLocaleLowerCase("pt-BR")}.</strong>{" "}
                 Datas no horário de Brasília: abertura às 00h e encerramento às
                 23h59.
@@ -533,7 +518,6 @@ export function SelectionEditor({
             <h2 id="selection-step-1" tabIndex={-1}>
               Formulário e edital
             </h2>
-            <p>Os links que serão disponibilizados aos candidatos.</p>
           </div>
         </header>
         <fieldset className="essentials-form" disabled={disabled}>
@@ -546,7 +530,7 @@ export function SelectionEditor({
             autoCapitalize="none"
             spellCheck={false}
             maxLength={2048}
-            hint="Necessário para publicar um processo com inscrições abertas."
+            hint="Obrigatório para abrir inscrições."
             data-field="selection.applicationUrl"
             error={errorFor("applicationUrl")}
           />
@@ -572,7 +556,7 @@ export function SelectionEditor({
             data-field="selection.noticeUrl"
             error={errorFor("noticeUrl")}
             disabled={disabled || uploading}
-            hint="Use o edital oficial ou envie um PDF de até 8 MB."
+            hint="Link oficial ou PDF de até 8 MB."
           />
           {noticeLink && (
             <div className="essentials-document-card">
@@ -645,7 +629,7 @@ export function SelectionEditor({
             <p role="status">
               {uploading
                 ? `Enviando ${uploadName || "o edital"}. Aguarde para publicar.`
-                : "O envio preenche o link. Publique para atualizar o edital no site."}
+                : "Publique para atualizar o edital no site."}
             </p>
           </div>
         </fieldset>
@@ -664,7 +648,7 @@ export function SelectionEditor({
             <h2 id="selection-step-2" tabIndex={-1}>
               Cronograma
             </h2>
-            <p>Organize as etapas na ordem em que devem aparecer no site.</p>
+            <p>As etapas aparecem nesta ordem.</p>
           </div>
           <span className="essentials-stage-count">
             {stages.length} {stages.length === 1 ? "etapa" : "etapas"}
@@ -673,8 +657,7 @@ export function SelectionEditor({
         <fieldset disabled={disabled} className="essentials-schedule-body">
           {stages.length > 0 && (
             <p className="field-hint essentials-stage-hint">
-              O nome de cada etapa é obrigatório. Datas e orientações são
-              opcionais.
+              Nome obrigatório. Data e orientações opcionais.
             </p>
           )}
           {stages.length === 0 && (
@@ -852,12 +835,15 @@ export function ContactEditor({ site, onChange, disabled, errors = {} }) {
           </span>
           <div>
             <h2>Canais de contato</h2>
-            <p>Os canais oficiais exibidos no site.</p>
           </div>
         </header>
         <fieldset className="essentials-form" disabled={disabled}>
+          <p id="contact-email-help" className="sr-only">
+            E-mail público exibido na área de contato do site.
+          </p>
           <Field
             label="E-mail de contato"
+            aria-describedby="contact-email-help"
             type="email"
             value={site.email}
             onChange={(email) => onChange({ email })}
@@ -866,7 +852,6 @@ export function ContactEditor({ site, onChange, disabled, errors = {} }) {
             autoCapitalize="none"
             spellCheck={false}
             maxLength={254}
-            hint="Endereço exibido na área de contato do site."
             data-field="site.email"
             error={fieldError(errors, "site.email")}
           />
@@ -879,15 +864,14 @@ export function ContactEditor({ site, onChange, disabled, errors = {} }) {
             autoCapitalize="none"
             spellCheck={false}
             maxLength={2048}
-            hint="Use o @nome de usuário ou o link do perfil oficial."
+            hint="@usuário ou link do perfil."
             data-field="site.instagramUrl"
             error={profileError}
           />
         </fieldset>
       </section>
       <aside className="essentials-contact-aside">
-        <h2>Confira os canais</h2>
-        <p>Abra os links para confirmar se levam à equipe do Nexo.</p>
+        <h2>Prévia dos contatos</h2>
         <div className="essentials-contact-preview">
           <div>
             <Mail size={17} />
@@ -913,7 +897,7 @@ export function ContactEditor({ site, onChange, disabled, errors = {} }) {
           </div>
         </div>
         <p className="essentials-contact-footnote">
-          As alterações aparecem no site depois de publicar.
+          Disponíveis no site após publicar.
         </p>
       </aside>
     </div>

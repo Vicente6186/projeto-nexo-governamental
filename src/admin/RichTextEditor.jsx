@@ -345,8 +345,8 @@ export default function RichTextEditor({
       </div>
       <p id={helpId} className="richtext-hint">
         {markdownMode
-          ? "Modo avançado. Use Markdown para editar a formatação do artigo."
-          : "Selecione um trecho para formatar. Cole textos de outros documentos e continue editando aqui."}
+          ? "Edição em Markdown."
+          : "Selecione o texto para formatar."}
       </p>
       {error && (
         <p id={errorId} className="field-error richtext-error" role="alert">

@@ -564,7 +564,7 @@ test("a duplicate article address is an actionable field error, not an editing c
     "Este endereço já está em uso",
   );
   await expect(page.locator(".blog-review-checks")).not.toContainText(
-    "Tudo pronto para a revisão final",
+    "Pronto para publicar",
   );
   await expect(
     page.getByRole("dialog", {
@@ -890,7 +890,7 @@ test("a delayed validation error does not block a newer corrected article draft"
     .toBe(corrected);
   await expect(slug).not.toHaveAttribute("aria-invalid", "true");
   await expect(page.locator(".blog-review-checks")).toContainText(
-    "Tudo pronto para a revisão final",
+    "Pronto para publicar",
   );
   await expect(page.locator(".blog-save-status")).toContainText(
     "Rascunho salvo",

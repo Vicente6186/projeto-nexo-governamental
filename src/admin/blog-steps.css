@@ -14,8 +14,8 @@
   gap: 20px;
 }
 .blog-wizard-layout .blog-title-input {
-  font-size: 36px;
-  min-height: 94px;
+  font-size: 30px;
+  min-height: 74px;
   margin: 12px 0 24px;
 }
 .blog-wizard-layout .blog-section-eyebrow {
@@ -76,6 +76,12 @@
   font-size: 14px;
   font-weight: 500;
 }
+.blog-review-ready {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--accent);
+}
 .blog-review-checks button,
 .blog-review-checks p {
   display: flex;
@@ -126,14 +132,14 @@
 }
 @media (max-width: 600px) {
   .blog-wizard-layout .blog-title-input {
-    font-size: 30px;
+    font-size: 26px;
   }
   .blog-review-content,
   .blog-review-checks {
     padding: 22px;
   }
   .blog-review-content h3 {
-    font-size: 30px;
+    font-size: 26px;
   }
   .blog-workspace:has(.blog-wizard-layout) .blog-savebar-actions {
     display: flex;

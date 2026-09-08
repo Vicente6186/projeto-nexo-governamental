@@ -329,7 +329,7 @@ export default function AccessPanel({
     view === "team"
       ? "Cada integrante entra com sua própria conta."
       : view === "add"
-        ? "Defina quem terá acesso ao painel e o que poderá fazer."
+        ? undefined
         : undefined;
 
   return (
@@ -367,16 +367,12 @@ export default function AccessPanel({
                 <Users size={20} />
                 <span>
                   <strong>Gerenciar equipe</strong>
-                  <small>Adicione integrantes e controle os acessos.</small>
                 </span>
                 <span aria-hidden="true">→</span>
               </button>
             )}
             {isPreview ? (
-              <p className="access-note">
-                Você está usando a prévia local, que não possui senha. As contas
-                individuais podem alterar a senha por aqui.
-              </p>
+              <p className="access-note">A prévia local não possui senha.</p>
             ) : (
               <>
                 {passwordChanged && (
@@ -417,7 +413,7 @@ export default function AccessPanel({
                       onChange={(value) => changePassword("newPassword", value)}
                       error={errors.newPassword}
                       autoComplete="new-password"
-                      hint="Use pelo menos 12 caracteres. Uma frase longa é fácil de lembrar."
+                      hint="Pelo menos 12 caracteres."
                       disabled={busy}
                     />
                     <PasswordField
@@ -432,8 +428,7 @@ export default function AccessPanel({
                       disabled={busy}
                     />
                     <p className="access-note">
-                      Ao alterar a senha, os outros dispositivos desta conta
-                      precisarão entrar novamente.
+                      Os outros dispositivos precisarão entrar novamente.
                     </p>
                     <div className="access-actions">
                       <Button
@@ -664,8 +659,8 @@ export default function AccessPanel({
               <span>{selected.email}</span>
               <p>
                 {selected.active
-                  ? "O integrante deixará de acessar o painel, e as sessões abertas serão encerradas. Os conteúdos criados por ele continuam preservados."
-                  : "O integrante poderá entrar novamente com o mesmo e-mail e senha."}
+                  ? "O acesso será bloqueado e as sessões encerradas. Os conteúdos serão preservados."
+                  : "O acesso será liberado com o mesmo e-mail e senha."}
               </p>
             </div>
             <div className="access-actions">
