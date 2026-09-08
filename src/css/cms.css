@@ -29,9 +29,7 @@
   padding: 1.3rem 2rem;
   background: #17362f;
   color: #fff;
-  font:
-    600 1.3rem/1.5 Arial,
-    sans-serif;
+  font: 600 1.3rem/1.5 var(--font-family);
   text-align: center;
   box-shadow: 0 0.2rem 1.6rem #0002;
 }

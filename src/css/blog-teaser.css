@@ -2,13 +2,10 @@
   --journal-ink: #191f51;
   --journal-muted: #626779;
   --journal-line: #dedfdf;
-  --journal-serif: "Instrument Serif", Georgia, serif;
   padding: clamp(4.8rem, 5.5vw, 7.2rem) 3.2rem;
   background: #fafaf7;
   color: var(--journal-ink);
-  font:
-    400 1.6rem / 1.6 "DM Sans",
-    sans-serif;
+  font: 400 1.6rem / 1.6 var(--font-family);
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
   scroll-margin-top: 2.4rem;
@@ -32,7 +29,7 @@
 
 #blog-journal h2 {
   margin: 0;
-  font: 400 clamp(4rem, 4.4vw, 5.6rem) / 1.1 var(--journal-serif);
+  font: 400 clamp(4rem, 4.4vw, 5.6rem) / 1.1 var(--font-family);
   letter-spacing: -0.025em;
 }
 
@@ -85,7 +82,7 @@
 }
 
 #blog-journal .journal-monogram {
-  font: 400 4rem / 1 var(--journal-serif);
+  font: 400 4rem / 1 var(--font-family);
 }
 
 #blog-journal .journal-empty p {
@@ -126,7 +123,7 @@
 
 #blog-journal .journal-story h3 {
   margin: 1.8rem 0 1rem;
-  font: 400 clamp(2.8rem, 2.8vw, 3.6rem) / 1.2 var(--journal-serif);
+  font: 400 clamp(2.8rem, 2.8vw, 3.6rem) / 1.2 var(--font-family);
   letter-spacing: -0.01em;
   text-wrap: pretty;
 }
