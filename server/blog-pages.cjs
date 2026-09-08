@@ -109,7 +109,7 @@ function chrome(content, { site = {}, preview = false, article = false } = {}) {
       <div class="blog-header-inner blog-container">
         <a class="blog-brand" href="/" aria-label="${esc(BRAND)} — início">
           <img src="/assets/introduction/brand-without-background.webp" alt="" width="48" height="49" />
-          <span><strong>NEXO<span class="brand-name-secondary"> GOVERNAMENTAL</span></strong><small>XI DE AGOSTO <span>·</span> FACULDADE DE DIREITO · USP</small></span>
+          <span><strong>Nexo Governamental</strong><small>XI de Agosto · Direito USP</small></span>
         </a>
         <button class="menu-toggle" data-menu-toggle aria-controls="blog-navigation" aria-expanded="false" aria-label="Abrir menu">${icon("menu")}</button>
         <nav id="blog-navigation" class="blog-navigation" aria-label="Navegação principal">
@@ -121,18 +121,17 @@ function chrome(content, { site = {}, preview = false, article = false } = {}) {
     <main id="conteudo" tabindex="-1">${content}</main>
     <footer class="blog-footer">
       <div class="blog-container footer-main">
-        <div class="footer-brand"><a class="footer-wordmark" href="/">Nexo<span>Governamental XI de Agosto</span></a><p>Universidade, poder público e sociedade.<br />Mais próximos pelo diálogo.</p></div>
-        <div class="footer-links"><span class="eyebrow">CONTINUE A CONVERSA</span><a href="${esc(instagram)}" target="_blank" rel="noopener noreferrer">Instagram ${icon("diagonal")}</a><a href="mailto:${esc(email)}">Fale com o Nexo ${icon("diagonal")}</a></div>
-        <div class="footer-place"><span class="eyebrow">DO LARGO PARA O MUNDO</span><p>Faculdade de Direito da USP<br />Largo de São Francisco<br />São Paulo, Brasil</p></div>
+        <a class="footer-wordmark" href="/">Nexo<span>Governamental XI de Agosto</span></a>
+        <nav class="footer-links" aria-label="Contato e redes sociais"><a href="${esc(instagram)}" target="_blank" rel="noopener noreferrer">Instagram ${icon("diagonal")}</a><a href="mailto:${esc(email)}">Contato ${icon("diagonal")}</a></nav>
       </div>
-      <div class="blog-container footer-bottom"><span>© ${new Date().getFullYear()} ${esc(BRAND)}.</span><span>Uma organização estudantil. Um espaço de diálogo.</span><a href="/blog/feed.xml">Acompanhar via RSS</a><a href="#conteudo">Voltar ao topo ↑</a></div>
+      <div class="blog-container footer-bottom"><span>© ${new Date().getFullYear()} ${esc(BRAND)}.</span><a href="/blog/feed.xml">RSS</a><a href="#conteudo">Voltar ao topo ↑</a></div>
     </footer>`;
 }
 
 function cover(post, { className = "", eager = false } = {}) {
   const image = safeUrl(post.coverImage);
   return image
-    ? `<img class="${esc(className)}" src="${esc(image)}" alt="${esc(post.coverAlt || "")}"${imageAttributes(post, eager ? "(max-width: 768px) 100vw, 60vw" : "(max-width: 600px) 100vw, (max-width: 1000px) 50vw, 33vw")} loading="${eager ? "eager" : "lazy"}" decoding="async"${eager ? ' fetchpriority="high"' : ""} />`
+    ? `<img class="${esc(className)}" src="${esc(image)}" alt="${esc(post.coverAlt || "")}"${imageAttributes(post, eager ? "(max-width: 768px) 100vw, 60vw" : "(max-width: 720px) 100vw, (max-width: 1280px) 50vw, 600px")} loading="${eager ? "eager" : "lazy"}" decoding="async"${eager ? ' fetchpriority="high"' : ""} />`
     : `<div class="editorial-cover ${esc(className)}" aria-hidden="true"><span>NEXO</span><span class="editorial-cover-line"></span><small>IDEIAS EM DIÁLOGO</small></div>`;
 }
 
@@ -157,9 +156,9 @@ function postCard(post, preview = false) {
 
 function featuredPost(post, preview) {
   return `<section class="featured-section" aria-labelledby="featured-label">
-    <div class="section-caption"><h2 id="featured-label">EM DESTAQUE</h2><span class="caption-rule"></span><span>PARA AMPLIAR A CONVERSA</span></div>
+    <div class="section-caption"><h2 id="featured-label">EM DESTAQUE</h2><span class="caption-rule"></span></div>
     <article class="featured-post">
-      <a class="featured-image" href="${esc(postHref(post, preview))}" tabindex="-1" aria-hidden="true">${cover(post, { eager: true })}<span class="image-corner-mark" aria-hidden="true">N.</span></a>
+      <a class="featured-image" href="${esc(postHref(post, preview))}" tabindex="-1" aria-hidden="true">${cover(post, { eager: true })}</a>
       <div class="featured-copy"><span class="category-label">${esc(post.category || "Institucional")}</span><h2><a href="${esc(postHref(post, preview))}">${esc(post.title)}</a></h2><p>${esc(post.excerpt)}</p><div class="featured-bottom">${postMeta(post)}<a class="article-link" href="${esc(postHref(post, preview))}" aria-label="Ler artigo: ${esc(post.title)}">Ler artigo <span>${icon("arrow")}</span></a></div></div>
     </article>
   </section>`;
@@ -167,8 +166,8 @@ function featuredPost(post, preview) {
 
 function noPublications() {
   return `<section class="blog-opening" aria-labelledby="opening-title">
-    <div class="opening-image"><img src="/assets/introduction/usp.avif" alt="Fachada da Faculdade de Direito da USP no Largo de São Francisco" width="1122" height="1402" decoding="async" fetchpriority="high" /><span class="opening-image-caption">LARGO DE SÃO FRANCISCO · SÃO PAULO</span></div>
-    <div class="opening-copy"><span class="eyebrow"><span class="accent-dot"></span> UM NOVO CAPÍTULO</span><h2 id="opening-title">O diálogo ganha<br />um novo <em>espaço.</em></h2><p>Um lugar para compartilhar ideias, aprofundar debates e acompanhar as experiências do Nexo.</p><div class="opening-note">${icon("book")}<span>Nossos primeiros artigos chegam em breve.</span></div><a class="article-link" href="/#about">Conheça nossa atuação <span>${icon("arrow")}</span></a></div>
+    <div class="opening-image"><img src="/assets/introduction/usp.avif" alt="Fachada da Faculdade de Direito da USP no Largo de São Francisco" width="1122" height="1402" decoding="async" fetchpriority="high" /><span class="opening-image-caption">Faculdade de Direito da USP</span></div>
+    <div class="opening-copy"><h2 id="opening-title">Publicações<br /><em>em breve.</em></h2><a class="article-link" href="/#more">Conheça o Nexo <span>${icon("arrow")}</span></a></div>
   </section>`;
 }
 
@@ -223,16 +222,15 @@ function renderBlogIndex({
         },
   );
   const content = `<div class="blog-container">
-    <section class="journal-intro" aria-labelledby="journal-title"><div><div class="eyebrow"><span class="accent-dot"></span> CADERNO NEXO</div><h1 id="journal-title">Ideias que <br /><em>aproximam.</em></h1></div><div class="journal-intro-aside"><span class="intro-number" aria-hidden="true">N.</span><p>Reflexões, pesquisa e experiências que conectam a universidade, o poder público e a sociedade.</p><span class="intro-signature">O BLOG DO NEXO GOVERNAMENTAL</span></div></section>
+    <section class="journal-intro" aria-labelledby="journal-title"><h1 id="journal-title">Blog do <em>Nexo.</em></h1></section>
     <div class="journal-tools"><nav class="category-navigation" aria-label="Filtrar artigos por categoria"><a href="${esc(queryLink({ search, preview }))}"${!category ? ' aria-current="page"' : ""}>Todos</a>${categoryList.map((item) => `<a href="${esc(queryLink({ category: item.id, search, preview }))}"${category === item.id ? ' aria-current="page"' : ""}>${esc(item.label)}</a>`).join("")}</nav>
       <form class="blog-search" action="/blog/" method="get" role="search"><label class="sr-only" for="blog-search">Buscar artigos</label><input id="blog-search" type="search" name="search" placeholder="Buscar no blog" value="${esc(search)}" maxlength="120" />${category ? `<input type="hidden" name="category" value="${esc(category)}" />` : ""}${preview ? '<input type="hidden" name="preview" value="1" />' : ""}<button type="submit" aria-label="Buscar">${icon("search")}</button></form>
     </div>
     ${filtered ? `<div class="results-summary"><h2>${search ? `Resultados para “${esc(search)}”` : esc(category)}</h2><span>${Number(total)} ${Number(total) === 1 ? "artigo" : "artigos"}</span><a href="${esc(queryLink({ preview }))}">Limpar filtros</a></div>` : ""}
     ${featured ? featuredPost(featured, preview) : ""}
     ${remaining.length ? `<section class="recent-section" aria-labelledby="recent-title"><div class="section-caption"><h2 id="recent-title">${filtered ? "ARTIGOS ENCONTRADOS" : cleanPage > 1 ? "MAIS LEITURAS" : preview ? "RASCUNHOS EM PRÉVIA" : "ÚLTIMAS PUBLICAÇÕES"}</h2><span class="caption-rule"></span><span>${Number(total)} ${Number(total) === 1 ? "ARTIGO" : "ARTIGOS"}</span></div><div class="post-grid">${remaining.map((post) => postCard(post, preview)).join("")}</div></section>` : ""}
-    ${!posts.length ? (filtered ? `<section class="blog-empty" aria-labelledby="empty-title"><span class="empty-icon">${icon("search")}</span><span class="eyebrow">OUTROS CAMINHOS, NOVAS IDEIAS</span><h2 id="empty-title">Vamos tentar outra busca?</h2><p>Nenhum artigo corresponde aos filtros selecionados.<br />Experimente outro termo ou explore todas as publicações.</p><a class="button-primary" href="${esc(queryLink({ preview }))}">Ver todos os artigos ${icon("arrow")}</a></section>` : noPublications()) : ""}
+    ${!posts.length ? (filtered ? `<section class="blog-empty" aria-labelledby="empty-title"><span class="empty-icon">${icon("search")}</span><h2 id="empty-title">Vamos tentar outra busca?</h2><p>Nenhum artigo corresponde aos filtros selecionados.<br />Experimente outro termo ou explore todas as publicações.</p><a class="button-primary" href="${esc(queryLink({ preview }))}">Ver todos os artigos ${icon("arrow")}</a></section>` : noPublications()) : ""}
     ${pagination({ page: cleanPage, pages: cleanPages, category, search, preview })}
-    <aside class="journal-invitation"><div><span class="eyebrow">CONHECIMENTO EM MOVIMENTO</span><p>A conversa continua<br /><em>fora destas páginas.</em></p></div><div><p>Conheça os projetos e encontros que aproximam o Nexo da vida pública.</p><a href="/#more" class="article-link">Explore o Nexo <span>${icon("diagonal")}</span></a></div></aside>
   </div>`;
   return {
     title: `${search ? `Busca: ${search}` : category || "Blog"}${cleanPage > 1 ? ` · Página ${cleanPage}` : ""} · ${BRAND}`,
@@ -317,7 +315,7 @@ function renderBlogArticle({
     <div class="article-layout blog-container">
       <aside class="article-sidebar"><div class="article-sidebar-sticky">${contents.length >= 2 ? `<nav class="table-of-contents" aria-label="Neste artigo"><h2>NESTE ARTIGO</h2><ol>${contents.map((entry) => `<li><a href="#${esc(entry.id)}">${esc(entry.title)}</a></li>`).join("")}</ol></nav>` : `<div class="sidebar-reading-note"><span class="eyebrow">CADERNO NEXO</span><p>Um convite à<br /><em>reflexão.</em></p></div>`}${preview ? '<div class="article-share"><span class="eyebrow">LEITURA EM PRÉVIA</span><p class="share-status">A publicação libera o link para compartilhar este artigo.</p></div>' : `<div class="article-share"><span class="eyebrow">COMPARTILHE A IDEIA</span><button class="copy-link" type="button" data-copy-link hidden>${icon("copy")} Copiar link</button><label class="sr-only" for="share-link-fallback">Link deste artigo</label><input class="share-fallback" id="share-link-fallback" data-share-fallback readonly hidden /><p class="share-status" data-share-status role="status" aria-live="polite"></p></div>`}</div></aside>
       <div class="article-reading-column"><div class="article-body">${rendered.html}</div>
-        <footer class="article-end">${wasUpdated ? `<p class="article-updated">Atualizado em ${esc(updated.label)}.</p>` : ""}${post.tags?.length ? `<ul class="article-tags" aria-label="Temas deste artigo">${post.tags.map((tag) => `<li>${esc(tag)}</li>`).join("")}</ul>` : ""}<div class="author-bio"><span class="author-avatar" aria-hidden="true">${esc(initials(post.author))}</span><div><span class="eyebrow">ESCRITO POR</span><strong>${esc(post.author || BRAND)}</strong>${post.authorRole ? `<p>${esc(post.authorRole)}</p>` : ""}</div><span class="author-bio-mark" aria-hidden="true">N.</span></div><a class="back-to-blog" href="${blogHref}">${icon("back")} ${preview ? "Todos os rascunhos" : "Todas as publicações"}</a></footer>
+        <footer class="article-end">${wasUpdated ? `<p class="article-updated">Atualizado em ${esc(updated.label)}.</p>` : ""}${post.tags?.length ? `<ul class="article-tags" aria-label="Temas deste artigo">${post.tags.map((tag) => `<li>${esc(tag)}</li>`).join("")}</ul>` : ""}<div class="author-bio"><span class="author-avatar" aria-hidden="true">${esc(initials(post.author))}</span><div><span class="eyebrow">ESCRITO POR</span><strong>${esc(post.author || BRAND)}</strong>${post.authorRole ? `<p>${esc(post.authorRole)}</p>` : ""}</div></div><a class="back-to-blog" href="${blogHref}">${icon("back")} ${preview ? "Todos os rascunhos" : "Todas as publicações"}</a></footer>
       </div><div class="article-layout-balance" aria-hidden="true"></div>
     </div>
   </article>

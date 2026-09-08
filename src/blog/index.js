@@ -13,11 +13,13 @@ const menuButton = document.querySelector("[data-menu-toggle]");
 if (menu && menuButton) {
   const closeMenu = () => {
     menuButton.setAttribute("aria-expanded", "false");
+    menuButton.setAttribute("aria-label", "Abrir menu");
     menu.classList.remove("is-open");
   };
   menuButton.addEventListener("click", () => {
     const open = menuButton.getAttribute("aria-expanded") !== "true";
     menuButton.setAttribute("aria-expanded", String(open));
+    menuButton.setAttribute("aria-label", open ? "Fechar menu" : "Abrir menu");
     menu.classList.toggle("is-open", open);
   });
   document.addEventListener("keydown", (event) => {
