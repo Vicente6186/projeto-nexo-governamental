@@ -4,6 +4,20 @@ Revisão: 8 de setembro de 2026.
 
 O site, o blog e o painel estão publicados em **https://nexo-governamental.netlify.app/**. O Netlify encaminha a aplicação ao Fastify no Railway. Login, proteção dos rascunhos, conteúdo público, imagens e descoberta para mecanismos de busca foram verificados pelo endereço HTTPS real. A recuperação por e-mail ainda depende do Resend; esta entrega não declara todos os critérios operacionais encerrados.
 
+## Experiência premium do painel publicada
+
+O painel recebeu uma confirmação verde em tela cheia após a publicação, com acesso à página e cópia do link. O blog ganhou modo foco, barra de formatação fixa, seleção explícita de capas, envio por arrastar e soltar, etapas com pendências e histórico formatado. Processo seletivo, equipe, avisos, carregamentos e ações em telas pequenas seguem a mesma linguagem visual; o controle por teclado e a preferência por movimento reduzido foram preservados.
+
+- Fonte da aplicação: `703fbc0473104dfe2865af04748ea78bc691d041`.
+- Railway: deploy `80f9174a-c5db-4b57-880b-3561b3e35874`, estado `SUCCESS`, confirmado no domínio público em 8 de setembro de 2026.
+- `npm test`: **171 testes aprovados**. A varredura de navegador passou em 55 de 56 cenários; o cenário restante identificou perda de foco após falha de publicação. Após a correção, os **11 cenários de publicação, modo foco, temas, prévias, teclado e telas estreitas passaram**. Os testes de escrita usaram bancos temporários.
+- Build final aprovado, com os dois avisos de tamanho de mídia e pacotes já existentes. O HTML de `/admin/` e todos os sete arquivos JavaScript e cinco arquivos CSS da saída foram comparados byte a byte pelo domínio Netlify, incluindo `admin.c9860a0c.js` e `admin.b5ea4002.css`.
+- Site, blog e saúde da API responderam 200; conteúdo administrativo, blog administrativo e categorias continuaram respondendo 401 sem sessão. A sessão pública permaneceu sem acesso demonstrativo.
+- `/api/content` e `/api/blog` permaneceram idênticos ao registro anterior à atualização. A visão geral do painel autenticado foi aberta e conferida no navegador integrado.
+- Backup anterior à publicação: `/app/data/premium-panel-deploy-backups/nexo-backup-2026-09-08T19-27-24-764Z-0be2e39f-9a7e-4a80-a3a5-dad67f769a17`, verificado, sem remover cópias anteriores.
+
+As pendências operacionais registradas ao final, incluindo a configuração de recuperação por e-mail, continuam válidas.
+
 ## Nunito publicada na página inicial
 
 A fonte Nunito passou a ser servida pelo próprio domínio, corrigindo o bloqueio das fontes externas pela política `font-src 'self'`. O trecho “Veja mais sobre o Nexo Governamental” e os demais textos da página inicial usam a fonte; o teaser do blog também foi padronizado. A segurança de conteúdo permanece igual.
