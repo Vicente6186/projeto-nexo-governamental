@@ -4,6 +4,14 @@ Revisão: 7 de setembro de 2026.
 
 O site, o blog e o painel estão publicados em **https://nexo-governamental.netlify.app/**. O Netlify encaminha a aplicação ao Fastify no Railway. Login, proteção dos rascunhos, conteúdo público, imagens e descoberta para mecanismos de busca foram verificados pelo endereço HTTPS real. A recuperação por e-mail ainda depende do Resend; esta entrega não declara todos os critérios operacionais encerrados.
 
+## Animações do painel — publicação pendente
+
+A fonte `787a6e87d85d7272fbddb7ac8f8b6eb059f83771` adiciona entradas discretas, transições entre etapas, abertura de janelas e respostas nos controles, preservando a paleta azul. As animações respeitam movimento reduzido; a rolagem das etapas também respeita essa preferência. O build, 7 testes de lógica relacionados e 25 cenários de interação passaram.
+
+A tentativa de publicação `8f45fa10-aed8-4b94-a007-0d8675ac0333` falhou na preparação da Railway em 8 de setembro de 2026 UTC. O erro de configuração retornado pelo provedor foi `Invalid prisma.workspace.findMany() invocation: The column Workspace.supportTierOverride does not exist in the current database.` Trata-se da infraestrutura do provedor; a aplicação utiliza SQLite e não contém esse modelo Prisma.
+
+A versão pública anterior permanece disponível, com as categorias gerenciáveis e a paleta azul: fonte `20b929eb49c455115a6756e47bd3eb07e40a85ee`, deploy `6b4b9544-42bf-4f58-9ed5-e9fa31f5bfa2`. **Os movimentos ainda não estão publicados.** Para concluir, republicar a fonte validada no mesmo serviço e verificar o HTML e os arquivos `admin.38c1b017.js` e `admin.8685a308.css` no domínio público. Não é necessário alterar banco, variáveis, plano ou serviço da aplicação.
+
 ## Refinamento do painel publicado
 
 O Nexo Studio recebeu navegação mais enxuta, cores mais sóbrias nos temas claro e escuro, tipografia consistente, contatos com prévia lateral e menos títulos, subtítulos e instruções repetidas. Blog, processo seletivo, login, contas e recuperação de acesso seguem os mesmos fluxos. Avisos de publicação, erros e orientações de acessibilidade foram preservados.
