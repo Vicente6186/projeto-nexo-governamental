@@ -564,6 +564,10 @@ test("preview loads only the authenticated preview endpoint and clearly marks sa
   content.sections[0].title = "Rascunho editorial";
   const calls = [];
   await loadContent(window.document, window, async (url, options) => {
+    assert.equal(
+      window.document.querySelector(".cms-preview-banner").dataset.previewState,
+      "loading",
+    );
     calls.push({ url, options });
     return { ok: true, json: async () => ({ content }) };
   });
@@ -576,6 +580,10 @@ test("preview loads only the authenticated preview endpoint and clearly marks sa
   assert.match(
     window.document.querySelector(".cms-preview-banner").textContent,
     /ainda não publicado/,
+  );
+  assert.equal(
+    window.document.querySelector(".cms-preview-banner").dataset.previewState,
+    "ready",
   );
 });
 
@@ -602,5 +610,9 @@ test("unauthenticated preview does not render or request draft content elsewhere
   assert.match(
     window.document.querySelector(".cms-preview-banner").textContent,
     /Prévia indisponível/,
+  );
+  assert.equal(
+    window.document.querySelector(".cms-preview-banner").dataset.previewState,
+    "error",
   );
 });

@@ -391,7 +391,11 @@ export function SelectionEditor({
       const row = Array.from(stageListRef.current?.children || []).find(
         (item) => item.dataset.stageId === focusStageRef.current,
       );
-      row?.querySelector("input")?.focus();
+      const input = row?.querySelector("input");
+      (input?.getClientRects().length
+        ? input
+        : row?.querySelector(".stage-collapse-toggle")
+      )?.focus();
     }
     focusStageRef.current = null;
   }, [stages]);

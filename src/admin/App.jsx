@@ -442,6 +442,7 @@ function Workspace({ session, initialState, onLogout, onSession }) {
     [savePaused, setSavePaused] = useState(false),
     [previewAnchor, setPreviewAnchor] = useState("");
   const contentRef = useRef(content),
+    previewFrameRef = useRef(null),
     stateRef = useRef(state),
     savingRef = useRef(null),
     uploadRef = useRef(false),
@@ -514,6 +515,54 @@ function Workspace({ session, initialState, onLogout, onSession }) {
     dirty,
   });
   const publicationChanges = changes(content, state.published);
+  useEffect(() => {
+    if (modal !== "preview") return;
+    const frame = previewFrameRef.current;
+    if (!frame) return;
+    let active = true;
+    let interval;
+    let timeout;
+    function finish(failed) {
+      if (!active) return;
+      active = false;
+      setPreviewLoading(false);
+      setPreviewFailed(failed);
+      clearInterval(interval);
+      clearTimeout(timeout);
+    }
+    function inspect(loaded = false) {
+      if (!active) return;
+      try {
+        const document = frame.contentDocument;
+        if (document?.URL === "about:blank") return;
+        const state = document?.querySelector(".cms-preview-banner")?.dataset
+          .previewState;
+        if (state === "ready" || state === "error") {
+          finish(state === "error");
+        } else if (!state && (loaded || document?.readyState === "complete")) {
+          finish(true);
+        }
+      } catch {
+        if (loaded) finish(true);
+      }
+    }
+    const onLoad = () => inspect(true);
+    frame.addEventListener("load", onLoad);
+    // DOM readiness is independent of slow images, videos and iframe.onload.
+    interval = setInterval(inspect, 100);
+    timeout = setTimeout(() => {
+      if (!active) return;
+      setPreviewLoading(false);
+      setPreviewFailed(true);
+    }, 12000);
+    inspect();
+    return () => {
+      active = false;
+      frame.removeEventListener("load", onLoad);
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [modal, previewKey]);
   useEffect(() => {
     const previous = document.activeElement;
     const timer = setTimeout(() => {
@@ -1359,14 +1408,10 @@ function Workspace({ session, initialState, onLogout, onSession }) {
             className={`preview-frame-wrap ${previewMobile ? "preview-mobile" : ""}`}
           >
             <iframe
+              ref={previewFrameRef}
               key={previewKey}
               title="Prévia do site Nexo Governamental"
               src={`/?preview=1${previewAnchor}`}
-              onLoad={() => setPreviewLoading(false)}
-              onError={() => {
-                setPreviewLoading(false);
-                setPreviewFailed(true);
-              }}
             />
             {previewLoading && (
               <div className="preview-loading">

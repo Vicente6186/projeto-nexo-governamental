@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -12,6 +12,8 @@ import { Button, Modal } from "./components";
 export default function PublicationSuccess({ publication, onClose }) {
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
+  const [copying, setCopying] = useState(false);
+  const copyingRef = useRef(false);
   const local = publication.local;
   const title = local
     ? "Publicado na prévia local!"
@@ -23,12 +25,20 @@ export default function PublicationSuccess({ publication, onClose }) {
   const url = new URL(publication.href, window.location.origin).href;
 
   async function copy() {
+    if (copyingRef.current) return;
+    copyingRef.current = true;
+    setCopying(true);
+    setCopied(false);
+    setCopyError(false);
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
       setCopyError(false);
     } catch {
       setCopyError(true);
+    } finally {
+      copyingRef.current = false;
+      setCopying(false);
     }
   }
 
@@ -81,12 +91,16 @@ export default function PublicationSuccess({ publication, onClose }) {
             className="success-secondary"
             icon={copied ? Check : Copy}
             onClick={copy}
+            disabled={copying}
+            aria-busy={copying}
           >
-            {copied
-              ? "Link copiado"
-              : local
-                ? "Copiar link local"
-                : "Copiar link"}
+            {copying
+              ? "Copiando…"
+              : copied
+                ? "Link copiado"
+                : local
+                  ? "Copiar link local"
+                  : "Copiar link"}
           </Button>
         </div>
         <p className="success-copy-state sr-only" role="status">

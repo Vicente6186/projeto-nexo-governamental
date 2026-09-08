@@ -309,3 +309,225 @@ test("a collapsed invalid selection stage stays open while it is corrected", asy
     );
   }
 });
+
+test("success keeps its close control anchored throughout the entrance animation", async ({
+  page,
+}) => {
+  await loginPreview(page);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await article(page);
+  const confirm = await review(page);
+  await confirm
+    .getByRole("button", { name: "Confirmar publicação", exact: true })
+    .click();
+  const success = successDialog(page);
+  await expect(success).toBeVisible();
+  await success.evaluate((dialog) => {
+    dialog.getAnimations({ subtree: true }).forEach((animation) => {
+      animation.pause();
+      animation.currentTime = 200;
+    });
+  });
+  const close = await success
+    .getByRole("button", { name: "Fechar janela", exact: true })
+    .boundingBox();
+  expect(close.y).toBeLessThan(50);
+  expect(close.x).toBeGreaterThan(page.viewportSize().width - 100);
+  await page.keyboard.press("Escape");
+  await expect(success).toHaveCount(0);
+});
+
+test("a failed second copy clears the earlier success announcement", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    let calls = 0;
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: () =>
+          ++calls === 1
+            ? Promise.resolve()
+            : Promise.reject(new Error("Permission changed")),
+      },
+    });
+  });
+  await loginPreview(page);
+  const post = await article(page);
+  const confirm = await review(page);
+  await confirm
+    .getByRole("button", { name: "Confirmar publicação", exact: true })
+    .click();
+  const success = successDialog(page);
+  await success
+    .getByRole("button", { name: "Copiar link local", exact: true })
+    .click();
+  await success
+    .getByRole("button", { name: "Link copiado", exact: true })
+    .click();
+  await expect(success.getByRole("textbox")).toHaveValue(
+    `${new URL(page.url()).origin}/blog/${post.draft.slug}`,
+  );
+  await expect(
+    success.getByRole("button", { name: "Link copiado", exact: true }),
+  ).toHaveCount(0);
+  await expect(success.getByRole("status")).toBeEmpty();
+});
+
+test("removing a selection stage keeps keyboard focus on a collapsed neighbor", async ({
+  page,
+}) => {
+  await loginPreview(page);
+  const state = await (await page.request.get("/api/admin/content")).json();
+  const content = structuredClone(state.draft);
+  content.selection.status = "closed";
+  content.selection.stages = [
+    { id: "stage-first", title: "Inscrições", date: "", description: "" },
+    { id: "stage-middle", title: "Entrevistas", date: "", description: "" },
+    { id: "stage-last", title: "Resultado", date: "", description: "" },
+  ];
+  try {
+    await mutate(
+      page,
+      "/api/admin/content",
+      { content, version: state.version },
+      "PUT",
+    );
+    await page.goto("/admin/#processo");
+    await page.reload();
+    await page
+      .getByRole("navigation", { name: "Etapas do processo seletivo" })
+      .getByRole("button", { name: "Cronograma", exact: true })
+      .click();
+    const neighbor = page.locator(
+      '[data-stage-id="stage-middle"] .stage-collapse-toggle',
+    );
+    await neighbor.click();
+    await page
+      .getByRole("button", { name: "Remover etapa 1", exact: true })
+      .focus();
+    await page.keyboard.press("Enter");
+    await expect(neighbor).toBeFocused();
+    await expect(neighbor).toHaveAttribute("aria-expanded", "false");
+    await page
+      .getByRole("button", { name: "Remover etapa 2", exact: true })
+      .focus();
+    await page.keyboard.press("Enter");
+    await expect(neighbor).toBeFocused();
+    await expect(neighbor).toHaveAttribute("aria-expanded", "false");
+  } finally {
+    await page.close();
+    const latest = await (await page.request.get("/api/admin/content")).json();
+    await mutate(
+      page,
+      "/api/admin/content",
+      { content: state.draft, version: latest.version },
+      "PUT",
+    );
+  }
+});
+
+test("site preview becomes usable while an image is still loading", async ({
+  page,
+}) => {
+  await loginPreview(page);
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  let blockedImages = 0;
+  await page.route("**/assets/introduction/usp*", async (route) => {
+    blockedImages += 1;
+    await gate;
+    await route.continue().catch(() => {});
+  });
+  try {
+    await page.getByRole("link", { name: "Contato", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Pré-visualizar", exact: true })
+      .click();
+    const preview = page.frameLocator(
+      'iframe[title="Prévia do site Nexo Governamental"]',
+    );
+    await expect(preview.locator(".cms-preview-banner")).toContainText(
+      "Conteúdo ainda não publicado",
+    );
+    await expect.poll(() => blockedImages).toBeGreaterThan(0);
+    await expect(page.locator(".preview-loading")).toHaveCount(0);
+    await preview.locator(".instagram-profile").focus();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  } finally {
+    release();
+  }
+});
+
+test("site preview reports a navigation failure and can retry", async ({
+  page,
+}) => {
+  await loginPreview(page);
+  await page.route("**/?preview=1*", (route) => route.abort("failed"));
+  await page.getByRole("link", { name: "Contato", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Pré-visualizar", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "A prévia não abriu", exact: true }),
+  ).toBeVisible();
+  await page.unroute("**/?preview=1*");
+  await page
+    .getByRole("button", { name: "Tentar novamente", exact: true })
+    .click();
+  await expect(
+    page
+      .frameLocator('iframe[title="Prévia do site Nexo Governamental"]')
+      .locator(".cms-preview-banner"),
+  ).toContainText("Conteúdo ainda não publicado");
+  await expect(page.locator(".preview-loading")).toHaveCount(0);
+});
+
+test("site preview waits for its draft, offers recovery on timeout, and accepts a late response", async ({
+  page,
+}) => {
+  await loginPreview(page);
+  await page.clock.install();
+  let requested = false;
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/admin/preview", async (route) => {
+    requested = true;
+    await gate;
+    await route.continue().catch(() => {});
+  });
+  try {
+    await page.getByRole("link", { name: "Contato", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Pré-visualizar", exact: true })
+      .click();
+    await expect.poll(() => requested).toBeTruthy();
+    const preview = page.frameLocator(
+      'iframe[title="Prévia do site Nexo Governamental"]',
+    );
+    await expect(preview.locator(".cms-preview-banner")).toContainText(
+      "Carregando conteúdo salvo",
+    );
+    await expect(page.locator(".preview-loading")).toBeVisible();
+    await page.clock.fastForward(12500);
+    await expect(
+      page.getByRole("heading", { name: "A prévia não abriu", exact: true }),
+    ).toBeVisible();
+    release();
+    await expect(preview.locator(".cms-preview-banner")).toContainText(
+      "Conteúdo ainda não publicado",
+    );
+    await expect(page.locator(".preview-loading")).toHaveCount(0);
+    await page
+      .getByRole("button", { name: "Fechar janela", exact: true })
+      .click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  } finally {
+    release();
+  }
+});

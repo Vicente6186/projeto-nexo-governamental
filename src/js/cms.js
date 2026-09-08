@@ -705,7 +705,7 @@
     return true;
   }
 
-  function previewBanner(document, message, failed = false) {
+  function previewBanner(document, message, state = "ready") {
     let banner = document.querySelector(".cms-preview-banner");
     if (!banner) {
       banner = document.createElement("div");
@@ -713,7 +713,8 @@
       banner.setAttribute("role", "status");
       document.body.prepend(banner);
     }
-    banner.classList.toggle("cms-preview-banner--error", failed);
+    banner.classList.toggle("cms-preview-banner--error", state === "error");
+    banner.dataset.previewState = state;
     banner.textContent = message;
     document.documentElement.classList.add("cms-preview");
   }
@@ -725,6 +726,7 @@
       previewBanner(
         document,
         "Prévia do rascunho · Carregando conteúdo salvo…",
+        "loading",
       );
     try {
       const response = await fetcher(
@@ -751,7 +753,7 @@
         previewBanner(
           document,
           "Prévia indisponível. Entre no painel e salve o rascunho para visualizar. Abaixo está a página original.",
-          true,
+          "error",
         );
       return false;
     }

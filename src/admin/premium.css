@@ -267,7 +267,7 @@
     stroke-dashoffset: 40;
     animation: success-draw 480ms 130ms ease-out forwards;
   }
-  .publication-success .modal-heading,
+  .publication-success .modal-heading > div,
   .success-content {
     animation: nexo-surface-in 420ms 90ms var(--motion-ease) backwards;
   }
