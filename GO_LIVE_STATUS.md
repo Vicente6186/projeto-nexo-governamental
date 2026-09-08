@@ -4,6 +4,16 @@ Revisão: 8 de setembro de 2026.
 
 O site, o blog e o painel estão publicados em **https://nexo-governamental.netlify.app/**. O Netlify encaminha a aplicação ao Fastify no Railway. Login, proteção dos rascunhos, conteúdo público, imagens e descoberta para mecanismos de busca foram verificados pelo endereço HTTPS real. A recuperação por e-mail ainda depende do Resend; esta entrega não declara todos os critérios operacionais encerrados.
 
+## Nunito publicada na página inicial
+
+A fonte Nunito passou a ser servida pelo próprio domínio, corrigindo o bloqueio das fontes externas pela política `font-src 'self'`. O trecho “Veja mais sobre o Nexo Governamental” e os demais textos da página inicial usam a fonte; o teaser do blog também foi padronizado. A segurança de conteúdo permanece igual.
+
+- Fonte: `6a38957432223a9ddd08404d381fe9a3f425af14`, incluindo as correções da auditoria abaixo.
+- Railway: deploy `b38c3da1-efb6-4f23-9b58-59ff382f0473`, confirmado no domínio público em 8 de setembro de 2026.
+- Build e 24 testes relacionados aprovados. CSS `main.e8492302.css`, JavaScript `main.092e569f.js` e dez arquivos Nunito foram comparados byte a byte com o build local pelo domínio Netlify; saúde da API retornou 200.
+- Conferência no navegador: título com Nunito, nenhum texto visível da página inicial com outra família e nenhum transbordamento horizontal na largura verificada de 1.280 px.
+- Backup anterior à publicação: `/app/data/font-deploy-backups/nexo-backup-2026-09-08T15-53-56-937Z-f2ca5f38-e6b7-421f-9b4e-c437f3af9324`, verificado e sem remover cópias anteriores.
+
 ## Auditoria de código de 8 de setembro
 
 A revisão corrigiu operações em andamento que conseguiam gravar após o logout e uploads com partes extras que retornavam erro interno. A sessão persistida agora é conferida antes da operação e novamente após recebimento de arquivos, processamento de imagens e cálculo de senhas; o envio inteiro é validado antes da gravação.
@@ -18,7 +28,7 @@ No site, inscrições abrem e encerram nas datas configuradas mesmo quando a pá
 - `npm run build`: concluído, com os dois avisos de tamanho de mídia e pacotes já existentes.
 - Readiness e SEO locais aprovados em servidor isolado; rotas administrativas de conteúdo, categorias e contas responderam 401 sem sessão. Os cenários de artigos publicados são verificados nas suítes com dados temporários.
 
-As verificações desta auditoria usam bancos temporários e transporte de e-mail simulado. As evidências de hospedagem nas seções seguintes pertencem às publicações anteriores; a atualização desta revisão no Railway e no domínio público precisa de confirmação própria.
+As verificações desta auditoria usam bancos temporários e transporte de e-mail simulado. Estas correções estão incluídas na publicação da Nunito registrada acima. As evidências nas seções seguintes descrevem as publicações anteriores; as pendências operacionais ao final continuam válidas.
 
 ## Animações do painel publicadas
 
