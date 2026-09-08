@@ -4,6 +4,7 @@ const {
   validatePost,
   readingMinutes,
   renderMarkdown,
+  markdownImageSources,
   previewPosts,
 } = require("../shared/blog.cjs");
 
@@ -173,6 +174,8 @@ function registerBlog(
         kind: "image",
         field: "coverImage",
       });
+    for (const source of new Set(markdownImageSources(post.body)))
+      validateAssetReference(source, { kind: "image", field: "body" });
     return post;
   };
   const insert = (post, actor) => {

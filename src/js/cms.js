@@ -578,6 +578,61 @@
         stages.appendChild(li);
       });
     } else if (stages) stages.remove();
+    schedule.hidden = !selection.stages?.length && (!img || img.hidden);
+  }
+
+  const selectionWatchers = new WeakMap();
+
+  function watchSelection(document, window, selection) {
+    selectionWatchers.get(document)?.();
+    if (selection.status !== "open") return;
+    const opens = parseBoundary(selection.opensAt);
+    const closes = parseBoundary(selection.closesAt, true);
+    if (!Number.isFinite(opens) && !Number.isFinite(closes)) return;
+
+    let timer;
+    let lastState;
+    const refresh = () => {
+      window.clearTimeout(timer);
+      const now = window.Date.now();
+      const state = selectionState(selection, now);
+      if (state !== lastState) {
+        renderSelection(document, selection, now);
+        lastState = state;
+      }
+      const next = [opens, Number.isFinite(closes) ? closes + 1 : null]
+        .filter((boundary) => Number.isFinite(boundary) && boundary > now)
+        .sort((a, b) => a - b)[0];
+      if (next !== undefined)
+        timer = window.setTimeout(refresh, Math.min(next - now, 2147483647));
+    };
+    // Background tabs and restored pages can resume after their scheduled timer.
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    const onApplication = (event) => {
+      if (!event.target.closest?.(".cms-application-button")) return;
+      refresh();
+      if (selectionState(selection, window.Date.now()) !== "open")
+        event.preventDefault();
+    };
+    const pause = () => window.clearTimeout(timer);
+    document.addEventListener("visibilitychange", onVisibility);
+    document.addEventListener("click", onApplication, true);
+    document.addEventListener("auxclick", onApplication, true);
+    window.addEventListener("pageshow", refresh);
+    window.addEventListener("pagehide", pause);
+    const stop = () => {
+      pause();
+      document.removeEventListener("visibilitychange", onVisibility);
+      document.removeEventListener("click", onApplication, true);
+      document.removeEventListener("auxclick", onApplication, true);
+      window.removeEventListener("pageshow", refresh);
+      window.removeEventListener("pagehide", pause);
+      selectionWatchers.delete(document);
+    };
+    selectionWatchers.set(document, stop);
+    refresh();
   }
 
   function renderContent(document, content, options = {}) {
@@ -588,6 +643,7 @@
       !content.selection
     )
       return false;
+    selectionWatchers.get(document)?.();
     document.title = content.site.name;
     const meta = (selector, value) => {
       const tag = document.querySelector(selector);
@@ -683,6 +739,7 @@
       const payload = await response.json();
       if (!renderContent(document, payload.content))
         throw new Error("Invalid content");
+      watchSelection(document, window, payload.content.selection);
       if (isPreview)
         previewBanner(
           document,

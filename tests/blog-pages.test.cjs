@@ -591,3 +591,27 @@ test("table of contents resolves every heading after repeated and already number
     assert.equal(page.getElementById(link.hash.slice(1)), headings[index]);
   });
 });
+
+test("article update notices compare the same Sao Paulo calendar dates displayed to readers", () => {
+  const { renderBlogArticle } = require("../server/blog-pages.cjs");
+  const render = (publishedAt, updatedAt) =>
+    renderBlogArticle({
+      post: {
+        ...emptyPost(),
+        title: "Artigo atualizado",
+        slug: "artigo-atualizado",
+        body: "Um texto editorial.",
+        publishedAt,
+        updatedAt,
+      },
+    }).html;
+  // The local day changes at 03:00 UTC, not at UTC midnight.
+  assert.match(
+    render("2026-09-07T02:30:00Z", "2026-09-07T03:30:00Z"),
+    /Atualizado em 7 de setembro de 2026/,
+  );
+  assert.doesNotMatch(
+    render("2026-09-07T23:30:00Z", "2026-09-08T00:30:00Z"),
+    /article-updated/,
+  );
+});

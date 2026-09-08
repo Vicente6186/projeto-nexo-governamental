@@ -160,6 +160,32 @@ test("loading an existing article is not undoable; the first user edit undoes to
       restoredDocument,
       "the new revision still supports undo for subsequent user edits",
     );
+    await act(async () => {
+      replaceBody("Texto com ![capa](/uploads/capa.jpg).\n\nOutra ideia.");
+    });
+    const source = document.querySelector("textarea.richtext-source");
+    assert.ok(source, "unsupported Markdown opens its source for safe editing");
+    source.focus();
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        window.HTMLTextAreaElement.prototype,
+        "value",
+      ).set.call(source, "Texto sem imagem.\n\nOutra ideia.");
+      source.dispatchEvent(new window.Event("input", { bubbles: true }));
+    });
+    assert.ok(
+      document.querySelector("textarea.richtext-source") === source,
+      "removing unsupported syntax must not replace the active input mid-edit",
+    );
+    assert.ok(
+      document.activeElement === source,
+      "source editing retains focus",
+    );
+    await act(async () => {
+      document.querySelector("button.richtext-mode").click();
+    });
+    assert.ok(!document.querySelector("textarea.richtext-source"));
+    assert.match(editor.getText(), /Texto sem imagem/);
   } finally {
     if (root) await act(async () => root.unmount());
     // useEditor defers destruction by one task to support React strict-mode remounts.

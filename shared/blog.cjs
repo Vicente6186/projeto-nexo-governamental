@@ -120,6 +120,17 @@ function renderMarkdown(body) {
   return renderer.render(typeof body === "string" ? body : "");
 }
 
+function imageSources(tokens) {
+  return tokens.flatMap((token) => [
+    ...(token.type === "image" ? [token.attrGet("src") || ""] : []),
+    ...(token.children ? imageSources(token.children) : []),
+  ]);
+}
+
+function markdownImageSources(body) {
+  return imageSources(renderer.parse(typeof body === "string" ? body : "", {}));
+}
+
 function fail(label, message) {
   const error = new Error(`${label}: ${message}`);
   error.statusCode = 400;
@@ -221,7 +232,12 @@ function validatePost(
       );
   }
   // The parser resolves escapes and entities before validation, including reference links.
-  markdown(true).parse(post.body, {});
+  for (const source of imageSources(markdown(true).parse(post.body, {})))
+    if (!safeLink(source, true))
+      fail(
+        "Texto",
+        "uma imagem não é permitida. Use HTTP, HTTPS ou uma imagem da biblioteca.",
+      );
   return post;
 }
 
@@ -268,6 +284,7 @@ module.exports = {
   slugify,
   readingMinutes,
   renderMarkdown,
+  markdownImageSources,
   validatePost,
   previewPosts,
 };

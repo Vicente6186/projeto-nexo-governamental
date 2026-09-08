@@ -110,6 +110,9 @@ export default function RichTextEditor({
       editor.markdown.instance.lexer(text),
     );
     setUnsupported(reason);
+    // Source editing must stay open while the author removes an unsupported
+    // construct; otherwise their textarea and caret disappear mid-keystroke.
+    if (reason) setAdvanced(true);
     acceptedValue.current = source;
     if (!reason) {
       const { from, to } = editor.state.selection;

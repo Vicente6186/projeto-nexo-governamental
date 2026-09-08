@@ -18,6 +18,17 @@ function integer(value, fallback, min, max, label) {
     fail(`${label} deve ser um inteiro entre ${min} e ${max}.`);
   return n;
 }
+function physicalPath(filename) {
+  const missing = [];
+  let parent = path.resolve(filename);
+  while (!fs.existsSync(parent)) {
+    missing.unshift(path.basename(parent));
+    const next = path.dirname(parent);
+    if (next === parent) break;
+    parent = next;
+  }
+  return path.join(fs.realpathSync(parent), ...missing);
+}
 function inside(root, relative) {
   if (
     typeof relative !== "string" ||
@@ -148,7 +159,7 @@ function verifyBackup(backupDir) {
   checkDatabase(inside(root, "nexo.sqlite"), names);
   return manifest;
 }
-function pruneBackups(root, keep) {
+function pruneBackups(root, keep, currentDirectory) {
   const own = fs
     .readdirSync(root, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && BACKUP_NAME.test(entry.name))
@@ -168,9 +179,13 @@ function pruneBackups(root, keep) {
     .map((entry) => entry.name)
     .sort()
     .reverse();
-  for (const name of own.slice(keep))
+  // The completed copy must survive retention even after a clock correction.
+  const expired = own
+    .filter((name) => name !== currentDirectory)
+    .slice(keep - 1);
+  for (const name of expired)
     fs.rmSync(path.join(root, name), { recursive: true });
-  return own.slice(keep).length;
+  return expired.length;
 }
 async function createBackup({
   dataDir,
@@ -189,9 +204,13 @@ async function createBackup({
     fs.lstatSync(sourceDatabase).isSymbolicLink()
   )
     fail("O diretório de dados e o banco não podem ser links simbólicos.");
+  const physicalRoot = physicalPath(root);
   for (const folder of DATA_FOLDERS) {
-    const fileRoot = path.join(source, folder);
-    if (root === fileRoot || root.startsWith(`${fileRoot}${path.sep}`))
+    const fileRoot = physicalPath(path.join(source, folder));
+    if (
+      physicalRoot === fileRoot ||
+      physicalRoot.startsWith(`${fileRoot}${path.sep}`)
+    )
       fail("O destino do backup não pode ficar dentro das pastas de mídia.");
   }
   fs.mkdirSync(root, { recursive: true, mode: 0o700 });
@@ -257,7 +276,7 @@ async function createBackup({
     verifyBackup(temp);
     const destination = path.join(root, directory);
     fs.renameSync(temp, destination);
-    const removed = pruneBackups(root, keep);
+    const removed = pruneBackups(root, keep, directory);
     return {
       directory: destination,
       createdAt: manifest.createdAt,

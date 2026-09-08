@@ -198,7 +198,10 @@ test("clearing the hero image removes the published photo and can be reversed", 
   const image = window.document.querySelector("#introduction-image img");
   assert.equal(image.hidden, true);
   assert.equal(image.getAttribute("src"), null);
-  assert.equal(window.document.querySelector("#introduction-image source"), null);
+  assert.equal(
+    window.document.querySelector("#introduction-image source"),
+    null,
+  );
 
   introduction.extra.image = "/uploads/replacement.webp";
   introduction.extra.imageAlt = "Nova fachada";
@@ -354,6 +357,139 @@ test("structured selection stages replace the historical image and can be cleare
     window.document.querySelector("#selective-process-schedule img").hidden,
     false,
   );
+});
+
+test("a cleared published schedule hides its empty heading and reappears with new stages", (t) => {
+  const { window } = setup();
+  t.after(() => window.close());
+  const content = copy();
+  content.selection.scheduleImage = "";
+  renderContent(window.document, content);
+  const schedule = window.document.querySelector("#selective-process-schedule");
+  assert.equal(schedule.hidden, true);
+
+  content.selection.stages = [
+    { id: "new", title: "Inscrições", date: "2026-09-10", description: "" },
+  ];
+  renderContent(window.document, content);
+  assert.equal(schedule.hidden, false);
+  assert.equal(schedule.querySelector("h4").textContent, "Inscrições");
+  content.selection.stages = [];
+  renderContent(window.document, content);
+  assert.equal(schedule.hidden, true);
+
+  content.selection.scheduleImage = DEFAULT_CONTENT.selection.scheduleImage;
+  renderContent(window.document, content);
+  assert.equal(schedule.hidden, false);
+  assert.equal(schedule.querySelector("img").hidden, false);
+});
+
+function selectionClock(window, initial) {
+  let now = Date.parse(initial);
+  let serial = 0;
+  const timers = new Map();
+  return {
+    timers,
+    browser: {
+      location: window.location,
+      Date: { now: () => now },
+      setTimeout(callback, delay) {
+        const id = ++serial;
+        timers.set(id, { callback, at: now + delay });
+        return id;
+      },
+      clearTimeout: (id) => timers.delete(id),
+      addEventListener: window.addEventListener.bind(window),
+      removeEventListener: window.removeEventListener.bind(window),
+    },
+    advance(value, runTimers = true) {
+      const target = Date.parse(value);
+      if (runTimers) {
+        while (true) {
+          const next = [...timers].sort((a, b) => a[1].at - b[1].at)[0];
+          if (!next || next[1].at > target) break;
+          now = next[1].at;
+          timers.delete(next[0]);
+          next[1].callback();
+        }
+      }
+      now = target;
+    },
+  };
+}
+
+test("an open page updates application access at São Paulo boundaries without reloading", async (t) => {
+  const { window } = setup();
+  t.after(() => window.close());
+  const content = copy();
+  Object.assign(content.selection, {
+    status: "open",
+    opensAt: "2026-09-10",
+    closesAt: "2026-09-10",
+    applicationUrl: "https://example.org/apply",
+  });
+  const clock = selectionClock(window, "2026-09-10T02:59:59Z");
+  await loadContent(window.document, clock.browser, async () => ({
+    ok: true,
+    json: async () => ({ content }),
+  }));
+  const application = window.document.querySelector(".cms-application-button");
+  assert.equal(application.getAttribute("href"), null);
+  assert.equal(clock.timers.size, 1);
+  clock.advance("2026-09-10T03:00:00Z");
+  assert.equal(application.href, content.selection.applicationUrl);
+  assert.equal(application.hasAttribute("aria-disabled"), false);
+  assert.equal(clock.timers.size, 1);
+  clock.advance("2026-09-11T02:59:59.999Z");
+  assert.equal(application.href, content.selection.applicationUrl);
+  clock.advance("2026-09-11T03:00:00Z");
+  assert.equal(application.getAttribute("href"), null);
+  assert.equal(application.getAttribute("aria-disabled"), "true");
+  assert.equal(
+    window.document.querySelector(".cms-selection-status").textContent,
+    "Processo seletivo fechado",
+  );
+  assert.equal(clock.timers.size, 0);
+});
+
+test("a suspended timer cannot allow an expired application and old watchers stop on replacement", async (t) => {
+  const { window } = setup();
+  t.after(() => window.close());
+  const content = copy();
+  Object.assign(content.selection, {
+    status: "open",
+    closesAt: "2026-09-10",
+    applicationUrl: "https://example.org/apply",
+  });
+  const clock = selectionClock(window, "2026-09-10T20:00:00Z");
+  const fetcher = async () => ({ ok: true, json: async () => ({ content }) });
+  await loadContent(window.document, clock.browser, fetcher);
+  await loadContent(window.document, clock.browser, fetcher);
+  assert.equal(
+    clock.timers.size,
+    1,
+    "Reloading content replaces the old timer",
+  );
+  clock.advance("2026-09-11T03:00:00Z", false);
+  const application = window.document.querySelector(".cms-application-button");
+  const click = new window.MouseEvent("click", {
+    bubbles: true,
+    cancelable: true,
+  });
+  application.dispatchEvent(click);
+  assert.equal(click.defaultPrevented, true);
+  assert.equal(application.getAttribute("href"), null);
+  assert.equal(clock.timers.size, 0);
+
+  content.selection.closesAt = "2026-09-12";
+  await loadContent(window.document, clock.browser, fetcher);
+  assert.equal(clock.timers.size, 1);
+  const replacement = copy();
+  replacement.selection.applicationUrl = "https://example.org/next-edition";
+  renderContent(window.document, replacement);
+  assert.equal(clock.timers.size, 0);
+  window.dispatchEvent(new window.Event("pageshow"));
+  assert.equal(application.getAttribute("href"), null);
 });
 
 test("project image edits remove old responsive sources and collections support additions/removals", () => {

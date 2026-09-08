@@ -346,6 +346,24 @@ export default function BlogWorkspace({
   activeId.current = postId;
   draftRef.current = draft;
   recordRef.current = record;
+  // A response belongs to the editor visit that started it. Checking only the
+  // article ID is insufficient when an author leaves and reopens that article.
+  const viewScope = useRef(null);
+  if (
+    viewScope.current?.postId !== postId ||
+    viewScope.current?.retry !== retry
+  )
+    viewScope.current = { postId, retry, active: true };
+  const scope = viewScope.current;
+  useEffect(() => {
+    scope.active = true;
+    return () => {
+      scope.active = false;
+    };
+  }, [scope]);
+  function isCurrentView() {
+    return scope.active && viewScope.current === scope;
+  }
   const dirty = !!(
     postId &&
     record &&
@@ -372,6 +390,7 @@ export default function BlogWorkspace({
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
   function fail(error, { automatic = false } = {}) {
+    if (!isCurrentView()) return;
     const field = errorField(error);
     if (
       field &&
@@ -410,6 +429,7 @@ export default function BlogWorkspace({
     );
   }
   function accept(post, { preserve = false, submitted = null } = {}) {
+    if (!isCurrentView()) return post;
     setPosts((current) => [
       post,
       ...current.filter((item) => item.id !== post.id),
@@ -651,6 +671,7 @@ export default function BlogWorkspace({
       error.submittedPost = content;
       throw error;
     }
+    if (!isCurrentView()) return result.post;
     setErrors((currentErrors) =>
       Object.fromEntries(
         Object.entries(currentErrors).filter(
@@ -673,6 +694,7 @@ export default function BlogWorkspace({
     setBusy(automatic ? "autosave" : "save");
     try {
       await saveCurrent();
+      if (!isCurrentView()) return;
       setAutosaveFailed(false);
       if (!automatic) notify?.("Rascunho do artigo salvo.");
     } catch (error) {
@@ -690,9 +712,11 @@ export default function BlogWorkspace({
     try {
       if (postId && !recordRef.current?.archived) {
         await saveCurrent();
+        if (!isCurrentView()) return;
         if (!equivalent(draftRef.current, recordRef.current.draft))
           await saveCurrent();
       }
+      if (!isCurrentView()) return;
       setModal({ type: "categories" });
     } catch (error) {
       fail(error);
@@ -718,6 +742,7 @@ export default function BlogWorkspace({
         const result = await api(
           `/api/admin/blog/${encodeURIComponent(postId)}`,
         );
+        if (!isCurrentView()) return;
         setCategories(result.categories || CATEGORIES);
         accept(result.post);
         setErrors({});
@@ -725,6 +750,7 @@ export default function BlogWorkspace({
       }
       setModal(null);
     } catch (error) {
+      if (!isCurrentView()) return;
       notify?.(error.message, true);
       if (error.status === 401) onSessionExpired?.();
     } finally {
@@ -741,6 +767,7 @@ export default function BlogWorkspace({
         method: "POST",
         body: { post: blankPost(categoryValue(categories[0] || "")) },
       });
+      if (!isCurrentView()) return;
       window.location.hash = `blog/${result.post.id}`;
     } catch (error) {
       fail(error);
@@ -756,7 +783,7 @@ export default function BlogWorkspace({
     setBusy("preview");
     try {
       const saved = post.id === record?.id ? await saveCurrent() : post;
-      if (activeId.current !== startingRoute) return;
+      if (!isCurrentView() || activeId.current !== startingRoute) return;
       setPreview({ id: saved.id, version: saved.version });
       setPreviewMobile(false);
       if (dirty && post.id === record?.id)
@@ -788,10 +815,12 @@ export default function BlogWorkspace({
       if (preserve && dirty) recovery.persist();
       const current =
         action === "publish" ? await saveCurrent() : recordRef.current;
+      if (!isCurrentView()) return;
       const result = await api(`/api/admin/blog/${current.id}/${action}`, {
         method: "POST",
         body: { version: current.version },
       });
+      if (!isCurrentView()) return;
       accept(result.post, { preserve: preserve && dirty });
       setModal(null);
       notify?.(
@@ -816,6 +845,7 @@ export default function BlogWorkspace({
     setAssetError("");
     try {
       const result = await api("/api/admin/assets");
+      if (!isCurrentView()) return;
       setAssets(
         Array.from(
           new Map(
@@ -831,10 +861,11 @@ export default function BlogWorkspace({
         ),
       );
     } catch (error) {
+      if (!isCurrentView()) return;
       setAssetError(error.message);
       if (error.status === 401) onSessionExpired?.();
     } finally {
-      setAssetLoading(false);
+      if (isCurrentView()) setAssetLoading(false);
     }
   }
   async function uploadCover(file) {
@@ -861,14 +892,16 @@ export default function BlogWorkspace({
         form,
         signal: uploadController.current.signal,
       });
-      if (activeId.current === startingPost) selectCover(result.asset.url);
+      if (isCurrentView() && activeId.current === startingPost)
+        selectCover(result.asset.url);
       setAssets((current) => [result.asset, ...current]);
       notify?.(
-        activeId.current === startingPost
+        isCurrentView() && activeId.current === startingPost
           ? "Capa adicionada. Confira a descrição e o crédito desta imagem."
           : "Imagem enviada à biblioteca.",
       );
     } catch (error) {
+      if (!isCurrentView()) return;
       if (
         error.name === "AbortError" ||
         uploadController.current?.signal.aborted
@@ -900,11 +933,12 @@ export default function BlogWorkspace({
       const result = await api(
         `/api/admin/blog/${recordRef.current.id}/revisions`,
       );
+      if (!isCurrentView()) return;
       setRevisions(result.revisions || []);
     } catch (error) {
       fail(error);
     } finally {
-      setRevisionLoading(false);
+      if (isCurrentView()) setRevisionLoading(false);
     }
   }
   async function inspectRevision(revision) {
@@ -913,11 +947,16 @@ export default function BlogWorkspace({
       const result = await api(
         `/api/admin/blog/${recordRef.current.id}/revisions/${revision.id}`,
       );
-      setModal({ type: "revision", revision: result.revision });
+      if (!isCurrentView()) return;
+      setModal((current) =>
+        current?.type === "revisions"
+          ? { type: "revision", revision: result.revision }
+          : current,
+      );
     } catch (error) {
       fail(error);
     } finally {
-      setRevisionLoading(false);
+      if (isCurrentView()) setRevisionLoading(false);
     }
   }
   async function restoreRevision(revision) {
@@ -936,6 +975,7 @@ export default function BlogWorkspace({
           body: { revisionId: revision.id, version: recordRef.current.version },
         },
       );
+      if (!isCurrentView()) return;
       accept(result.post);
       setModal(null);
       setErrors({});
@@ -2322,9 +2362,14 @@ export default function BlogWorkspace({
                     const latest = await api(
                       `/api/admin/blog/${recordRef.current.id}`,
                     );
-                    setModal({ type: "conflict", latest: latest.post });
+                    if (!isCurrentView()) return;
+                    setModal((current) =>
+                      current?.type === "conflict"
+                        ? { type: "conflict", latest: latest.post }
+                        : current,
+                    );
                   } catch (error) {
-                    notify?.(error.message, true);
+                    if (isCurrentView()) notify?.(error.message, true);
                   }
                 }}
               >

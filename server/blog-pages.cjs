@@ -303,7 +303,7 @@ function renderBlogArticle({
   const wasUpdated =
     publication.iso &&
     updated.iso &&
-    updated.iso.slice(0, 10) !== publication.iso.slice(0, 10) &&
+    updated.label !== publication.label &&
     updated.iso > publication.iso;
   const contents = rendered.entries
     .filter((entry) => entry.level === "2")

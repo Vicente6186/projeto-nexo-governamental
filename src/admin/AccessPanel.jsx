@@ -92,6 +92,7 @@ export default function AccessPanel({
   const [passwordChanged, setPasswordChanged] = useState(false);
   const busyRef = useRef(false);
   const mountedRef = useRef(true);
+  const teamRequestRef = useRef(null);
   const contentRef = useRef(null);
   const passwordSummaryRef = useRef(null);
   const focusErrorsRef = useRef(false);
@@ -107,6 +108,7 @@ export default function AccessPanel({
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      teamRequestRef.current?.abort();
     };
   }, []);
   useEffect(() => {
@@ -133,7 +135,10 @@ export default function AccessPanel({
   }
 
   function go(next) {
-    if (busyRef.current) return;
+    if (busyRef.current) return false;
+    teamRequestRef.current?.abort();
+    teamRequestRef.current = null;
+    setLoading(false);
     setError("");
     setErrors({});
     setView(next);
@@ -141,13 +146,14 @@ export default function AccessPanel({
     setPasswordOpen(false);
     if (next !== "account") setPassword(blankPassword());
     if (next !== "add") setMember(blankMember());
+    return true;
   }
   function handleError(cause) {
+    if (!mountedRef.current) return;
     if (cause.status === 401) {
       onExpired?.();
       return;
     }
-    if (!mountedRef.current) return;
     const field =
       cause.field || (cause.code === "EMAIL_IN_USE" ? "email" : null);
     if (field) showErrors({ [field]: cause.message });
@@ -167,21 +173,34 @@ export default function AccessPanel({
     if (mountedRef.current) setBusy(false);
   }
   async function loadTeam() {
-    if (!isAdmin) return;
+    if (!isAdmin || busyRef.current) return;
+    teamRequestRef.current?.abort();
+    const controller = new AbortController();
+    teamRequestRef.current = controller;
     setLoading(true);
     setError("");
     try {
-      const result = await api("/api/admin/users");
-      if (mountedRef.current) setUsers(result.users);
+      const result = await api("/api/admin/users", {
+        signal: controller.signal,
+      });
+      if (
+        mountedRef.current &&
+        teamRequestRef.current === controller &&
+        !controller.signal.aborted
+      )
+        setUsers(result.users);
     } catch (cause) {
-      handleError(cause);
+      if (teamRequestRef.current === controller && !controller.signal.aborted)
+        handleError(cause);
     } finally {
-      if (mountedRef.current) setLoading(false);
+      if (teamRequestRef.current === controller) {
+        teamRequestRef.current = null;
+        if (mountedRef.current) setLoading(false);
+      }
     }
   }
   function openTeam() {
-    go("team");
-    loadTeam();
+    if (go("team")) loadTeam();
   }
   function changeMember(field, value) {
     setMember((current) => ({ ...current, [field]: value }));
@@ -222,6 +241,7 @@ export default function AccessPanel({
           newPassword: password.newPassword,
         },
       });
+      if (!mountedRef.current) return;
       onSession?.(result);
       if (mountedRef.current) {
         setPassword(blankPassword());
@@ -363,6 +383,7 @@ export default function AccessPanel({
                 type="button"
                 className="access-team-link"
                 onClick={openTeam}
+                disabled={busy}
               >
                 <Users size={20} />
                 <span>

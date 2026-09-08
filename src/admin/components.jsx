@@ -191,6 +191,7 @@ export function Modal({ title, description, children, onClose, wide = false }) {
     function visible(element) {
       return (
         element.tabIndex >= 0 &&
+        !element.matches(":disabled") &&
         !element.closest("[inert]") &&
         element.getClientRects().length > 0 &&
         element.ownerDocument.defaultView.getComputedStyle(element)
@@ -292,9 +293,11 @@ export function Modal({ title, description, children, onClose, wide = false }) {
     frameObserver.observe(dialog, { childList: true, subtree: true });
 
     if (!dialog.contains(document.activeElement)) {
-      const input = dialog.querySelector(
-        "input:not([disabled]):not([type=file]):not([type=hidden]), textarea:not([disabled]), select:not([disabled])",
-      );
+      const input = Array.from(
+        dialog.querySelectorAll(
+          "input:not([type=file]):not([type=hidden]),textarea,select",
+        ),
+      ).find(visible);
       (input || dialog).focus();
     }
 

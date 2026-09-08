@@ -191,6 +191,55 @@ test("backup aborts on missing registered files and never prunes a prior good ba
   );
 });
 
+test("retention preserves the newly verified backup when the clock moves backwards", async (t) => {
+  const f = fixture(t);
+  const previous = await createBackup({
+    ...f,
+    keep: 1,
+    now: new Date("2026-09-08T00:00:00Z"),
+  });
+  f.db.prepare("UPDATE content SET version = 2 WHERE id = 1").run();
+  const current = await createBackup({
+    ...f,
+    keep: 1,
+    now: new Date("2026-09-07T00:00:00Z"),
+  });
+  assert.equal(fs.existsSync(current.directory), true);
+  assert.equal(verifyBackup(current.directory).files.length, 3);
+  const restored = path.join(f.root, "restored-latest");
+  restoreBackup({
+    backupDir: current.directory,
+    destination: restored,
+    apply: true,
+  });
+  const snapshot = new DatabaseSync(path.join(restored, "nexo.sqlite"), {
+    readOnly: true,
+  });
+  try {
+    assert.equal(
+      snapshot.prepare("SELECT version FROM content").get().version,
+      2,
+    );
+  } finally {
+    snapshot.close();
+  }
+  assert.equal(fs.existsSync(previous.directory), false);
+  assert.equal(current.removed, 1);
+});
+
+test("backup rejects a destination inside media through a symbolic parent directory", async (t) => {
+  const f = fixture(t);
+  const alias = path.join(f.root, "media-alias");
+  fs.symlinkSync(path.join(f.dataDir, "uploads"), alias);
+  await assert.rejects(
+    createBackup({ ...f, outputRoot: path.join(alias, "backups") }),
+    /pastas de mídia/,
+  );
+  assert.deepEqual(fs.readdirSync(path.join(f.dataDir, "uploads")), [
+    "cover.webp",
+  ]);
+});
+
 test("backup releases its lock after temporary-directory setup failures and permits retry", async (t) => {
   for (const method of ["mkdtempSync", "chmodSync"]) {
     await t.test(method, async (t) => {

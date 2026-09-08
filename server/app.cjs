@@ -325,15 +325,48 @@ async function buildApp(options = {}) {
       throw error;
     }
   };
-  const requireAuth = async (request) => {
+  const refreshSession = (request) => {
+    request.cmsSession = null;
+    const value = request.cookies[COOKIE_NAME];
+    if (!value || !/^[a-f0-9]{64}$/.test(value)) return;
+    const session = db
+      .prepare("SELECT * FROM sessions WHERE hash = ? AND expires_at > ?")
+      .get(digest(value), now().getTime());
+    if (session?.preview) {
+      if (
+        config.localPreview &&
+        isLoopback(request.raw.socket.remoteAddress) &&
+        isLoopback(request.ip) &&
+        session.credential_fingerprint === fingerprint
+      )
+        request.cmsSession = { ...session, role: "admin" };
+    } else if (session?.user_id) {
+      const user = users.get(session.user_id);
+      if (
+        user?.active &&
+        session.credential_fingerprint === users.fingerprint(user)
+      )
+        request.cmsSession = {
+          ...session,
+          role: user.role,
+          name: user.name,
+          email: user.email,
+        };
+    }
+  };
+  const requireCurrentSession = (request) => {
+    // Request bodies, image decoding and password hashes can outlive a logout.
+    // Re-read the persisted session before an authenticated operation proceeds.
+    refreshSession(request);
     if (!request.cmsSession) {
       const error = new Error("Entre no painel para continuar.");
       error.statusCode = 401;
       throw error;
     }
   };
+  const requireAuth = async (request) => requireCurrentSession(request);
   const requireMutation = async (request) => {
-    await requireAuth(request);
+    requireCurrentSession(request);
     requireOrigin(request);
     const provided = request.headers["x-csrf-token"];
     if (
@@ -478,33 +511,7 @@ async function buildApp(options = {}) {
   });
   app.decorateRequest("cmsSession", null);
   app.addHook("onRequest", async (request) => {
-    const value = request.cookies[COOKIE_NAME];
-    if (value && /^[a-f0-9]{64}$/.test(value)) {
-      const session = db
-        .prepare("SELECT * FROM sessions WHERE hash = ? AND expires_at > ?")
-        .get(digest(value), now().getTime());
-      if (session?.preview) {
-        if (
-          config.localPreview &&
-          isLoopback(request.raw.socket.remoteAddress) &&
-          isLoopback(request.ip) &&
-          session.credential_fingerprint === fingerprint
-        )
-          request.cmsSession = { ...session, role: "admin" };
-      } else if (session?.user_id) {
-        const user = users.get(session.user_id);
-        if (
-          user?.active &&
-          session.credential_fingerprint === users.fingerprint(user)
-        )
-          request.cmsSession = {
-            ...session,
-            role: user.role,
-            name: user.name,
-            email: user.email,
-          };
-      }
-    }
+    refreshSession(request);
   });
   app.addHook("onSend", async (request, reply, payload) => {
     reply.header("X-Content-Type-Options", "nosniff");
@@ -610,7 +617,12 @@ async function buildApp(options = {}) {
       return sessionResponse(null);
     },
   );
-  users.register(app, { requireAuth, requireMutation, issueSession });
+  users.register(app, {
+    requireAuth,
+    requireMutation,
+    requireCurrentSession,
+    issueSession,
+  });
   passwordReset = registerPasswordReset(app, {
     db,
     now,
@@ -661,12 +673,28 @@ async function buildApp(options = {}) {
     "/api/admin/uploads",
     { preHandler: requireMutation },
     async (request, reply) => {
-      const file = await request.file();
+      let file;
+      let buffer;
+      try {
+        // Finish parsing the request so extra or malformed parts cannot be
+        // overlooked after the first file has already been persisted.
+        for await (const part of request.parts()) {
+          file = part;
+          buffer = await part.toBuffer();
+        }
+      } catch (error) {
+        if (error.code === "ERR_STREAM_PREMATURE_CLOSE")
+          throw new ValidationError(
+            "O envio está incompleto ou contém campos extras. Envie um arquivo por vez.",
+            "file",
+            "INVALID_UPLOAD",
+          );
+        throw error;
+      }
       if (!file)
         throw new ValidationError(
           "Selecione um arquivo PNG, JPEG, WebP, AVIF ou PDF.",
         );
-      const buffer = await file.toBuffer();
       const detected = detectFile(buffer);
       if (!detected || detected.type !== file.mimetype)
         throw new ValidationError(
@@ -675,6 +703,7 @@ async function buildApp(options = {}) {
       const prepared = detected.type.startsWith("image/")
         ? await prepareImage(buffer)
         : { buffer, ...detected, width: null, height: null };
+      requireCurrentSession(request);
       const asset = {
         id: randomUUID(),
         name:

@@ -6,7 +6,7 @@ const babel = require("@babel/core");
 const { JSDOM } = require("jsdom");
 const { emptyPost } = require("../shared/blog.cjs");
 
-test("an in-flight autosave preserves a newer manual article URL and unfinished tag input", async () => {
+test("autosave preserves newer edits and ignores errors belonging to another article", async () => {
   const dom = new JSDOM('<div id="root"></div>', {
     url: "http://localhost/admin/#blog/post-1",
     pretendToBeVisual: true,
@@ -71,14 +71,19 @@ test("an in-flight autosave preserves a newer manual article URL and unfinished 
       tags: ["Pesquisa"],
     },
   };
+  const otherPost = {
+    ...post,
+    id: "post-2",
+    draft: { ...post.draft, title: "Outro artigo", slug: "outro-artigo" },
+  };
   require.cache[modulePaths[0]] = {
     exports: {
-      api: async (_url, options = {}) => {
+      api: async (url, options = {}) => {
         if (options.method === "PUT")
-          return new Promise((resolve) => {
-            pending = { resolve, body: options.body };
+          return new Promise((resolve, reject) => {
+            pending = { resolve, reject, body: options.body };
           });
-        return { post };
+        return { post: url.endsWith("/post-2") ? otherPost : post };
       },
     },
   };
@@ -144,6 +149,72 @@ test("an in-flight autosave preserves a newer manual article URL and unfinished 
       document.querySelector('[data-blog-field="slug"]').value,
       "endereco-escolhido",
       "editing the title must not overwrite the URL chosen while saving",
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1600));
+    });
+    const previousArticleSave = pending;
+    await act(async () => {
+      root.render(
+        createElement(BlogWorkspace, {
+          route: "blog/post-2",
+          session: { user: { id: "editor" } },
+        }),
+      );
+    });
+    assert.equal(
+      document.querySelector('[data-blog-field="title"]').value,
+      "Outro artigo",
+    );
+    await act(async () => {
+      previousArticleSave.reject(
+        Object.assign(new Error("Este artigo foi atualizado."), {
+          status: 409,
+          code: "VERSION_CONFLICT",
+        }),
+      );
+    });
+    assert.equal(
+      !!document.querySelector('[role="dialog"]'),
+      false,
+      "an old article's delayed conflict must not block the newly opened article",
+    );
+    assert.equal(
+      document.querySelector('[data-blog-field="title"]').value,
+      "Outro artigo",
+      "the newly opened article remains available for editing",
+    );
+    await input("title", "Edição antes de reabrir");
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1600));
+    });
+    const previousVisitSave = pending;
+    for (const route of ["blog/post-1", "blog/post-2"])
+      await act(async () => {
+        root.render(
+          createElement(BlogWorkspace, {
+            route,
+            session: { user: { id: "editor" } },
+          }),
+        );
+      });
+    await act(async () => {
+      previousVisitSave.resolve({
+        post: {
+          ...otherPost,
+          version: 2,
+          draft: previousVisitSave.body.post,
+        },
+      });
+    });
+    assert.equal(
+      document.querySelector('[data-blog-field="title"]').value,
+      "Outro artigo",
+    );
+    assert.match(
+      document.querySelector(".blog-save-status").textContent,
+      /Rascunho salvo/,
+      "a response from an earlier visit cannot turn a freshly loaded revision into an unsaved edit",
     );
   } finally {
     if (root) await act(async () => root.unmount());

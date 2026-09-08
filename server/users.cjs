@@ -185,7 +185,10 @@ function initializeUsers(db, config, now, bootstrapFingerprint) {
     ).run(keys[1].key, keys[1].expiresAt);
     return latest;
   };
-  function register(app, { requireAuth, requireMutation, issueSession }) {
+  function register(
+    app,
+    { requireAuth, requireMutation, requireCurrentSession, issueSession },
+  ) {
     app.get(
       "/api/admin/users",
       { preHandler: requireAuth },
@@ -242,6 +245,8 @@ function initializeUsers(db, config, now, bootstrapFingerprint) {
         const passwordHash = (
           await deriveAsync(body.password, salt, 64, options)
         ).toString("hex");
+        requireCurrentSession(request);
+        requireAdmin(request);
         if (!request.cmsSession.preview) {
           const currentAdmin = get(request.cmsSession.user_id);
           if (
@@ -379,6 +384,7 @@ function initializeUsers(db, config, now, bootstrapFingerprint) {
           await deriveAsync(body.newPassword, salt, 64, options)
         ).toString("hex");
         // Recheck after the asynchronous hash so a revoked session cannot mutate its account.
+        requireCurrentSession(request);
         const latest = get(user.id);
         if (!latest?.active || fingerprint(latest) !== fingerprint(user))
           deny(

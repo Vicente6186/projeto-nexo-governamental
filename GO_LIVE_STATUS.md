@@ -1,8 +1,24 @@
 # Estado de entrega · Nexo Governamental
 
-Revisão: 7 de setembro de 2026.
+Revisão: 8 de setembro de 2026.
 
 O site, o blog e o painel estão publicados em **https://nexo-governamental.netlify.app/**. O Netlify encaminha a aplicação ao Fastify no Railway. Login, proteção dos rascunhos, conteúdo público, imagens e descoberta para mecanismos de busca foram verificados pelo endereço HTTPS real. A recuperação por e-mail ainda depende do Resend; esta entrega não declara todos os critérios operacionais encerrados.
+
+## Auditoria de código de 8 de setembro
+
+A revisão corrigiu operações em andamento que conseguiam gravar após o logout e uploads com partes extras que retornavam erro interno. A sessão persistida agora é conferida antes da operação e novamente após recebimento de arquivos, processamento de imagens e cálculo de senhas; o envio inteiro é validado antes da gravação.
+
+O editor ignora respostas de visitas anteriores a um artigo e mantém o campo Markdown aberto durante a remoção de sintaxe não suportada. Consultas antigas da equipe deixam de sobrescrever a tela atual, e os modais pulam campos ocultos ou desabilitados ao navegar pelo teclado. Imagens locais no corpo dos artigos são verificadas ao salvar e publicar; links de imagem incompatíveis são rejeitados com indicação do campo. O aviso de atualização segue a mesma data de Brasília exibida ao leitor.
+
+No site, inscrições abrem e encerram nas datas configuradas mesmo quando a página permanece aberta ou volta de uma suspensão. Cronogramas sem imagem e sem etapas ficam ocultos. Nos backups, a cópia recém-verificada permanece protegida quando o relógio retrocede, e destinos dentro das pastas de mídia são rejeitados também quando passam por um diretório simbólico.
+
+- Instalação limpa pelo lockfile: concluída com Node.js 24.15.0; nenhuma vulnerabilidade reportada pelo npm.
+- `npm test`: **171 testes passaram**, incluindo regressões de sessão revogada, respostas atrasadas, imagens, prazo de inscrições e restauração de backup após ajuste do relógio.
+- `npm run test:e2e`: **51 cenários passaram** no Chromium, incluindo contas, recuperação, publicação, categorias, rascunhos, teclado, temas e telas estreitas.
+- `npm run build`: concluído, com os dois avisos de tamanho de mídia e pacotes já existentes.
+- Readiness e SEO locais aprovados em servidor isolado; rotas administrativas de conteúdo, categorias e contas responderam 401 sem sessão. Os cenários de artigos publicados são verificados nas suítes com dados temporários.
+
+As verificações desta auditoria usam bancos temporários e transporte de e-mail simulado. As evidências de hospedagem nas seções seguintes pertencem às publicações anteriores; a atualização desta revisão no Railway e no domínio público precisa de confirmação própria.
 
 ## Animações do painel publicadas
 

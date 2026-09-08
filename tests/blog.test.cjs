@@ -57,6 +57,7 @@ async function fixture(t, env = { NODE_ENV: "test", CMS_LOCAL_PREVIEW: "1" }) {
     app,
     open,
     headers,
+    distDir,
     tick: () => {
       instant = new Date(instant.getTime() + 10000);
     },
@@ -537,6 +538,8 @@ test("Markdown output escapes raw HTML, rejects executable URLs and protects ext
     "[x](vbscript:alert)",
     "[x](//evil.example)",
     "[x][ref]\n\n[ref]: javascript:alert%281%29",
+    "![Foto](mailto:foto@example.com)",
+    "![Foto](#foto)",
   ]) {
     assert.throws(() => validatePost(article({ body })), { statusCode: 400 });
     assert.doesNotMatch(
@@ -554,6 +557,61 @@ test("Markdown output escapes raw HTML, rejects executable URLs and protects ext
     "politica-publica-sao-francisco",
   );
   assert.equal(readingMinutes("palavra ".repeat(441)), 3);
+});
+
+test("Markdown images use the same local asset checks as cover images on save and publication", async (t) => {
+  const { app, headers, distDir } = await fixture(t);
+  const imagePath = path.join(distDir, "assets", "body.png");
+  mkdirSync(path.dirname(imagePath), { recursive: true });
+  const image = await require("sharp")({
+    create: { width: 2, height: 2, channels: 3, background: "#195c67" },
+  })
+    .png()
+    .toBuffer();
+  writeFileSync(imagePath, image);
+
+  for (const body of [
+    "![Foto](/uploads/missing.webp)",
+    "[![Foto][imagem]](https://www.usp.br)\n\n[imagem]: /assets/missing&#46;png",
+    `![Foto](${origin}/uploads/missing.webp)`,
+  ]) {
+    const rejected = await app.inject({
+      method: "POST",
+      url: "/api/admin/blog",
+      headers,
+      payload: { post: article({ body }) },
+    });
+    assert.equal(rejected.statusCode, 400, rejected.body);
+    assert.equal(rejected.json().code, "ASSET_NOT_FOUND");
+    assert.equal(rejected.json().field, "body");
+  }
+
+  const post = await create(
+    app,
+    headers,
+    article({
+      body: "![Foto][imagem]\n\n[imagem]: /assets/body.png\n\n![Remota](https://images.example/body.webp)",
+    }),
+  );
+  rmSync(imagePath);
+  const rejected = await app.inject({
+    method: "POST",
+    url: `/api/admin/blog/${post.id}/publish`,
+    headers,
+    payload: { version: post.version },
+  });
+  assert.equal(rejected.statusCode, 400, rejected.body);
+  assert.equal(rejected.json().field, "body");
+  assert.equal(
+    (await app.inject(`/api/blog/${post.draft.slug}`)).statusCode,
+    404,
+  );
+  const unchanged = (
+    await app.inject({ url: `/api/admin/blog/${post.id}`, headers })
+  ).json().post;
+  assert.equal(unchanged.version, post.version);
+  writeFileSync(imagePath, image);
+  await action(app, headers, post, "publish");
 });
 
 test("blog errors identify duplicate addresses, stale versions and invalid fields distinctly", async (t) => {
