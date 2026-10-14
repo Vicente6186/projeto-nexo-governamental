@@ -2,37 +2,62 @@
 
 Revisão: 13 de outubro de 2026 (horário de Brasília).
 
-## Migração completa com banco gratuito — publicação em preparação
+## Migração concluída: Netlify + Turso gratuitos
 
-O responsável dispensou a recuperação do Railway porque informou que o banco
-antigo não contém dados e solicitou manter banco e painel gratuitos. Foi criado
-o banco `nexo-governamental` no plano Free do Turso; o plano legado do Netlify
-não foi convertido e nenhuma cobrança adicional foi habilitada.
+Site: **https://nexo-governamental.netlify.app/**  
+Painel: **https://nexo-governamental.netlify.app/admin/**
 
-A implementação usa Netlify Functions + Turso/libSQL + Netlify Blobs. Mantém
-a mesma origem pública, HTML do blog renderizado no servidor, login, edição,
-rascunhos, publicação, categorias e armazenamento privado dos originais.
-A home e os arquivos estáticos continuam na CDN. O limite de envio é 4 MB.
-O banco iniciou sem artigos demonstrativos; inscrições encerradas e nenhum
-edital/cronograma antigo publicado automaticamente.
+- Código da migração: `af26dedc140cffa8fbaf0b49330b93083859feb5`, sincronizado
+  com `origin/main`. O deploy atual foi publicado pela CLI a partir desse build.
+- Deploy público verificado: `6aceeae405b16793b8b3f54a` (Netlify Functions,
+  Node.js 24). O domínio antigo foi preservado e não encaminha ao Railway.
+- Banco `nexo-governamental` no **Turso Starter (Free)**, sem cartão cadastrado.
+  **Netlify Free legado** preservado; nenhum upgrade, pagamento ou cobrança
+  adicional por excedentes foi habilitado.
+- O responsável dispensou recuperar o banco antigo. A nova base iniciou sem
+  artigos demonstrativos, com seleção encerrada e sem edital/cronograma antigos.
+  O volume antigo do Railway não foi removido nem alterado.
 
-- Build completo aprovado e **210 testes de lógica aprovados**.
-- Pacote Linux validado isoladamente; bibliotecas nativas presentes. Varredura
-  confirmou ausência de arquivos de dados e dos segredos locais no pacote.
-- Conexão real ao Turso, transação e rollback confirmados. Aplicação inicializada
-  no banco remoto; saúde, blog e sitemap retornaram 200; conteúdo administrativo
-  sem autenticação retornou 401. Nenhum dado de teste foi mantido.
-- Credencial restrita ao novo banco criada com autorização do responsável.
-  Configuração privada do Netlify separada por contexto de produção.
+### Verificações da entrega
+
+- Build completo e **210 testes de lógica aprovados**. Pacote Linux validado
+  isoladamente, com dependências nativas e sem arquivos de dados ou segredos locais.
+- Conexão real ao Turso, transação e rollback confirmados. Login no painel pelo
+  navegador concluído e sessão preservada após recarregar a página.
+- Salvamento e publicação pelo domínio público concluídos, com comparação
+  provando que o conteúdo institucional permaneceu idêntico antes/depois.
+- Upload da marca do Nexo salvo na biblioteca do painel; arquivo público retornou
+  200. Variante de imagem 480 px retornou 200 e cache condicional retornou 304.
+  Originais privados e variantes usam Netlify Blobs; registros usam Turso.
+- Auditoria pública independente: SEO técnico aprovado, 44 arquivos da home,
+  imagem social, arquivo Google e feed responderam 200. Saúde da API: 200.
+- Canonical, título, descrição, H1 único, JSON-LD, robots e sitemaps conferidos.
+  Home/blog permitem indexação; painel e buscas internas têm `noindex`.
+  Prévia e APIs administrativas sem sessão: 401. Arquivos internos e URLs
+  inexistentes: 404 real. Sem artigos publicados para amostragem individual.
+- Site conferido em 390 px sem transbordamento horizontal; painel autenticado
+  conferido em 1.280 px. Capturas em `artifacts/admin-qa/netlify-recovery/` (fora do Git).
 - `npm audit --omit=dev`: nenhuma vulnerabilidade conhecida nas dependências
-  usadas pelo servidor. Isso não se estende às dependências de desenvolvimento.
-- Recuperação por e-mail continua dependente de remetente e Resend configurados;
-  a migração não cria serviço de envio nem promete entrega.
+  usadas pelo servidor; essa conclusão não cobre dependências de desenvolvimento.
 
-A publicação completa e sua verificação pública ainda precisam ser registradas.
-A página institucional abaixo é a última versão publicada confirmada.
+### Operação
 
-## Recuperação da página institucional no Netlify
+As seis variáveis de conexão e acesso ficam no contexto **production** do Netlify.
+Senha administrativa e chave do banco são marcadas como secretas. O plano legado
+permite todos os escopos; limitar só a Functions exige upgrade, que não foi feito.
+Prévias são bloqueadas por padrão antes de abrir banco/mídia e só funcionam com
+opt-in explícito e recursos próprios. Credenciais não fazem parte dos arquivos públicos.
+
+O Netlify usa armazenamento persistente do site para uploads de produção;
+`/tmp` não armazena o banco. Novos deploys seguem a branch `main`. O limite de
+upload é 4 MB. A gratuidade depende das franquias dos provedores; não é ilimitada.
+
+Recuperação por e-mail continua sem remetente/Resend configurados. Login e troca
+de senha autenticada permanecem disponíveis. Os comandos de backup SQLite local
+não exportam Turso/Blobs e não devem ser tratados como backup desta hospedagem.
+Nenhuma posição no Google é garantida pela migração ou pelos testes técnicos.
+
+## Histórico: recuperação parcial da página institucional no Netlify
 
 A página principal voltou ao ar em **https://nexo-governamental.netlify.app/**, servida diretamente pelo Netlify, sem encaminhamento ao Railway. O plano Free legado foi preservado; nenhuma assinatura, pagamento ou mudança de plano foi realizada.
 
@@ -43,7 +68,7 @@ A página principal voltou ao ar em **https://nexo-governamental.netlify.app/**,
 - Endereço canônico, título, descrição, H1, dados estruturados e hash de CSP preservados/verificados. A página principal permite indexação. Nenhuma posição no Google é garantida por essa validação técnica.
 - Verificação visual em 1.280 px e 390 px, sem transbordamento horizontal. Capturas locais em `artifacts/admin-qa/netlify-recovery/` (fora do Git).
 
-**A migração do blog e do painel ainda não está concluída.** Essas rotas retornam 503 temporário com `Retry-After: 3600` e `Cache-Control: no-store`. As rotas públicas do blog não recebem `noindex`; painel e API recebem `noindex, nofollow`. Esse estado é transitório e não preserva a indexação indefinidamente.
+**Naquele deploy, a migração do blog e do painel ainda não estava concluída.** Essas rotas retornavam 503 temporário com `Retry-After: 3600` e `Cache-Control: no-store`. As rotas públicas do blog não recebem `noindex`; painel e API recebem `noindex, nofollow`. Esse estado é transitório e não preserva a indexação indefinidamente.
 
 O Railway mostra a conta bloqueada por fatura pendente e o serviço sem implantação ativa. O volume existente continua em estado `READY`, com aproximadamente 102 MB e sem exclusão pendente no momento da consulta. O comando oficial de download exige implantação ativa, portanto não foi possível recuperar os dados atuais. A cópia local de setembro não foi usada como se fosse atual; rascunhos e credenciais não foram publicados. O volume e os backups existentes não foram removidos ou alterados.
 

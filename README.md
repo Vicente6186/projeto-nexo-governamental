@@ -167,7 +167,9 @@ Os testes de navegador usam Playwright. Se o Chromium ainda não estiver instala
 
 Em produção, o painel usa Netlify Functions, Turso e Netlify Blobs. A publicação
 por GitHub acompanha a branch `main`. Os segredos são variáveis do projeto
-Netlify no contexto **production**, nunca arquivos públicos ou variáveis do build:
+Netlify no contexto **production**, nunca em arquivos públicos ou no código da interface.
+O plano gratuito legado usa todos os escopos; restringir apenas a Functions
+exigiria upgrade. As senhas e chaves são marcadas como secretas:
 
 - `TURSO_DATABASE_URL` e `TURSO_AUTH_TOKEN`: banco e chave restrita a esse banco.
 - `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`: acesso inicial da equipe.
