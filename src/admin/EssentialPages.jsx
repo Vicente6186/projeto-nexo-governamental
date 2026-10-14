@@ -625,7 +625,7 @@ export function SelectionEditor({
             data-field="selection.noticeUrl"
             error={errorFor("noticeUrl")}
             disabled={disabled || uploading}
-            hint="Link oficial ou PDF de até 8 MB."
+            hint="Link oficial ou PDF de até 4 MB."
           />
           {noticeLink && (
             <div className="essentials-document-card">

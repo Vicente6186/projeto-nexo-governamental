@@ -1,32 +1,27 @@
 # Nexo Governamental · site e painel editorial
 
-## Hospedagem pública em recuperação
+## Hospedagem no Netlify com banco gratuito
 
-O build do Netlify usa `npm run build:netlify`: a página institucional e seus
-arquivos são servidos diretamente pela CDN, sem encaminhamento ao Railway.
-Esse modo conserva o domínio e os metadados da página inicial e não utiliza
-o banco local como se fosse uma cópia atual da produção.
+O build `npm run build:netlify` prepara a página institucional e os arquivos
+estáticos para a CDN do Netlify. Blog, painel, API, sitemaps e mídias passam pela
+Function `cms`, com banco **Turso/libSQL** e arquivos **Netlify Blobs**. O domínio
+público permanece `https://nexo-governamental.netlify.app`, sem proxy para o Railway.
+Consulte `GO_LIVE_STATUS.md` para distinguir implementação de publicação verificada.
 
-Enquanto o banco editorial mais recente não for recuperado, blog, painel, API
-e arquivos enviados respondem **503**, com indicação temporária e `Retry-After`.
-As URLs públicas do blog não recebem `noindex`, redirecionamento para a home
-ou um falso resultado vazio. A página inicial orienta a confirmar o processo
-seletivo pelo contato institucional, pois seu estado remoto não foi recuperado.
-O sitemap mantém a referência ao sitemap do blog, também temporariamente
-indisponível, em vez de declarar que não existem artigos publicados.
+O responsável informou que não há dados antigos a recuperar e autorizou começar
+com um banco vazio. Não importar a cópia local de setembro nem publicar rascunhos
+demonstrativos. O conteúdo inicial mantém as inscrições encerradas até revisão
+da equipe. Nenhum volume antigo do Railway precisa ser removido.
 
-Isso restaura a página institucional, **não conclui a migração do CMS**. O código
-original do painel e do servidor continua disponível no build normal e no
-desenvolvimento local descritos abaixo. Não publicar `data/`, senhas ou rascunhos.
-Para concluir a migração gratuita, recuperar os dados atuais, configurar
-persistência transacional compatível com Functions e validar os fluxos de edição.
-Não substituir a base remota pela cópia local de setembro sem comparação.
+O plano Free legado do Netlify e o plano Free do Turso são preservados. Não
+habilitar cobranças por excedentes, recargas ou migração de plano. As franquias
+são limitadas e compartilhadas com os demais projetos de cada conta; acompanhe
+[Netlify](https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-legacy-plans/)
+e [Turso](https://turso.tech/pricing). A gratuidade não significa uso ilimitado.
 
-O plano Free legado do Netlify foi preservado. Novos planos, recargas e serviços
-pagos não fazem parte desta recuperação. A franquia é compartilhada com os
-outros projetos da conta; a gratuidade não significa uso ilimitado.
-
-Site institucional e blog do Nexo Governamental XI de Agosto, organização estudantil da Faculdade de Direito da USP, com painel em **React + Tailwind CSS**, API em **Node.js 24 + Fastify** e persistência em **SQLite**. A equipe mantém o processo seletivo, os canais de contato e os artigos em `/admin`.
+O site usa React + Tailwind no painel e Node.js 24 + Fastify na API. O modo local
+continua usando SQLite em disco; a Function exige credenciais remotas e não
+substitui silenciosamente o banco por armazenamento temporário.
 
 ## Rodar no computador
 
@@ -74,7 +69,7 @@ As etapas cadastradas substituem a imagem antiga do cronograma quando são publi
 
 Os botões **Continuar** e **Voltar** apenas navegam entre as etapas; os dados preenchidos e o salvamento de rascunhos são preservados. Campos opcionais ficam recolhidos, e erros direcionam à etapa e ao campo que precisam de correção. Em **Meu acesso**, a alteração de senha aparece somente ao abrir essa opção. O cadastro de integrante segue duas etapas: **Pessoa** e **Permissões e senha**; o acesso só é criado na confirmação final.
 
-O edital pode ser enviado diretamente na página do processo seletivo. A biblioteca de capas fica dentro do editor do blog, sem uma área separada de gerenciamento do site. Os uploads aceitam imagens PNG, JPEG, WebP e AVIF, além de PDFs, com limite de 8 MB por arquivo. As imagens são decodificadas e verificadas antes de salvar; imagens corrompidas ou animadas, maiores que 40 megapixels ou com dimensão acima de 16.000 pixels são recusadas. A versão pública é convertida para WebP com dimensão máxima de 2.400 pixels; o original permanece privado em `originals/`. Os arquivos enviados recebem uma URL pública; envie apenas materiais destinados ao site. O registro interno das alterações permanece no banco, sem oferecer restauração de versões do site no painel simplificado.
+O edital pode ser enviado diretamente na página do processo seletivo. A biblioteca de capas fica dentro do editor do blog, sem uma área separada de gerenciamento do site. Os uploads aceitam imagens PNG, JPEG, WebP e AVIF, além de PDFs, com limite de 4 MB por arquivo. As imagens são decodificadas e verificadas antes de salvar; imagens corrompidas ou animadas, maiores que 40 megapixels ou com dimensão acima de 16.000 pixels são recusadas. A versão pública é convertida para WebP com dimensão máxima de 2.400 pixels; o original permanece privado em `originals/`. Os arquivos enviados recebem uma URL pública; envie apenas materiais destinados ao site. O registro interno das alterações permanece no banco, sem oferecer restauração de versões do site no painel simplificado.
 
 O painel destaca a publicação concluída com uma tela verde em tela cheia, exibida somente depois da confirmação do servidor. Ela permite abrir a publicação, copiar o link e continuar no painel, sem tempo de espera obrigatório. Na prévia local, o texto e o link identificam esse ambiente. Salvar rascunhos continua sendo uma ação discreta, sem interromper a escrita.
 
@@ -170,7 +165,27 @@ Os testes de navegador usam Playwright. Se o Chromium ainda não estiver instala
 
 ## Uso pela equipe
 
-O painel usa o Fastify no Railway, com volume persistente. O serviço Railway usa o Dockerfile e o healthcheck configurados diretamente no provedor; `netlify.toml` encaminha todas as rotas ao serviço Node, preservando `https://nexo-governamental.netlify.app` como origem do site, painel e artigos. O Netlify sozinho não executa esta API. Consulte `GO_LIVE_STATUS.md` para a evidência do último deploy e as pendências operacionais.
+Em produção, o painel usa Netlify Functions, Turso e Netlify Blobs. A publicação
+por GitHub acompanha a branch `main`. Os segredos são variáveis do projeto
+Netlify no contexto **production**, nunca arquivos públicos ou variáveis do build:
+
+- `TURSO_DATABASE_URL` e `TURSO_AUTH_TOKEN`: banco e chave restrita a esse banco.
+- `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`: acesso inicial da equipe.
+- `CMS_ORIGIN=https://nexo-governamental.netlify.app` e `CMS_STORAGE=netlify-blobs`.
+- `NODE_ENV=production`, `CMS_LOCAL_PREVIEW=0`; o adaptador usa apenas o IP informado pelo Netlify.
+
+Prévias precisam de banco e credenciais próprios e de `CMS_ALLOW_PREVIEW=1`
+explicitamente configurado. Não disponibilize o banco de produção em todos os contextos. Arquivos de prévia usam o armazenamento vinculado
+ao deploy; os de produção usam um armazenamento persistente do site. O original
+de cada imagem permanece privado e não possui rota pública.
+
+A pasta `/tmp/nexo` da Function serve apenas a necessidades temporárias. O banco
+e a mídia persistem nos provedores, inclusive depois de novas publicações.
+O agendador e os comandos de backup SQLite descritos abaixo são **somente para
+instalações locais/contêineres**: eles não exportam Turso nem Netlify Blobs. Não
+trate uma cópia de `data/` como backup da hospedagem Netlify.
+
+Para outra instalação local ou em contêiner, use as configurações abaixo.
 
 Prepare o `.env` do ambiente de destino:
 
@@ -208,19 +223,12 @@ NODE_ENV=production npm start
 
 Consulte `.env.example` para desenvolvimento e `deploy/production.env.example` para produção. Variáveis já definidas no ambiente têm precedência sobre o arquivo `.env`. O comando `npm start` não muda o modo por conta própria: use `NODE_ENV=production npm start` com a origem HTTPS e as credenciais corretas. Não adicione arquivos de ambiente preenchidos, senhas, bancos ou uploads ao Git.
 
-### Configuração do Railway
+### Railway anterior
 
-O serviço existente tem um volume em `/app/data`, dados em `/app/data/nexo`, uma instância, `RAILWAY_DOCKERFILE_PATH=Dockerfile` e `RAILWAY_RUN_UID=0`. O ponto de entrada ajusta a propriedade do volume e reduz o processo da aplicação para UID/GID 1000 antes de abrir o banco. No provedor, configure healthcheck `/api/health`, timeout de 120 segundos e reinício `ON_FAILURE` com até cinco tentativas. As credenciais ficam nas variáveis privadas do serviço.
-
-Não dependa de `railway.toml` em um serviço novo: a configuração legada não é aplicada a novos serviços. Os parâmetros desta instalação foram aplicados diretamente e conferidos pela API do Railway. Consulte a [documentação atual de configuração](https://docs.railway.com/infrastructure-as-code) antes de automatizar infraestrutura adicional.
-
-Para publicar código neste projeto existente, após build, testes e backup:
-
-```sh
-railway up --project 8e16e118-4df9-4a36-90ec-4c1f028fe8e6 --service e58610d1-209f-4a88-934a-4d2b48470c35 --environment 7cf6409e-1d76-40eb-b468-e53d0524735c --detach --json
-```
-
-Acompanhe até `SUCCESS` e repita as verificações pelo domínio Netlify. O upload da CLI não configura publicação automática por GitHub. Preserve o volume e nunca use uma pasta temporária como `DATA_DIR` da aplicação pública.
+O projeto anterior foi desativado pelo provedor por cobrança pendente e não é
+mais necessário para esta arquitetura. Não reativar plano pago para publicar no
+Netlify. O código Docker abaixo continua disponível para hospedagem alternativa,
+mas não participa da Function.
 
 ### Docker
 

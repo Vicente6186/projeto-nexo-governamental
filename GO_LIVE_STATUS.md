@@ -2,6 +2,36 @@
 
 Revisão: 13 de outubro de 2026 (horário de Brasília).
 
+## Migração completa com banco gratuito — publicação em preparação
+
+O responsável dispensou a recuperação do Railway porque informou que o banco
+antigo não contém dados e solicitou manter banco e painel gratuitos. Foi criado
+o banco `nexo-governamental` no plano Free do Turso; o plano legado do Netlify
+não foi convertido e nenhuma cobrança adicional foi habilitada.
+
+A implementação usa Netlify Functions + Turso/libSQL + Netlify Blobs. Mantém
+a mesma origem pública, HTML do blog renderizado no servidor, login, edição,
+rascunhos, publicação, categorias e armazenamento privado dos originais.
+A home e os arquivos estáticos continuam na CDN. O limite de envio é 4 MB.
+O banco iniciou sem artigos demonstrativos; inscrições encerradas e nenhum
+edital/cronograma antigo publicado automaticamente.
+
+- Build completo aprovado e **210 testes de lógica aprovados**.
+- Pacote Linux validado isoladamente; bibliotecas nativas presentes. Varredura
+  confirmou ausência de arquivos de dados e dos segredos locais no pacote.
+- Conexão real ao Turso, transação e rollback confirmados. Aplicação inicializada
+  no banco remoto; saúde, blog e sitemap retornaram 200; conteúdo administrativo
+  sem autenticação retornou 401. Nenhum dado de teste foi mantido.
+- Credencial restrita ao novo banco criada com autorização do responsável.
+  Configuração privada do Netlify separada por contexto de produção.
+- `npm audit --omit=dev`: nenhuma vulnerabilidade conhecida nas dependências
+  usadas pelo servidor. Isso não se estende às dependências de desenvolvimento.
+- Recuperação por e-mail continua dependente de remetente e Resend configurados;
+  a migração não cria serviço de envio nem promete entrega.
+
+A publicação completa e sua verificação pública ainda precisam ser registradas.
+A página institucional abaixo é a última versão publicada confirmada.
+
 ## Recuperação da página institucional no Netlify
 
 A página principal voltou ao ar em **https://nexo-governamental.netlify.app/**, servida diretamente pelo Netlify, sem encaminhamento ao Railway. O plano Free legado foi preservado; nenhuma assinatura, pagamento ou mudança de plano foi realizada.
@@ -17,7 +47,7 @@ A página principal voltou ao ar em **https://nexo-governamental.netlify.app/**,
 
 O Railway mostra a conta bloqueada por fatura pendente e o serviço sem implantação ativa. O volume existente continua em estado `READY`, com aproximadamente 102 MB e sem exclusão pendente no momento da consulta. O comando oficial de download exige implantação ativa, portanto não foi possível recuperar os dados atuais. A cópia local de setembro não foi usada como se fosse atual; rascunhos e credenciais não foram publicados. O volume e os backups existentes não foram removidos ou alterados.
 
-Próxima dependência: obter uma exportação atual do banco e dos arquivos, preferencialmente por uma liberação gratuita do Railway. Após a recuperação, será necessário concluir a adaptação da persistência do painel para um serviço gratuito compatível com funções. A documentação e os resultados de setembro abaixo são históricos e não representam disponibilidade atual do blog/painel.
+A dependência de exportar o Railway foi dispensada posteriormente pelo responsável. A documentação e os resultados de setembro abaixo são históricos e não representam disponibilidade atual do blog/painel.
 
 ## Histórico de setembro de 2026
 

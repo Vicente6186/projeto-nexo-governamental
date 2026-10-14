@@ -56,8 +56,7 @@ export default async function recovery(request) {
   const pathname = new URL(request.url).pathname;
   const api = pathname.startsWith("/api/");
   const admin = pathname === "/admin" || pathname.startsWith("/admin/");
-  const document =
-    pathname === "/blog/sitemap.xml" || pathname === "/blog/feed.xml";
+  const document = pathname.endsWith(".xml") || pathname === "/robots.txt";
   const headers = {
     "Cache-Control": "no-store",
     "Retry-After": "3600",
@@ -84,15 +83,3 @@ export default async function recovery(request) {
     headers,
   });
 }
-
-export const config = {
-  path: [
-    "/blog",
-    "/blog/*",
-    "/admin",
-    "/admin/*",
-    "/api/*",
-    "/uploads/*",
-    "/media/*",
-  ],
-};

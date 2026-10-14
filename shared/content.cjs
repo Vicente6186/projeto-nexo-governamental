@@ -208,12 +208,11 @@ const DEFAULT_CONTENT = {
     description: "",
     opensAt: "",
     closesAt: "",
-    noticeUrl:
-      "https://docs.google.com/document/d/1bq4BziBdcmhQVTp_dTgfuEn6KwCJk6_Nc6uIWjywXgs/edit?usp=drivesdk",
+    noticeUrl: "",
     applicationUrl: "",
     buttonLabel: "Inscreva-se",
-    scheduleTitle: "Confira o Cronograma de inscrição ⬇️",
-    scheduleImage: "/assets/selective-process.avif",
+    scheduleTitle: "Cronograma",
+    scheduleImage: "",
     stages: [],
   },
 };

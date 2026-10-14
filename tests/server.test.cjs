@@ -350,6 +350,19 @@ test("selection and contact drafts persist across restarts and publication is ex
 test("publishing a structured schedule retires the historical image and clearing stages never restores it", async (t) => {
   const { app, dataDir } = await fixture(t);
   const headers = await localLogin(app);
+  const historicalContent = copy(DEFAULT_CONTENT);
+  historicalContent.selection.scheduleImage = "/assets/selective-process.avif";
+  const historicalDatabase = new DatabaseSync(path.join(dataDir, "nexo.sqlite"));
+  try {
+    const historicalJson = JSON.stringify(historicalContent);
+    historicalDatabase.prepare("UPDATE content SET published = ?, draft = ? WHERE id = 1").run(
+      historicalJson,
+      historicalJson,
+    );
+    historicalDatabase.prepare("UPDATE history SET content = ? WHERE action = 'initialized'").run(historicalJson);
+  } finally {
+    historicalDatabase.close();
+  }
   const original = await getState(app, headers);
   assert.ok(original.published.selection.scheduleImage);
   const draft = copy(original.draft);

@@ -28,6 +28,7 @@ function registerCategories(
     actorFor,
     requireAuth,
     requireMutation,
+    indexDraft,
   },
 ) {
   db.exec(`CREATE TABLE IF NOT EXISTS blog_categories (
@@ -142,14 +143,17 @@ function registerCategories(
       if (draft.category === from) draft.category = to;
       const publicChanged = published?.category === from;
       if (publicChanged) published.category = to;
+      const index = indexDraft(draft);
       // Only replace the category in each snapshot; pending edits stay unpublished.
       db.prepare(
-        "UPDATE blog_posts SET draft = ?, published = ?, version = version + 1, updated_at = ?, published_updated_at = ? WHERE id = ?",
+        "UPDATE blog_posts SET draft = ?, published = ?, version = version + 1, updated_at = ?, published_updated_at = ?, draft_search = ?, draft_reading_minutes = ? WHERE id = ?",
       ).run(
         JSON.stringify(draft),
         published ? JSON.stringify(published) : null,
         timestamp(),
         publicChanged ? timestamp() : row.published_updated_at,
+        index.search,
+        index.readingMinutes,
         row.id,
       );
       snapshot(

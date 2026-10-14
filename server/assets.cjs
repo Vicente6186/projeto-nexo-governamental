@@ -2,7 +2,7 @@ const path = require("node:path");
 const { statSync, realpathSync } = require("node:fs");
 const { ValidationError } = require("./validation.cjs");
 
-function createAssetValidator(db, { dataDir, distDir, origins }) {
+function createAssetValidator(db, { dataDir, distDir, origins, storage }) {
   const isFileWithin = (root, target) => {
     try {
       const resolved = realpathSync(target);
@@ -26,10 +26,11 @@ function createAssetValidator(db, { dataDir, distDir, origins }) {
       const asset = db.prepare("SELECT * FROM assets WHERE url = ?").get(url);
       if (
         !asset ||
-        !isFileWithin(
-          path.join(dataDir, "uploads"),
-          path.join(dataDir, "uploads", path.basename(url)),
-        )
+        (!storage?.remote &&
+          !isFileWithin(
+            path.join(dataDir, "uploads"),
+            path.join(dataDir, "uploads", path.basename(url)),
+          ))
       )
         throw new ValidationError(
           "Este arquivo não está mais disponível. Envie ou selecione o arquivo novamente.",
@@ -149,18 +150,110 @@ async function prepareImage(buffer) {
 }
 
 function migrateAssets(db) {
-  const columns = new Set(
-    db
-      .prepare("PRAGMA table_info(assets)")
-      .all()
-      .map((column) => column.name),
-  );
-  for (const [name, type] of [
-    ["width", "INTEGER"],
-    ["height", "INTEGER"],
-    ["original_path", "TEXT"],
-  ])
-    if (!columns.has(name))
-      db.exec(`ALTER TABLE assets ADD COLUMN ${name} ${type}`);
+  // Several function instances can initialize at once; serialize the check
+  // and alteration so a second cold start observes the committed schema.
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const columns = new Set(
+      db
+        .prepare("PRAGMA table_info(assets)")
+        .all()
+        .map((column) => column.name),
+    );
+    for (const [name, type] of [
+      ["width", "INTEGER"],
+      ["height", "INTEGER"],
+      ["original_path", "TEXT"],
+    ])
+      if (!columns.has(name))
+        db.exec(`ALTER TABLE assets ADD COLUMN ${name} ${type}`);
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
 }
-module.exports = { createAssetValidator, prepareImage, migrateAssets };
+
+async function persistAssetUpload({
+  db,
+  storage,
+  asset,
+  prepared,
+  original,
+  detected,
+  verifySession = () => {},
+}) {
+  const destination = `uploads/${asset.id}.${prepared.extension}`;
+  const originalRelative = detected.type.startsWith("image/")
+    ? `originals/${asset.id}.${detected.extension}`
+    : null;
+  const saved = [];
+  try {
+    await storage.write(destination, prepared.buffer, {
+      type: prepared.type,
+      exclusive: true,
+    });
+    saved.push(destination);
+    if (originalRelative) {
+      await storage.write(originalRelative, original, {
+        type: detected.type,
+        exclusive: true,
+      });
+      saved.push(originalRelative);
+    }
+    // Uploading to durable storage can outlive a logout in another tab.
+    verifySession();
+    db.prepare(
+      "INSERT INTO assets (id, name, url, type, size, created_at, width, height, original_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    ).run(
+      asset.id,
+      asset.name,
+      asset.url,
+      asset.type,
+      asset.size,
+      asset.createdAt,
+      asset.width,
+      asset.height,
+      originalRelative,
+    );
+  } catch (error) {
+    const cleanup = await Promise.allSettled(
+      saved.map((key) => storage.remove(key)),
+    );
+    const failed = cleanup.find((result) => result.status === "rejected");
+    if (failed) error.cause = failed.reason;
+    throw error;
+  }
+}
+
+function registerUploadRoutes(app, { db, storage }) {
+  app.get("/uploads/:filename", async (request, reply) => {
+    const filename = request.params.filename;
+    if (!/^[a-zA-Z0-9_-]+\.(?:png|jpe?g|webp|avif|pdf)$/.test(filename))
+      return reply.code(404).send({ error: "Arquivo não encontrado." });
+    const asset = db
+      .prepare("SELECT type FROM assets WHERE url = ?")
+      .get(`/uploads/${filename}`);
+    if (!asset)
+      return reply.code(404).send({ error: "Arquivo não encontrado." });
+    const buffer = await storage.read(`uploads/${filename}`);
+    if (!buffer)
+      return reply.code(404).send({ error: "Arquivo não encontrado." });
+    reply
+      .header("X-Content-Type-Options", "nosniff")
+      .header("Content-Security-Policy", "default-src 'none'; sandbox")
+      .header("Cache-Control", "public, max-age=86400")
+      .type(asset.type);
+    if (asset.type === "application/pdf")
+      reply.header("Content-Disposition", "attachment");
+    return reply.send(buffer);
+  });
+}
+
+module.exports = {
+  createAssetValidator,
+  prepareImage,
+  migrateAssets,
+  persistAssetUpload,
+  registerUploadRoutes,
+};

@@ -36,6 +36,59 @@ const normalize = (value) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
+const indexDraft = (post) => ({
+  search: normalize(
+    [
+      post.title,
+      post.excerpt,
+      post.author,
+      post.category,
+      JSON.stringify(post.tags || []),
+    ].join(" "),
+  ),
+  readingMinutes: readingMinutes(post.body),
+});
+
+function migrateBlogIndex(db) {
+  const readColumns = () =>
+    new Set(
+      db
+        .prepare("PRAGMA table_info(blog_posts)")
+        .all()
+        .map((column) => column.name),
+    );
+  const current = readColumns();
+  if (current.has("draft_search") && current.has("draft_reading_minutes"))
+    return;
+  // The write lock spans schema inspection and alteration: concurrent cold
+  // starts must not both attempt to add the same legacy column.
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const columns = readColumns();
+    const missingSearch = !columns.has("draft_search");
+    const missingMinutes = !columns.has("draft_reading_minutes");
+    if (missingSearch)
+      db.exec(
+        "ALTER TABLE blog_posts ADD COLUMN draft_search TEXT NOT NULL DEFAULT ''",
+      );
+    if (missingMinutes)
+      db.exec(
+        "ALTER TABLE blog_posts ADD COLUMN draft_reading_minutes INTEGER NOT NULL DEFAULT 1",
+      );
+    if (missingSearch || missingMinutes) {
+      for (const row of db.prepare("SELECT id, draft FROM blog_posts").all()) {
+        const index = indexDraft(JSON.parse(row.draft));
+        db.prepare(
+          "UPDATE blog_posts SET draft_search = ?, draft_reading_minutes = ? WHERE id = ?",
+        ).run(index.search, index.readingMinutes, row.id);
+      }
+    }
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
 
 function registerBlog(
   app,
@@ -59,7 +112,9 @@ function registerBlog(
       updated_at TEXT NOT NULL,
       archived INTEGER NOT NULL DEFAULT 0,
       draft_slug TEXT UNIQUE,
-      published_slug TEXT UNIQUE
+      published_slug TEXT UNIQUE,
+      draft_search TEXT NOT NULL DEFAULT '',
+      draft_reading_minutes INTEGER NOT NULL DEFAULT 1
     );
     CREATE INDEX IF NOT EXISTS blog_publication ON blog_posts (archived, published_at DESC);
     CREATE TABLE IF NOT EXISTS blog_revisions (
@@ -75,8 +130,7 @@ function registerBlog(
     );
     CREATE INDEX IF NOT EXISTS blog_revision_history ON blog_revisions (post_id, created_at DESC);
   `);
-  db.function("blog_normalize", { deterministic: true }, normalize);
-  db.function("blog_reading_minutes", { deterministic: true }, readingMinutes);
+  migrateBlogIndex(db);
   const timestamp = () => now().toISOString();
   const find = (id) =>
     typeof id === "string" && id.length <= 80
@@ -163,6 +217,7 @@ function registerBlog(
     actorFor,
     requireAuth,
     requireMutation,
+    indexDraft,
   });
   const validateDraft = (value, options) => {
     const post = validatePost(value, {
@@ -181,9 +236,17 @@ function registerBlog(
   const insert = (post, actor) => {
     assertSlug(post.slug);
     const id = randomUUID();
+    const index = indexDraft(post);
     db.prepare(
-      "INSERT INTO blog_posts (id, draft, version, updated_at, draft_slug) VALUES (?, ?, 1, ?, ?)",
-    ).run(id, JSON.stringify(post), timestamp(), post.slug || null);
+      "INSERT INTO blog_posts (id, draft, version, updated_at, draft_slug, draft_search, draft_reading_minutes) VALUES (?, ?, 1, ?, ?, ?, ?)",
+    ).run(
+      id,
+      JSON.stringify(post),
+      timestamp(),
+      post.slug || null,
+      index.search,
+      index.readingMinutes,
+    );
     const row = find(id);
     snapshot(row, "create", actor);
     return record(row);
@@ -208,9 +271,28 @@ function registerBlog(
   }
 
   // Preserve the current state of articles created before revision history existed.
-  transaction(() => {
-    for (const row of allRows()) snapshot(row, "baseline", null);
-  });
+  if (
+    !db
+      .prepare(
+        "SELECT value FROM settings WHERE key = 'blog_revisions_initialized'",
+      )
+      .get()
+  ) {
+    transaction(() => {
+      if (
+        db
+          .prepare(
+            "SELECT value FROM settings WHERE key = 'blog_revisions_initialized'",
+          )
+          .get()
+      )
+        return;
+      for (const row of allRows()) snapshot(row, "baseline", null);
+      db.prepare(
+        "INSERT INTO settings (key, value) VALUES ('blog_revisions_initialized', ?)",
+      ).run(timestamp());
+    });
+  }
 
   function adminList(query) {
     const search = normalize(
@@ -225,9 +307,7 @@ function registerBlog(
       values.push(category);
     }
     if (search) {
-      filters.push(
-        "instr(blog_normalize(json_extract(draft, '$.title') || ' ' || json_extract(draft, '$.excerpt') || ' ' || json_extract(draft, '$.author') || ' ' || json_extract(draft, '$.category') || ' ' || json_extract(draft, '$.tags')), ?) > 0",
-      );
+      filters.push("instr(draft_search, ?) > 0");
       values.push(search);
     }
     const where = filters.length ? filters.join(" AND ") : "1 = 1";
@@ -264,7 +344,7 @@ function registerBlog(
       CASE WHEN published IS NULL THEN NULL ELSE json_remove(published, '$.body') END AS published,
       version, published_at, updated_at, archived,
       CASE WHEN published IS NOT NULL AND draft != published THEN 1 ELSE 0 END AS has_changes,
-      blog_reading_minutes(json_extract(draft, '$.body')) AS reading_minutes
+      draft_reading_minutes AS reading_minutes
       FROM blog_posts WHERE ${where} AND ${statusFilters[status]}
       ORDER BY updated_at DESC, rowid DESC LIMIT 12 OFFSET ?`,
       )
@@ -487,9 +567,18 @@ function registerBlog(
           );
         assertSlug(post.slug, id);
         if (JSON.stringify(post) === row.draft) return { post: record(row) };
+        const index = indexDraft(post);
         db.prepare(
-          "UPDATE blog_posts SET draft = ?, draft_slug = ?, version = ?, updated_at = ? WHERE id = ?",
-        ).run(JSON.stringify(post), post.slug || null, nextVersion, at, id);
+          "UPDATE blog_posts SET draft = ?, draft_slug = ?, version = ?, updated_at = ?, draft_search = ?, draft_reading_minutes = ? WHERE id = ?",
+        ).run(
+          JSON.stringify(post),
+          post.slug || null,
+          nextVersion,
+          at,
+          index.search,
+          index.readingMinutes,
+          id,
+        );
       } else if (action === "publish") {
         const post = validateDraft(draft, { publishing: true });
         assertSlug(post.slug, id);
@@ -538,9 +627,18 @@ function registerBlog(
         const post = validateDraft(previous);
         assertSlug(post.slug, id);
         if (JSON.stringify(post) === row.draft) return { post: record(row) };
+        const index = indexDraft(post);
         db.prepare(
-          "UPDATE blog_posts SET draft = ?, draft_slug = ?, version = ?, updated_at = ? WHERE id = ?",
-        ).run(JSON.stringify(post), post.slug || null, nextVersion, at, id);
+          "UPDATE blog_posts SET draft = ?, draft_slug = ?, version = ?, updated_at = ?, draft_search = ?, draft_reading_minutes = ? WHERE id = ?",
+        ).run(
+          JSON.stringify(post),
+          post.slug || null,
+          nextVersion,
+          at,
+          index.search,
+          index.readingMinutes,
+          id,
+        );
       } else {
         db.prepare(
           "UPDATE blog_posts SET archived = 0, version = ?, updated_at = ? WHERE id = ?",
@@ -573,4 +671,4 @@ function registerBlog(
   return service;
 }
 
-module.exports = { registerBlog };
+module.exports = { registerBlog, migrateBlogIndex };

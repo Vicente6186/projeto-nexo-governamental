@@ -5,7 +5,7 @@ const sharp = require("sharp");
 
 const WIDTHS = [480, 768, 1200, 1920];
 
-function registerBlogImages(app, { db, config }) {
+function registerBlogImages(app, { db, config, storage }) {
   const metadata = new Map();
   const cache = new Map();
   const pending = new Map();
@@ -48,13 +48,26 @@ function registerBlogImages(app, { db, config }) {
       match[2].split("/").some((part) => !part || part === "." || part === "..")
     )
       return null;
-    if (
-      match[1] === "uploads" &&
-      !db
-        .prepare("SELECT id FROM assets WHERE url = ? AND type LIKE 'image/%'")
-        .get(url.pathname)
-    )
-      return null;
+    if (match[1] === "uploads") {
+      const asset = db
+        .prepare("SELECT * FROM assets WHERE url = ? AND type LIKE 'image/%'")
+        .get(url.pathname);
+      if (!asset) return null;
+      if (storage?.remote) {
+        if (asset.size > 20 * 1024 * 1024 || match[2].includes("/"))
+          return null;
+        const key = createHash("sha256")
+          .update(`${asset.id}:${asset.url}:${asset.size}:${asset.created_at}`)
+          .digest("hex");
+        return {
+          key,
+          pathname: url.pathname,
+          blobKey: `uploads/${match[2]}`,
+          width: asset.width,
+          height: asset.height,
+        };
+      }
+    }
     const root =
       match[1] === "uploads"
         ? path.join(config.dataDir, "uploads")
@@ -76,9 +89,13 @@ function registerBlogImages(app, { db, config }) {
     }
   }
   async function dimensions(file) {
+    if (file.blobKey && file.width > 0 && file.height > 0)
+      return { width: file.width, height: file.height };
     if (metadata.has(file.key)) return metadata.get(file.key);
     try {
-      const info = await sharp(file.file, {
+      const input = file.blobKey ? await storage.read(file.blobKey) : file.file;
+      if (!input) return null;
+      const info = await sharp(input, {
         limitInputPixels: 40_000_000,
       }).metadata();
       if (!info.width || !info.height || (info.pages || 1) !== 1) return null;
@@ -127,8 +144,23 @@ function registerBlogImages(app, { db, config }) {
           return reply
             .header("Cache-Control", "no-store")
             .redirect(file.pathname);
-        const job = optimize(file.file, width)
+        const job = (async () => {
+          const variantKey = `variants/${key}.webp`;
+          if (storage?.remote) {
+            const saved = await storage.read(variantKey);
+            if (saved) return saved;
+          }
+          const input = file.blobKey
+            ? await storage.read(file.blobKey)
+            : file.file;
+          if (!input) return null;
+          const value = await optimize(input, width);
+          if (storage?.remote)
+            await storage.write(variantKey, value, { type: "image/webp" });
+          return value;
+        })()
           .then((value) => {
+            if (!value) return null;
             while (cache.size && bytes + value.length > 32 * 1024 * 1024) {
               const oldest = cache.keys().next().value;
               bytes -= cache.get(oldest).length;
@@ -145,16 +177,22 @@ function registerBlogImages(app, { db, config }) {
       }
       try {
         buffer = await pending.get(key);
-      } catch {
+      } catch (error) {
+        app.log.error({ err: error }, "Não foi possível preparar a imagem.");
         return reply
           .header("Cache-Control", "no-store")
-          .code(404)
-          .send({ error: "Imagem não encontrada." });
+          .code(storage?.remote ? 503 : 404)
+          .send({ error: "Imagem temporariamente indisponível." });
       }
     } else {
       cache.delete(key);
       cache.set(key, buffer);
     }
+    if (!buffer)
+      return reply
+        .header("Cache-Control", "no-store")
+        .code(404)
+        .send({ error: "Imagem não encontrada." });
     return reply.type("image/webp").send(buffer);
   });
   app.addHook("onClose", async () => {

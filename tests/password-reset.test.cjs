@@ -155,6 +155,44 @@ test("request responses do not enumerate accounts and never await email delivery
   }
 });
 
+test("serverless drain waits for mail delivery and leaves the app reusable", async (t) => {
+  let release;
+  let completed = 0;
+  const pending = new Promise((resolve) => {
+    release = resolve;
+  });
+  const { app, tick } = await fixture(t, {
+    sender: {
+      configured: true,
+      async sendReset() {
+        await pending;
+        completed++;
+      },
+    },
+  });
+  try {
+    assert.equal((await request(app)).statusCode, 202);
+    let drained = false;
+    const delivery = app.drainBackgroundJobs().then(() => {
+      drained = true;
+    });
+    await flush();
+    assert.equal(drained, false);
+    assert.equal(completed, 0);
+    release();
+    await delivery;
+    assert.equal(completed, 1);
+    assert.equal((await app.inject("/api/session")).statusCode, 200);
+
+    tick(60_001);
+    assert.equal((await request(app)).statusCode, 202);
+    await app.drainBackgroundJobs();
+    assert.equal(completed, 2);
+  } finally {
+    release();
+  }
+});
+
 test("configuration and origin are global gates, independent of account existence", async (t) => {
   const { app } = await fixture(t, {
     sender: {

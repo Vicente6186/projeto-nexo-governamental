@@ -930,8 +930,8 @@ export default function BlogWorkspace({
       notify?.("Escolha uma imagem JPG, PNG, WebP ou AVIF.", true);
       return;
     }
-    if (file.size > 8 * 1024 * 1024) {
-      notify?.("A imagem deve ter até 8 MB.", true);
+    if (file.size > 4 * 1024 * 1024) {
+      notify?.("A imagem deve ter até 4 MB.", true);
       return;
     }
     const startingPost = activeId.current;
@@ -1787,7 +1787,7 @@ export default function BlogWorkspace({
                         <ImageIcon size={27} strokeWidth={1.3} />
                         <strong>Adicionar capa</strong>
                         <span>Arraste uma imagem ou clique para escolher</span>
-                        <span>JPG, PNG, WebP ou AVIF · até 8 MB</span>
+                        <span>JPG, PNG, WebP ou AVIF · até 4 MB</span>
                       </button>
                     )}
                   </div>

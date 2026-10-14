@@ -3,12 +3,11 @@ const cookie = require("@fastify/cookie");
 const rateLimit = require("@fastify/rate-limit");
 const multipart = require("@fastify/multipart");
 const staticFiles = require("@fastify/static");
-const { DatabaseSync } = require("node:sqlite");
+const { openDatabase } = require("./database.cjs");
+const { createStorage } = require("./storage.cjs");
 const {
   mkdirSync,
   existsSync,
-  writeFileSync,
-  unlinkSync,
   chmodSync,
   readFileSync,
 } = require("node:fs");
@@ -39,12 +38,14 @@ const {
   createAssetValidator,
   prepareImage,
   migrateAssets,
+  persistAssetUpload,
+  registerUploadRoutes,
 } = require("./assets.cjs");
 const { isIP } = require("node:net");
 
 const COOKIE_NAME = "nexo_session";
 const SESSION_MS = 12 * 60 * 60 * 1000;
-const MAX_FILE_SIZE = 8 * 1024 * 1024;
+const MAX_FILE_SIZE = 4 * 1024 * 1024;
 const digest = (value) => createHash("sha256").update(value).digest("hex");
 const token = () => randomBytes(32).toString("hex");
 const isLoopback = (address) =>
@@ -190,11 +191,17 @@ async function buildApp(options = {}) {
   const uploadsDir = path.join(config.dataDir, "uploads");
   mkdirSync(uploadsDir, { recursive: true, mode: 0o700 });
   const databasePath = path.join(config.dataDir, "nexo.sqlite");
-  const db = new DatabaseSync(databasePath);
-  chmodSync(databasePath, 0o600);
+  const db = options.database || openDatabase({
+    filename: databasePath,
+    url: env.TURSO_DATABASE_URL,
+    authToken: env.TURSO_AUTH_TOKEN,
+  });
+  if (!db.remote) {
+    chmodSync(databasePath, 0o600);
+    db.exec("PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;");
+  }
+  const storage = options.storage || await createStorage({dataDir: config.dataDir, env});
   db.exec(`
-    PRAGMA journal_mode = WAL;
-    PRAGMA busy_timeout = 5000;
     CREATE TABLE IF NOT EXISTS content (
       id INTEGER PRIMARY KEY CHECK (id = 1), draft TEXT NOT NULL, published TEXT NOT NULL,
       version INTEGER NOT NULL, published_version INTEGER NOT NULL, updated_at TEXT NOT NULL, published_at TEXT NOT NULL
@@ -212,12 +219,12 @@ async function buildApp(options = {}) {
     CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
   `);
   migrateAssets(db);
-  const validateAssetReference = createAssetValidator(db, config);
+  const validateAssetReference = createAssetValidator(db, {...config, storage});
   const initial = JSON.stringify(validateContent(DEFAULT_CONTENT));
   const initialAt = now().toISOString();
-  if (!db.prepare("SELECT id FROM content WHERE id = 1").get()) {
-    db.exec("BEGIN IMMEDIATE");
-    try {
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    if (!db.prepare("SELECT id FROM content WHERE id = 1").get()) {
       db.prepare("INSERT INTO content VALUES (1, ?, ?, 1, 1, ?, ?)").run(
         initial,
         initial,
@@ -231,22 +238,19 @@ async function buildApp(options = {}) {
         "Conteúdo original do site",
         initial,
       );
-      db.exec("COMMIT");
-    } catch (error) {
-      db.exec("ROLLBACK");
-      db.close();
-      throw error;
     }
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    db.close();
+    throw error;
   }
-  let savedSalt = db
+  db.prepare(
+    "INSERT OR IGNORE INTO settings (key, value) VALUES ('credential_salt', ?)",
+  ).run(randomBytes(32).toString("hex"));
+  const savedSalt = db
     .prepare("SELECT value FROM settings WHERE key = 'credential_salt'")
     .get()?.value;
-  if (!savedSalt) {
-    savedSalt = randomBytes(32).toString("hex");
-    db.prepare(
-      "INSERT INTO settings (key, value) VALUES ('credential_salt', ?)",
-    ).run(savedSalt);
-  }
   const salt = Buffer.from(savedSalt, "hex");
   const derivePassword = (password) =>
     scryptSync(password, salt, 64, {
@@ -544,7 +548,7 @@ async function buildApp(options = {}) {
       statusCode === 500
         ? "Não foi possível concluir a operação. Tente novamente."
         : statusCode === 413
-          ? "O arquivo excede o limite de 8 MB ou o conteúdo é muito grande."
+          ? "O arquivo excede o limite de 4 MB ou o conteúdo é muito grande."
           : error.message;
     reply.code(statusCode).send({
       error: message,
@@ -719,44 +723,15 @@ async function buildApp(options = {}) {
       };
       const filename = `${asset.id}.${prepared.extension}`;
       asset.url = `/uploads/${filename}`;
-      const destination = path.join(uploadsDir, filename);
-      const originalRelative = detected.type.startsWith("image/")
-        ? `originals/${asset.id}.${detected.extension}`
-        : null;
-      const originalDestination = originalRelative
-        ? path.join(config.dataDir, originalRelative)
-        : null;
-      if (originalDestination)
-        mkdirSync(path.dirname(originalDestination), {
-          recursive: true,
-          mode: 0o700,
-        });
-      writeFileSync(destination, prepared.buffer, { flag: "wx", mode: 0o600 });
-      try {
-        if (originalDestination)
-          writeFileSync(originalDestination, buffer, {
-            flag: "wx",
-            mode: 0o600,
-          });
-        db.prepare(
-          "INSERT INTO assets (id, name, url, type, size, created_at, width, height, original_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        ).run(
-          asset.id,
-          asset.name,
-          asset.url,
-          asset.type,
-          asset.size,
-          asset.createdAt,
-          asset.width,
-          asset.height,
-          originalRelative,
-        );
-      } catch (error) {
-        unlinkSync(destination);
-        if (originalDestination && existsSync(originalDestination))
-          unlinkSync(originalDestination);
-        throw error;
-      }
+      await persistAssetUpload({
+        db,
+        storage,
+        asset,
+        prepared,
+        original: buffer,
+        detected,
+        verifySession: () => requireCurrentSession(request),
+      });
       return reply.code(201).send({ asset });
     },
   );
@@ -768,7 +743,7 @@ async function buildApp(options = {}) {
     requireMutation,
     validateAssetReference,
   });
-  const blogImages = registerBlogImages(app, { db, config });
+  const blogImages = registerBlogImages(app, { db, config, storage });
   registerBlogPages(app, {
     blog,
     images: blogImages,
@@ -779,18 +754,7 @@ async function buildApp(options = {}) {
       return { ...row, draft: JSON.stringify(projectedDraft(row)) };
     },
   });
-  await app.register(staticFiles, {
-    root: uploadsDir,
-    prefix: "/uploads/",
-    decorateReply: false,
-    index: false,
-    setHeaders(reply, filePath) {
-      reply.header("X-Content-Type-Options", "nosniff");
-      reply.header("Content-Security-Policy", "default-src 'none'; sandbox");
-      if (filePath.endsWith(".pdf"))
-        reply.header("Content-Disposition", "attachment");
-    },
-  });
+  registerUploadRoutes(app, {db, storage});
   if (existsSync(config.distDir)) {
     await app.register(staticFiles, {
       root: config.distDir,
@@ -824,6 +788,7 @@ async function buildApp(options = {}) {
     await passwordReset.close();
     db.close();
   });
+  app.decorate("drainBackgroundJobs", () => passwordReset.drain());
   await app.ready();
   return app;
 }

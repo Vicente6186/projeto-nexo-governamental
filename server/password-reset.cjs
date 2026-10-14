@@ -327,11 +327,11 @@ function registerPasswordReset(
     }
     return { ok: true };
   });
-  return {
-    available,
-    close: async () => {
-      while (jobs.size) await Promise.allSettled([...jobs]);
-    },
+  const drain = async () => {
+    // Serverless handlers must await delivery before their invocation ends.
+    // This only waits for pending jobs; the reusable app and database stay open.
+    while (jobs.size) await Promise.allSettled([...jobs]);
   };
+  return { available, drain, close: drain };
 }
 module.exports = { registerPasswordReset };

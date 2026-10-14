@@ -7,10 +7,31 @@
 
 [functions]
   directory = "netlify/functions"
-  node_bundler = "esbuild"
+  # Native Functions V2 use NFT to trace the preserved CommonJS server.
+  node_bundler = "nft"
+  included_files = [
+    ".netlify/server-dist/**",
+    "node_modules/@libsql/linux-*-gnu/**",
+    "node_modules/@img/sharp-linux-*/**",
+    "node_modules/@img/sharp-libvips-linux-*/**",
+    # Never package local editorial data or credentials traced from defaults.
+    "!data/**",
+    "!data-restored*/**",
+    "!backups/**",
+    "!.env",
+    "!.env.*",
+    "!artifacts/**",
+    "!tests/**",
+    "!playwright-report/**",
+    "!test-results/**",
+    "!.git/**",
+    "!dist/**",
+    "!node_modules/@libsql/darwin*/**",
+    "!node_modules/@img/*darwin*/**"
+  ]
 
-# The institutional page is served directly from the CDN. Dynamic URLs remain
-# reserved by the recovery function until the current editorial data is recovered.
+# The institutional page and bundles are served directly from the CDN.
+# The CMS function declares its API, blog, discovery and media routes.
 # Do not add a catch-all rewrite: unknown pages must keep their real 404 status.
 
 [[headers]]

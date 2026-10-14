@@ -1134,6 +1134,27 @@ test("renaming categories preserves unpublished changes, history and stale-edit 
   assert.equal(updated.publishedAt, publishedAt);
   assert.equal(updated.hasChanges, true);
   assert.equal(updated.draft.category, "Pesquisas especiais");
+  const renamedSearch = (
+    await app.inject({
+      url: "/api/admin/blog?summary=1&search=pesquisas%20especiais",
+      headers,
+    })
+  ).json();
+  assert.equal(renamedSearch.total, 1);
+  assert.equal(renamedSearch.posts[0].id, post.id);
+  assert.equal(
+    renamedSearch.posts[0].readingMinutes,
+    readingMinutes(updated.draft.body),
+  );
+  assert.equal(
+    (
+      await app.inject({
+        url: "/api/admin/blog?summary=1&search=estudos%20especiais",
+        headers,
+      })
+    ).json().total,
+    0,
+  );
   assert.equal(
     (
       await app.inject({
@@ -1174,6 +1195,18 @@ test("renaming categories preserves unpublished changes, history and stale-edit 
   assert.equal(restored.statusCode, 200, restored.body);
   assert.equal(restored.json().post.draft.category, "Pesquisas especiais");
   assert.deepEqual(restored.json().post.published, updated.published);
+  const restoredSearch = (
+    await app.inject({
+      url: "/api/admin/blog?summary=1&search=direito%2C%20universidade",
+      headers,
+    })
+  ).json();
+  assert.equal(restoredSearch.total, 1);
+  assert.equal(restoredSearch.posts[0].id, post.id);
+  assert.equal(
+    restoredSearch.posts[0].readingMinutes,
+    readingMinutes(restored.json().post.draft.body),
+  );
 });
 
 test("deleting used categories transfers drafts, publications and archives without deleting articles", async (t) => {

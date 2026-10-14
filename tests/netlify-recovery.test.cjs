@@ -1,27 +1,13 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const recoveryModule = import("../netlify/functions/recovery.mjs");
+const recoveryModule = import("../server/unavailable.mjs");
 const origin = "https://nexo-governamental.netlify.app";
 
 async function request(path, options) {
   const { default: recovery } = await recoveryModule;
   return recovery(new Request(`${origin}${path}`, options));
 }
-
-test("recovery covers the unavailable areas without intercepting the home page", async () => {
-  const { config } = await recoveryModule;
-  assert.deepEqual(config.path, [
-    "/blog",
-    "/blog/*",
-    "/admin",
-    "/admin/*",
-    "/api/*",
-    "/uploads/*",
-    "/media/*",
-  ]);
-  assert.equal(config.method, undefined);
-});
 
 test("public pages and media signal a temporary failure without deindexing URLs", async () => {
   for (const path of [

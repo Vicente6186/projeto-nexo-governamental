@@ -40,7 +40,9 @@ function validatePassword(value, field = "password") {
     );
 }
 function initializeUsers(db, config, now, bootstrapFingerprint) {
-  db.exec(`CREATE TABLE IF NOT EXISTS users (
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE COLLATE NOCASE,
     password_hash TEXT NOT NULL, password_salt TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('admin', 'editor')),
     active INTEGER NOT NULL DEFAULT 1, bootstrap INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL
@@ -49,28 +51,32 @@ function initializeUsers(db, config, now, bootstrapFingerprint) {
     token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, credential_fingerprint TEXT NOT NULL,
     created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL
   );`);
-  if (
-    !db
-      .prepare("PRAGMA table_info(sessions)")
-      .all()
-      .some((column) => column.name === "user_id")
-  )
-    db.exec("ALTER TABLE sessions ADD COLUMN user_id TEXT");
-  if (config.email) {
-    const previous = db
-      .prepare("SELECT value FROM settings WHERE key = 'bootstrap_fingerprint'")
-      .get()?.value;
-    const current = db.prepare("SELECT * FROM users WHERE bootstrap = 1").get();
-    if (!current || previous !== bootstrapFingerprint) {
-      const salt = randomBytes(32).toString("hex");
-      const passwordHash = scryptSync(
-        config.password,
-        salt,
-        64,
-        options,
-      ).toString("hex");
-      db.exec("BEGIN IMMEDIATE");
-      try {
+    if (
+      !db
+        .prepare("PRAGMA table_info(sessions)")
+        .all()
+        .some((column) => column.name === "user_id")
+    )
+      db.exec("ALTER TABLE sessions ADD COLUMN user_id TEXT");
+    if (config.email) {
+      // All cold instances must read the bootstrap state after obtaining the
+      // write lock, or a stale read could create/reset the same account twice.
+      const previous = db
+        .prepare(
+          "SELECT value FROM settings WHERE key = 'bootstrap_fingerprint'",
+        )
+        .get()?.value;
+      const current = db
+        .prepare("SELECT * FROM users WHERE bootstrap = 1")
+        .get();
+      if (!current || previous !== bootstrapFingerprint) {
+        const salt = randomBytes(32).toString("hex");
+        const passwordHash = scryptSync(
+          config.password,
+          salt,
+          64,
+          options,
+        ).toString("hex");
         if (current) {
           db.prepare(
             "UPDATE users SET name = ?, email = ?, password_hash = ?, password_salt = ?, role = 'admin', active = 1 WHERE id = ?",
@@ -99,12 +105,12 @@ function initializeUsers(db, config, now, bootstrapFingerprint) {
         db.prepare(
           "INSERT INTO settings VALUES ('bootstrap_fingerprint', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
         ).run(bootstrapFingerprint);
-        db.exec("COMMIT");
-      } catch (error) {
-        db.exec("ROLLBACK");
-        throw error;
       }
     }
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
   }
   const dummySalt = randomBytes(32).toString("hex");
   const dummyHash = scryptSync(randomBytes(32), dummySalt, 64, options);

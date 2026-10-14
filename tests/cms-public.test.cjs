@@ -319,6 +319,7 @@ test("selection links honor explicit status, opening date and closing date in S�
 test("structured selection stages replace the historical image and can be cleared", () => {
   const { window } = setup();
   const content = copy();
+  content.selection.scheduleImage = "/assets/selective-process.avif";
   content.selection.edition = "Nova edição";
   content.selection.description = "Descrição atualizada";
   content.selection.stages = [
@@ -378,7 +379,7 @@ test("a cleared published schedule hides its empty heading and reappears with ne
   renderContent(window.document, content);
   assert.equal(schedule.hidden, true);
 
-  content.selection.scheduleImage = DEFAULT_CONTENT.selection.scheduleImage;
+  content.selection.scheduleImage = "/assets/selective-process.avif";
   renderContent(window.document, content);
   assert.equal(schedule.hidden, false);
   assert.equal(schedule.querySelector("img").hidden, false);

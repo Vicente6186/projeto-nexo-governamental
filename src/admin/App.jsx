@@ -938,8 +938,8 @@ function Workspace({ session, initialState, onLogout, onSession }) {
     uploadRef.current = true;
     setUploading(true);
     try {
-      if (file.size > 8 * 1024 * 1024)
-        throw new Error("O edital pode ter até 8 MB.");
+      if (file.size > 4 * 1024 * 1024)
+        throw new Error("O edital pode ter até 4 MB.");
       if (file.type !== "application/pdf" && !/\.pdf$/i.test(file.name)) {
         throw new Error("Escolha um arquivo PDF para o edital.");
       }
