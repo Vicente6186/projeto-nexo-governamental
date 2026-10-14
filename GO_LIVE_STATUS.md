@@ -4,7 +4,8 @@ Revisão: 13 de outubro de 2026 (horário de Brasília).
 
 ## Migração concluída: Netlify + Turso gratuitos
 
-Site: **https://nexo-governamental.netlify.app/**  
+Site: **https://nexo-governamental.netlify.app/**
+
 Painel: **https://nexo-governamental.netlify.app/admin/**
 
 - Código da migração: `af26dedc140cffa8fbaf0b49330b93083859feb5`, sincronizado
