@@ -1,10 +1,22 @@
 [build]
-  command = "npm run build"
+  command = "npm run build:netlify"
   publish = "dist"
 
-# Preserve the existing public domain while Fastify serves the application.
-[[redirects]]
-  from = "/*"
-  to = "https://nexo-governamental-production.up.railway.app/:splat"
-  status = 200
-  force = true
+[build.environment]
+  NODE_VERSION = "24"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# The institutional page is served directly from the CDN. Dynamic URLs remain
+# reserved by the recovery function until the current editorial data is recovered.
+# Do not add a catch-all rewrite: unknown pages must keep their real 404 status.
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Frame-Options = "SAMEORIGIN"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"

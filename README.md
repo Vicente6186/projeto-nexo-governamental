@@ -1,5 +1,31 @@
 # Nexo Governamental · site e painel editorial
 
+## Hospedagem pública em recuperação
+
+O build do Netlify usa `npm run build:netlify`: a página institucional e seus
+arquivos são servidos diretamente pela CDN, sem encaminhamento ao Railway.
+Esse modo conserva o domínio e os metadados da página inicial e não utiliza
+o banco local como se fosse uma cópia atual da produção.
+
+Enquanto o banco editorial mais recente não for recuperado, blog, painel, API
+e arquivos enviados respondem **503**, com indicação temporária e `Retry-After`.
+As URLs públicas do blog não recebem `noindex`, redirecionamento para a home
+ou um falso resultado vazio. A página inicial orienta a confirmar o processo
+seletivo pelo contato institucional, pois seu estado remoto não foi recuperado.
+O sitemap mantém a referência ao sitemap do blog, também temporariamente
+indisponível, em vez de declarar que não existem artigos publicados.
+
+Isso restaura a página institucional, **não conclui a migração do CMS**. O código
+original do painel e do servidor continua disponível no build normal e no
+desenvolvimento local descritos abaixo. Não publicar `data/`, senhas ou rascunhos.
+Para concluir a migração gratuita, recuperar os dados atuais, configurar
+persistência transacional compatível com Functions e validar os fluxos de edição.
+Não substituir a base remota pela cópia local de setembro sem comparação.
+
+O plano Free legado do Netlify foi preservado. Novos planos, recargas e serviços
+pagos não fazem parte desta recuperação. A franquia é compartilhada com os
+outros projetos da conta; a gratuidade não significa uso ilimitado.
+
 Site institucional e blog do Nexo Governamental XI de Agosto, organização estudantil da Faculdade de Direito da USP, com painel em **React + Tailwind CSS**, API em **Node.js 24 + Fastify** e persistência em **SQLite**. A equipe mantém o processo seletivo, os canais de contato e os artigos em `/admin`.
 
 ## Rodar no computador

@@ -3,17 +3,24 @@ const CopyPlugin = require("copy-webpack-plugin");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const CssMinimizerPlugin = require("css-minimizer-webpack-plugin");
+const staticRecovery = process.env.NEXO_STATIC_RECOVERY === "1";
 
 module.exports = {
   mode: "development",
   entry: {
-    main: [
-      "./src/js/index.js",
-      "./src/js/cms-entry.js",
-      "./src/js/blog-teaser.js",
-    ],
-    admin: "./src/admin/index.jsx",
-    blog: "./src/blog/index.js",
+    main: staticRecovery
+      ? ["./src/js/index.js", "./src/css/cms.css", "./src/css/blog-teaser.css"]
+      : [
+          "./src/js/index.js",
+          "./src/js/cms-entry.js",
+          "./src/js/blog-teaser.js",
+        ],
+    ...(!staticRecovery
+      ? {
+          admin: "./src/admin/index.jsx",
+          blog: "./src/blog/index.js",
+        }
+      : {}),
   },
   output: {
     filename: "[name].[contenthash:8].js",
@@ -77,17 +84,21 @@ module.exports = {
       inject: "body",
       chunks: ["main"],
     }),
-    new HtmlWebpackPlugin({
-      template: "./src/admin/index.html",
-      filename: "admin/index.html",
-      chunks: ["admin"],
-    }),
-    new HtmlWebpackPlugin({
-      template: "./src/blog/index.html",
-      filename: "blog/template.html",
-      chunks: ["blog"],
-      minify: false,
-    }),
+    ...(!staticRecovery
+      ? [
+          new HtmlWebpackPlugin({
+            template: "./src/admin/index.html",
+            filename: "admin/index.html",
+            chunks: ["admin"],
+          }),
+          new HtmlWebpackPlugin({
+            template: "./src/blog/index.html",
+            filename: "blog/template.html",
+            chunks: ["blog"],
+            minify: false,
+          }),
+        ]
+      : []),
     new MiniCssExtractPlugin({ filename: "[name].[contenthash:8].css" }),
   ],
   devServer: {

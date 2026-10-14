@@ -8,6 +8,7 @@
     "dev:api": "node --watch --env-file-if-exists=.env server/index.cjs",
     "dev:web": "webpack serve --mode development",
     "build": "webpack --mode production",
+    "build:netlify": "NEXO_STATIC_RECOVERY=1 webpack --mode production && node scripts/build-netlify-static.cjs",
     "start": "node --env-file-if-exists=.env server/index.cjs",
     "test": "node --test tests/*.test.cjs",
     "test:e2e": "playwright test",
