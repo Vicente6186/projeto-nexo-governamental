@@ -1,8 +1,25 @@
 # Estado de entrega · Nexo Governamental
 
-Revisão: 8 de setembro de 2026.
+Revisão: 13 de outubro de 2026 (horário de Brasília).
 
-O site, o blog e o painel estão publicados em **https://nexo-governamental.netlify.app/**. O Netlify encaminha a aplicação ao Fastify no Railway. Login, proteção dos rascunhos, conteúdo público, imagens e descoberta para mecanismos de busca foram verificados pelo endereço HTTPS real. A recuperação por e-mail ainda depende do Resend; esta entrega não declara todos os critérios operacionais encerrados.
+## Recuperação da página institucional no Netlify
+
+A página principal voltou ao ar em **https://nexo-governamental.netlify.app/**, servida diretamente pelo Netlify, sem encaminhamento ao Railway. O plano Free legado foi preservado; nenhuma assinatura, pagamento ou mudança de plano foi realizada.
+
+- Código publicado: `5990cf5ca9ad7f7f712192e09c1144ce7bef3c50`, na branch `main`.
+- Deploy Netlify: `6acecd8106983d33f2e1e51b`, estado `ready`, publicado em `2026-10-14T00:32:25.552Z` (21h32 de 13 de outubro em Brasília).
+- Build `npm run build:netlify` aprovado e **181 testes de lógica aprovados**, incluindo dez cenários de recuperação. Permanecem os avisos existentes de tamanho de mídia.
+- Conferência independente em produção: página principal, CSS, JavaScript, imagens principais, robots, sitemaps estáticos e arquivo de verificação Google responderam 200; URL inexistente respondeu 404 real.
+- Endereço canônico, título, descrição, H1, dados estruturados e hash de CSP preservados/verificados. A página principal permite indexação. Nenhuma posição no Google é garantida por essa validação técnica.
+- Verificação visual em 1.280 px e 390 px, sem transbordamento horizontal. Capturas locais em `artifacts/admin-qa/netlify-recovery/` (fora do Git).
+
+**A migração do blog e do painel ainda não está concluída.** Essas rotas retornam 503 temporário com `Retry-After: 3600` e `Cache-Control: no-store`. As rotas públicas do blog não recebem `noindex`; painel e API recebem `noindex, nofollow`. Esse estado é transitório e não preserva a indexação indefinidamente.
+
+O Railway mostra a conta bloqueada por fatura pendente e o serviço sem implantação ativa. O volume existente continua em estado `READY`, com aproximadamente 102 MB e sem exclusão pendente no momento da consulta. O comando oficial de download exige implantação ativa, portanto não foi possível recuperar os dados atuais. A cópia local de setembro não foi usada como se fosse atual; rascunhos e credenciais não foram publicados. O volume e os backups existentes não foram removidos ou alterados.
+
+Próxima dependência: obter uma exportação atual do banco e dos arquivos, preferencialmente por uma liberação gratuita do Railway. Após a recuperação, será necessário concluir a adaptação da persistência do painel para um serviço gratuito compatível com funções. A documentação e os resultados de setembro abaixo são históricos e não representam disponibilidade atual do blog/painel.
+
+## Histórico de setembro de 2026
 
 ## Auditoria da experiência premium
 
